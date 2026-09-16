@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# kredensial Google service account (SENSITIF — jangan pernah commit)
+service-account.json
+
 # vercel
 .vercel
 
