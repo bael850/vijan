@@ -70,8 +70,6 @@ export default function DownloadCTA() {
       </motion.div>
 
       <div className="relative">
-        <Reveal></Reveal>
-
         <Reveal delay={0.1}>
           <h2 className="font-display text-3xl md:text-5xl leading-tight mb-16 md:mb-20 max-w-2xl">
             Get CV and Portfolio here
@@ -84,7 +82,7 @@ export default function DownloadCTA() {
             <div className="flex flex-col divide-y divide-neutral-800 border-t border-neutral-800">
               {DOWNLOADS.map((file, i) => (
                 <Reveal key={file.href} delay={0.15 + i * 0.06}>
-                  <a
+                  
                     href={file.href}
                     download
                     className="group flex items-center justify-between gap-6 py-6"
@@ -118,10 +116,10 @@ export default function DownloadCTA() {
             </Reveal>
 
             <Reveal delay={0.25}>
-              <a
+              
                 href="mailto:hai@muhammadiqbalmalik.com"
                 className="group inline-block font-display text-xl md:text-2xl leading-snug mb-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-300"
-              >
+              <a>
                 baeeelll205@gmail.com
               </a>
             </Reveal>
