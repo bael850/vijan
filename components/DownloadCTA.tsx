@@ -82,10 +82,11 @@ export default function DownloadCTA() {
             <div className="flex flex-col divide-y divide-neutral-800 border-t border-neutral-800">
               {DOWNLOADS.map((file, i) => (
                 <Reveal key={file.href} delay={0.15 + i * 0.06}>
-                  href={file.href}
-                  download className="group flex items-center justify-between
-                  gap-6 py-6"
-                  <a>
+                  <a
+                    href={file.href}
+                    download
+                    className="group flex items-center justify-between gap-6 py-6"
+                  >
                     <div>
                       <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
                         {file.category}
@@ -115,11 +116,12 @@ export default function DownloadCTA() {
             </Reveal>
 
             <Reveal delay={0.25}>
-              href="mailto:hai@muhammadiqbalmalik.com" className="group
-              inline-block font-display text-xl md:text-2xl leading-snug mb-8
-              transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]
-              group-hover:text-neutral-300"
-              <a>baeeelll205@gmail.com</a>
+              <a
+                href="mailto:hai@muhammadiqbalmalik.com"
+                className="group inline-block font-display text-xl md:text-2xl leading-snug mb-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-300"
+              >
+                baeeelll205@gmail.com
+              </a>
             </Reveal>
 
             <Reveal delay={0.3}>
