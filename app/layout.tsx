@@ -4,6 +4,7 @@ import "./globals.css";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import Navbar from "@/components/Navbar";
 import { PageTransitionProvider } from "@/components/PageTransition";
+import { GraphicsProvider } from "@/components/providers/GraphicsProvider";
 
 const bodoniModa = Bodoni_Moda({
   subsets: ["latin"],
@@ -33,12 +34,14 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${bodoniModa.variable} ${publicSans.variable}`}>
       <body className="font-sans antialiased bg-black text-white">
-        <SmoothScrollProvider>
-          <PageTransitionProvider>
-            <Navbar />
-            {children}
-          </PageTransitionProvider>
-        </SmoothScrollProvider>
+        <GraphicsProvider>
+          <SmoothScrollProvider>
+            <PageTransitionProvider>
+              <Navbar />
+              {children}
+            </PageTransitionProvider>
+          </SmoothScrollProvider>
+        </GraphicsProvider>
       </body>
     </html>
   );

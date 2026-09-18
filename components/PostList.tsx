@@ -5,13 +5,14 @@ import Link from "next/link";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Post } from "@/lib/types";
-import SectionLabel from "@/components/SectionLabel";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
 });
 
 export default function PostList({ posts }: { posts: Post[] }) {
+  const { reduceMotion } = useGraphics();
   const [featured, ...rest] = posts;
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -33,10 +34,8 @@ export default function PostList({ posts }: { posts: Post[] }) {
     <section
       ref={ref}
       id="chapter-kisah"
-      className="relative max-w-6xl mx-auto px-4 md:px-6 py-24 md:py-32 border-t border-neutral-800 overflow-hidden"
+      className="relative max-w-6xl mx-auto px-4 md:px-6 py-24 md:py-32 overflow-hidden"
     >
-      {/* Sebelumnya di sini ada <motion.div></motion.div> kosong — label
-          section-nya gak pernah ke-render. Sekarang diisi beneran. */}
       <motion.div
         style={{ opacity: particleOpacity }}
         className="pointer-events-none absolute inset-0"
@@ -49,20 +48,15 @@ export default function PostList({ posts }: { posts: Post[] }) {
       </motion.div>
 
       <div className="relative">
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-        >
-          <SectionLabel title="Kisah — Tulisan Terbaru" />
-        </motion.div>
-
         {featured && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: reduceMotion ? 0.3 : 0.8,
+              ease: [0.22, 1, 0.36, 1],
+            }}
           >
             <Link
               href={`/vers/${featured.slug}`}
@@ -93,12 +87,12 @@ export default function PostList({ posts }: { posts: Post[] }) {
           {rest.map((post, i) => (
             <motion.div
               key={post.slug}
-              initial={{ opacity: 0, y: 24 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{
-                duration: 0.6,
-                delay: (i % 2) * 0.1,
+                duration: reduceMotion ? 0.3 : 0.6,
+                delay: reduceMotion ? 0 : (i % 2) * 0.1,
                 ease: [0.22, 1, 0.36, 1],
               }}
               className={i % 2 === 1 ? "md:mt-16" : ""}

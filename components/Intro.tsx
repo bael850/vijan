@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
+import CinematicReveal from "@/components/CinematicReveal";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
@@ -61,7 +62,7 @@ export default function Intro() {
         <AmbientParticles scrollYProgress={progress} count={140} />
       </motion.div>
 
-      <div className="relative">
+      <CinematicReveal className="relative">
         <p className="font-display text-3xl md:text-5xl leading-snug text-neutral-200">
           <span className="inline-flex flex-wrap gap-x-3">
             {quoteWords.map((word, i) => (
@@ -83,7 +84,7 @@ export default function Intro() {
             ))}
           </span>
         </p>
-      </div>
+      </CinematicReveal>
     </section>
   );
 }

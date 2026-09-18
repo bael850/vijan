@@ -1,10 +1,25 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
+
+// Interpolasi linear + clamp — gantiin bentuk useTransform([in],[out])
+// supaya bisa dicabangkan ke nilai statis saat Reduce Motion aktif,
+// tanpa manggil useTransform dua kali (itu melanggar aturan hook).
+function mapRange(
+  v: number,
+  inMin: number,
+  inMax: number,
+  outMin: number,
+  outMax: number,
+) {
+  const t = Math.min(1, Math.max(0, (v - inMin) / (inMax - inMin)));
+  return outMin + (outMax - outMin) * t;
+}
 
 const lineVariants = {
   hidden: { y: "110%" },
@@ -18,35 +33,64 @@ const lineVariants = {
   }),
 };
 
+function AnimatedLine({
+  children,
+  custom,
+}: {
+  children: ReactNode;
+  custom: number;
+}) {
+  const [settled, setSettled] = useState(false);
+
+  return (
+    <div className={settled ? undefined : "overflow-hidden"}>
+      <motion.div
+        custom={custom}
+        initial="hidden"
+        animate="visible"
+        variants={lineVariants}
+        onAnimationComplete={() => setSettled(true)}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Hero() {
-  // Wrapper sengaja lebih tinggi dari viewport (200svh). Konten di
-  // dalamnya "dipaku" (sticky) selama sisa tinggi itu di-scroll, lalu
-  // section berikutnya (Intro) menutupnya dari atas — transisi ke section
-  // berikutnya jadi nyambung, bukan potong tiba-tiba.
+  const { reduceMotion } = useGraphics();
   const wrapRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: wrapRef,
     offset: ["start start", "end end"],
   });
 
-  // Ini yang bikin in-out kerasa fisik & smooth. Sebelumnya semua transform
-  // ngikutin scrollYProgress mentah 1:1 — tiap event scroll (apalagi dari
-  // Lenis) langsung "menyentak" nilai transform, jadi kerasa tersendat.
-  // Dengan spring, transform "mengejar" posisi target secara halus,
-  // termasuk saat scroll berhenti mendadak.
   const progress = useSpring(scrollYProgress, {
     stiffness: 260,
     damping: 42,
     mass: 0.5,
   });
 
-  const textY = useTransform(progress, [0, 1], ["0%", "-16%"]);
-  const scale = useTransform(progress, [0.15, 1], [1, 0.88]);
-  const rotateX = useTransform(progress, [0.15, 1], [0, -10]);
-  const blurPx = useTransform(progress, [0.15, 1], [0, 12]);
+  // Reduce Motion: matikan parallax teks, 3D tilt, dan blur scroll-linked.
+  // stageOpacity & grainY dibiarkan — cuma fade/gerakan halus, bukan
+  // transform besar yang mengubah bentuk/perspektif.
+  const textY = useTransform(progress, (v) =>
+    reduceMotion ? "0%" : `${mapRange(v, 0, 1, 0, -16)}%`,
+  );
+  const scale = useTransform(progress, (v) =>
+    reduceMotion ? 1 : mapRange(v, 0.15, 1, 1, 0.88),
+  );
+  const rotateX = useTransform(progress, (v) =>
+    reduceMotion ? 0 : mapRange(v, 0.15, 1, 0, -10),
+  );
+  const blurPx = useTransform(progress, (v) =>
+    reduceMotion ? 0 : mapRange(v, 0.15, 1, 0, 12),
+  );
   const filter = useTransform(blurPx, (b) => `blur(${b}px)`);
-  const stageOpacity = useTransform(progress, [0.15, 0.85], [1, 0]);
-  const grainY = useTransform(progress, [0, 1], ["0%", "12%"]);
+  const stageOpacity = useTransform(progress, (v) =>
+    mapRange(v, 0.15, 0.85, 1, 0),
+  );
+  const grainY = useTransform(progress, (v) => `${mapRange(v, 0, 1, 0, 12)}%`);
 
   const lines = [
     {
@@ -77,7 +121,6 @@ export default function Hero() {
         }}
         className="sticky top-0 h-[100svh] flex flex-col justify-between overflow-hidden"
       >
-        {/* Grain layer — bergerak lebih pelan dari teks untuk depth */}
         <motion.div
           style={{ y: grainY, willChange: "transform" }}
           className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
@@ -96,12 +139,10 @@ export default function Hero() {
           </svg>
         </motion.div>
 
-        {/* 3D particle layer — bereaksi ke cursor, scroll, dan klik */}
         <div className="absolute inset-0">
           <Scene3D scrollYProgress={progress} />
         </div>
 
-        {/* Chapter marker — ini prolog, tanpa nomor */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -117,21 +158,13 @@ export default function Hero() {
         >
           <h1 className="font-display font-black leading-[0.82] tracking-tight text-[17vw] md:text-[11.5vw]">
             {lines.map((line, i) => (
-              <div key={line.key} className="overflow-hidden">
-                <motion.div
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={lineVariants}
-                >
-                  {line.content}
-                </motion.div>
-              </div>
+              <AnimatedLine key={line.key} custom={i}>
+                {line.content}
+              </AnimatedLine>
             ))}
           </h1>
         </motion.div>
 
-        {/* Scroll cue — ngajak pembaca lanjut ke chapter berikutnya */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

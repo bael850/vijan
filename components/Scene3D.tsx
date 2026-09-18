@@ -1,9 +1,10 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef, useMemo } from "react";
+import { useRef, useState } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent, type MotionValue } from "framer-motion";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 function Field({
   scrollYProgress,
@@ -34,7 +35,11 @@ function Field({
     scrollRef.current = v;
   });
 
-  const positions = useMemo(() => {
+  // Lazy useState initializer (bukan useMemo) — Math.random tidak boleh
+  // dipanggil di jalur render menurut aturan purity React 19. Ini cuma
+  // jalan sekali saat mount pertama, sama seperti perilaku useMemo lama
+  // dalam praktiknya (count/radius di sini konstan per instance).
+  const [positions] = useState(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const r = radiusMin + Math.random() * (radiusMax - radiusMin);
@@ -45,7 +50,7 @@ function Field({
       arr[i * 3 + 2] = r * Math.cos(phi);
     }
     return arr;
-  }, [count, radiusMin, radiusMax]);
+  });
 
   useFrame((state, delta) => {
     if (!pointsRef.current) return;
@@ -101,7 +106,7 @@ function Constellation({
     scrollRef.current = v;
   });
 
-  const { pointPositions, lineGeometry } = useMemo(() => {
+  const [{ pointPositions, lineGeometry }] = useState(() => {
     const n = 32;
     const maxLinkDist = 1.15;
     const pts: THREE.Vector3[] = [];
@@ -142,7 +147,7 @@ function Constellation({
     });
 
     return { pointPositions: posArr, lineGeometry: geo };
-  }, []);
+  });
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
@@ -206,25 +211,31 @@ function CameraRig({
 
   return null;
 }
-
 export default function Scene3D({
   scrollYProgress,
 }: {
   scrollYProgress: MotionValue<number>;
 }) {
+  const { quality } = useGraphics();
+
+  // Low: skip 3D sepenuhnya — Hero tetap kelihatan bagus cuma dari
+  // gradient background yang udah ada di globals.css, tanpa beban render.
+  if (quality === "low") return null;
+
+  const isMedium = quality === "medium";
+
   return (
     <Canvas
       camera={{ position: [0, 0, 4.5], fov: 48 }}
       raycaster={{ params: { Points: { threshold: 0.15 } } } as never}
-      dpr={[1, 1.8]}
+      dpr={[1, isMedium ? 1.2 : 1.8]}
     >
       <fog attach="fog" args={["#05070d", 2, 6.5]} />
       <CameraRig scrollYProgress={scrollYProgress} />
 
-      {/* Layer jauh — padat, kecil, pelan → dasar kedalaman */}
       <Field
         scrollYProgress={scrollYProgress}
-        count={700}
+        count={isMedium ? 350 : 700}
         radiusMin={2.6}
         radiusMax={4.2}
         size={0.018}
@@ -233,10 +244,9 @@ export default function Scene3D({
         spin={0.015}
         scrollTilt={0.2}
       />
-      {/* Layer tengah */}
       <Field
         scrollYProgress={scrollYProgress}
-        count={380}
+        count={isMedium ? 190 : 380}
         radiusMin={1.6}
         radiusMax={2.6}
         size={0.03}
@@ -245,8 +255,7 @@ export default function Scene3D({
         spin={0.03}
         scrollTilt={0.35}
       />
-      {/* Konstelasi — fokus komposisi, kasih "alasan" kenapa partikelnya ada */}
-      <Constellation scrollYProgress={scrollYProgress} />
+      {!isMedium && <Constellation scrollYProgress={scrollYProgress} />}
     </Canvas>
   );
 }

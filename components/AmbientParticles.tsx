@@ -1,9 +1,10 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef, useMemo } from "react";
+import { useRef, useState } from "react";
 import * as THREE from "three";
 import { useMotionValueEvent, type MotionValue } from "framer-motion";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 function DriftField({
   scrollYProgress,
@@ -21,7 +22,10 @@ function DriftField({
     scrollRef.current = v;
   });
 
-  const positions = useMemo(() => {
+  // Random generation harus di luar jalur render (React 19 purity rule
+  // melarang Math.random dipanggil langsung saat render/useMemo). Lazy
+  // initializer di useState cuma jalan sekali, saat mount pertama.
+  const [positions] = useState(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const r = 1.6 + Math.random() * 0.9;
@@ -32,7 +36,7 @@ function DriftField({
       arr[i * 3 + 2] = r * Math.cos(phi);
     }
     return arr;
-  }, [count]);
+  });
 
   // Ambient drift — tanpa perlu capture cursor, jadi aman
   // dipasang di banyak section tanpa nge-block klik/link.
@@ -70,11 +74,18 @@ export default function AmbientParticles({
   count?: number;
   color?: string;
 }) {
+  const { quality } = useGraphics();
+
+  if (quality === "low") return null;
+
+  const effectiveCount =
+    quality === "medium" ? Math.round((count ?? 160) * 0.5) : count;
+
   return (
     <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
       <DriftField
         scrollYProgress={scrollYProgress}
-        count={count}
+        count={effectiveCount}
         color={color}
       />
     </Canvas>

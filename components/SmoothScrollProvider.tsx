@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 declare global {
   interface Window {
@@ -17,16 +18,14 @@ export default function SmoothScrollProvider({
 }) {
   const lenisRef = useRef<Lenis | null>(null);
   const pathname = usePathname();
+  const { reduceMotion } = useGraphics();
 
+  // Init/destroy Lenis setiap kali reduceMotion berubah — deteksi awal
+  // dari prefers-reduced-motion OS sekarang ditangani terpusat di
+  // GraphicsProvider (jadi tidak dicek dobel di sini lagi).
   useEffect(() => {
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (prefersReducedMotion) return;
+    if (reduceMotion) return;
 
-    // Duration lebih pendek + easing exponential-out + lerp eksplisit =
-    // scroll kerasa lebih "napel" ke gerakan mouse/trackpad, gak ngambang
-    // kayak konfigurasi sebelumnya (duration 1.4 tanpa lerp).
     const lenis = new Lenis({
       duration: 1.1,
       easing: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
@@ -49,14 +48,11 @@ export default function SmoothScrollProvider({
     return () => {
       cancelAnimationFrame(rafId);
       lenis.destroy();
+      lenisRef.current = null;
       window.__lenis = undefined;
     };
-  }, []);
+  }, [reduceMotion]);
 
-  // Tiap halaman punya tinggi konten beda (artikel panjang vs pendek) —
-  // resize di sini biar Lenis gak salah hitung batas scroll pas pindah
-  // rute lewat PageTransition, yang sebelumnya bikin scroll kerasa
-  // "nyangkut"/gak sinkron sesaat setelah navigasi.
   useEffect(() => {
     const id = requestAnimationFrame(() => lenisRef.current?.resize());
     return () => cancelAnimationFrame(id);

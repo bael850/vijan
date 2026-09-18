@@ -6,7 +6,10 @@ import Image from "next/image";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
 import SectionLabel from "@/components/SectionLabel";
+import CinematicReveal from "@/components/CinematicReveal";
+import TiltCard from "@/components/TiltCard";
 import { FotoKage } from "@/lib/types";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
@@ -16,6 +19,7 @@ const offsets = ["md:mt-0", "md:mt-16", "md:mt-6"];
 const hoverRotate = ["-1.5deg", "1deg", "-0.5deg"];
 
 export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
+  const { reduceMotion } = useGraphics();
   const preview = fotos.slice(0, 3);
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -52,7 +56,7 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
         />
       </motion.div>
 
-      <div className="relative">
+      <CinematicReveal className="relative">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -65,29 +69,36 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
           {preview.map((foto, i) => (
             <motion.div
               key={foto.slug}
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{
-                duration: 0.7,
-                delay: i * 0.12,
+                duration: reduceMotion ? 0.3 : 0.7,
+                delay: reduceMotion ? 0 : i * 0.12,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              whileHover={{
-                rotate: hoverRotate[i % hoverRotate.length],
-                scale: 1.02,
-              }}
+              whileHover={
+                reduceMotion
+                  ? undefined
+                  : {
+                      rotate: hoverRotate[i % hoverRotate.length],
+                      scale: 1.02,
+                    }
+              }
               className={offsets[i % offsets.length]}
             >
               <Link href="/kage" className="group block">
-                <div className="relative aspect-[4/5] overflow-hidden mb-3">
+                <TiltCard
+                  className="relative aspect-[4/5] overflow-hidden mb-3"
+                  intensity={8}
+                >
                   <Image
                     src={foto.gambar}
                     alt={foto.judul}
                     fill
                     className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110"
                   />
-                </div>
+                </TiltCard>
                 <h3 className="font-display text-lg leading-tight transition-colors group-hover:text-neutral-400">
                   {foto.judul}
                 </h3>
@@ -105,7 +116,7 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
             →
           </span>
         </Link>
-      </div>
+      </CinematicReveal>
     </section>
   );
 }

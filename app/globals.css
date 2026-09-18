@@ -109,3 +109,19 @@ html.lenis body {
 .lenis.lenis-stopped {
   overflow: hidden;
 }
+.mask-fade {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
+}

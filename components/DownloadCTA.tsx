@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
 import Reveal from "@/components/Reveal";
-import SectionLabel from "@/components/SectionLabel";
+import CinematicReveal from "@/components/CinematicReveal";
 import SocialLinks from "@/components/SocialLinks";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
@@ -70,11 +70,11 @@ export default function DownloadCTA() {
       </motion.div>
 
       <div className="relative">
-        <Reveal delay={0.1}>
+        <CinematicReveal>
           <h2 className="font-display text-3xl md:text-5xl leading-tight mb-16 md:mb-20 max-w-2xl">
             Get CV and Portfolio here
           </h2>
-        </Reveal>
+        </CinematicReveal>
 
         <div className="grid md:grid-cols-[1.4fr_1px_1fr] gap-x-16 gap-y-16">
           {/* Kolom kiri — daftar unduhan, gaya list editorial (bukan pill) */}

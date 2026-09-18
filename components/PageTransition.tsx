@@ -13,6 +13,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import NextLink from "next/link";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 type Phase = "idle" | "closing" | "waiting" | "opening";
 
@@ -26,12 +27,16 @@ const TransitionContext = createContext<TransitionContextValue | null>(null);
 const EASE = [0.76, 0, 0.24, 1] as const;
 const CLOSE_DURATION = 0.5;
 const OPEN_DURATION = 0.6;
-const OPEN_DELAY = 0.08; // jeda sekejap dalam posisi tertutup penuh — biar transisinya "napas" dulu, gak langsung mantul
-const WAIT_FALLBACK_MS = 4000; // jaga-jaga kalau halaman baru lama siap (API lelet) — jangan sampai layar nyangkut gelap selamanya
+const OPEN_DELAY = 0.08;
+const WAIT_FALLBACK_MS = 4000;
+// Reduce Motion: curtain tetap ada (biar transisi konten tetap "bersih"),
+// tapi tanpa slide penuh layar — cuma fade, durasi jauh lebih pendek.
+const REDUCED_DURATION = 0.15;
 
 export function PageTransitionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { reduceMotion } = useGraphics();
   const [phase, setPhase] = useState<Phase>("idle");
   const pendingHref = useRef<string | null>(null);
   const fromPath = useRef(pathname);
@@ -46,7 +51,6 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
     [phase, pathname],
   );
 
-  // Begitu curtain selesai nutup PENUH, baru beneran pindah halaman.
   const handleCloseComplete = useCallback(() => {
     if (pendingHref.current) {
       router.push(pendingHref.current);
@@ -55,9 +59,6 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
-  // Curtain baru mulai kebuka begitu pathname BENERAN berubah — nunggu
-  // konten halaman baru (termasuk fetch data ke Sheets) beneran siap,
-  // bukan nebak pakai timer. Ini yang nutup celah "kedutan" kemarin.
   useEffect(() => {
     if (phase !== "waiting") return;
     if (pathname !== fromPath.current) {
@@ -77,12 +78,18 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
 
       {phase !== "idle" && (
         <motion.div
-          initial={{ y: "100%" }}
-          animate={{ y: phase === "opening" ? "-100%" : "0%" }}
+          initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
+          animate={
+            reduceMotion
+              ? { opacity: phase === "opening" ? 0 : 1 }
+              : { y: phase === "opening" ? "-100%" : "0%" }
+          }
           transition={
-            phase === "opening"
-              ? { duration: OPEN_DURATION, delay: OPEN_DELAY, ease: EASE }
-              : { duration: CLOSE_DURATION, ease: EASE }
+            reduceMotion
+              ? { duration: REDUCED_DURATION }
+              : phase === "opening"
+                ? { duration: OPEN_DURATION, delay: OPEN_DELAY, ease: EASE }
+                : { duration: CLOSE_DURATION, ease: EASE }
           }
           onAnimationComplete={() => {
             if (phase === "closing") handleCloseComplete();
@@ -113,7 +120,6 @@ export function useTransitionRouter() {
   return ctx;
 }
 
-// Drop-in replacement untuk <Link> dari next/link — props sama persis.
 export function TransitionLink({
   href,
   onClick,
