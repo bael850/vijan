@@ -5,7 +5,7 @@
 // model lampu pipa industrial (GLB), bukan lilin prosedural lagi.
 // CandleFlame.tsx sudah nggak dipakai, boleh dihapus.
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -54,10 +54,12 @@ function LampBody({
   intensity,
   reactToMouse,
   reactToScroll,
+  onReady,
 }: {
   intensity: number;
   reactToMouse: boolean;
   reactToScroll?: MotionValue<number>;
+  onReady?: () => void;
 }) {
   const { reduceMotion } = useGraphics();
   const effectiveReactToMouse = reactToMouse && !reduceMotion;
@@ -98,6 +100,17 @@ function LampBody({
   const lightRef = useRef<THREE.PointLight>(null);
   const scrollRef = useRef(0);
   const seed = useRef(Math.random() * 100);
+  // Intensity yang dipakai render = versi yang di-ease dari prop, dimulai
+  // dari nilai awal prop (boot: 0 → lampu gelap dulu, menu: 1 → langsung
+  // nyala). Jadi nyala/redup lampu mengalir halus, bukan lompat.
+  const smoothIntensity = useRef(intensity);
+
+  // Komponen ini baru ter-mount setelah useGLTF selesai (sebelumnya
+  // suspend), jadi efek ini = "modelnya sudah siap". Dipakai BootScreen
+  // buat tahu kapan boleh mulai menyalakan lampu.
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
 
   const fallbackScroll = useMotionValue(0);
   const scrollMV = reactToScroll ?? fallbackScroll;
@@ -105,21 +118,24 @@ function LampBody({
     scrollRef.current = v;
   });
 
-  useFrame(({ clock, pointer }) => {
+  useFrame(({ clock, pointer }, delta) => {
     const t = clock.getElapsedTime();
     const flicker = flickerNoise(t, seed.current);
     const scrollBoost = scrollRef.current * 0.25;
+
+    smoothIntensity.current +=
+      (intensity - smoothIntensity.current) * (1 - Math.exp(-delta * 3.5));
+    const level = smoothIntensity.current;
 
     // Ganti target animasi: dulu scale kerucut api, sekarang
     // emissiveIntensity kaca bohlam.
     bulbMaterial.emissiveIntensity = Math.max(
       0.2,
-      (1.5 + flicker * 0.45 + scrollBoost * 1.5) * intensity,
+      (1.5 + flicker * 0.45 + scrollBoost * 1.5) * level,
     );
 
     if (lightRef.current) {
-      lightRef.current.intensity =
-        (1.7 + flicker * 0.55 + scrollBoost) * intensity;
+      lightRef.current.intensity = (1.7 + flicker * 0.55 + scrollBoost) * level;
     }
 
     if (groupRef.current) {
@@ -186,14 +202,22 @@ export default function CandleScene({
   reactToMouse = true,
   reactToScroll,
   className,
+  onReady,
 }: {
   size?: number;
   intensity?: number;
   reactToMouse?: boolean;
   reactToScroll?: MotionValue<number>;
   className?: string;
+  onReady?: () => void;
 }) {
   const { quality } = useGraphics();
+
+  // Mode "low" nggak render model 3D sama sekali (cuma glow CSS), jadi
+  // langsung dianggap siap.
+  useEffect(() => {
+    if (quality === "low") onReady?.();
+  }, [quality, onReady]);
 
   if (quality === "low") {
     return (
@@ -239,6 +263,7 @@ export default function CandleScene({
           intensity={intensity}
           reactToMouse={reactToMouse}
           reactToScroll={reactToScroll}
+          onReady={onReady}
         />
       </group>
     </Canvas>

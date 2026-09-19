@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   motion,
@@ -42,9 +42,25 @@ const screenTransition = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
 // lampu yang asli/"semula".
 const LAMP_ANCHOR = "62% 24%";
 
+// Bentuk clip-path lingkaran penuh (nutupin semua) & kosong (nggak nutup
+// apa-apa), dua-duanya berpusat di titik lampu. Dipakai buat "iris wipe"
+// nutup layar (root selalu di posisi "cover" ini) dan buat reveal-nya nanti
+// ("iris open" — lubang membesar dari titik yang sama sampai Hero kelihatan
+// penuh), jadi buka-tutupnya konsisten dari satu titik yang sama.
+const ROOT_CLIP_COVER = `circle(150% at ${LAMP_ANCHOR})`;
+const ROOT_CLIP_OPEN = `circle(0% at ${LAMP_ANCHOR})`;
+
 // Berapa lama animasi masuk (iris wipe) sebelum benar-benar pindah
 // ke halaman utama.
 const ENTER_TRANSITION_MS = 900;
+
+// Setelah iris wipe nutup layar penuh (warna hangat/oranye), kita "mampir"
+// ke hitam pekat dulu sebentar sebelum reveal ke Hero. Tanpa ini, exit-fade
+// MainMenu bakal nge-crossfade LANGSUNG dari oranye terang ke Hero yang
+// biru/hitam/putih — dua warna yang jomplang, hasilnya kerasa kasar/patah.
+// Mampir ke hitam dulu bikin transisi akhirnya jadi hitam→Hero (lebih netral
+// & senada, karena hitam juga ada di palet Hero) alih-alih oranye→Hero.
+const ENTER_HOLD_MS = 320;
 
 export default function MainMenu({ onEnter }: { onEnter: () => void }) {
   const { reduceMotion } = useGraphics();
@@ -55,6 +71,23 @@ export default function MainMenu({ onEnter }: { onEnter: () => void }) {
   // true selama animasi transisi "Enter" berjalan — dipakai buat nge-lock
   // input & fade-out konten menu sebelum beneran pindah ke hero.
   const [entering, setEntering] = useState(false);
+  // true setelah iris wipe selesai nutup layar — munculin lapisan hitam
+  // pekat penjembatan sebelum beneran reveal ke Hero (lihat ENTER_HOLD_MS).
+  const [holdBlack, setHoldBlack] = useState(false);
+  // Guard anti dobel-Enter: `entering` (state) bisa basi di dalam handler
+  // keyboard, dan updater setState di StrictMode dijalankan dua kali —
+  // dua-duanya bisa lolos `if (entering)` lalu onEnter() kepanggil dobel.
+  const enteringRef = useRef(false);
+  const enterTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (enterTimerRef.current !== null) {
+        window.clearTimeout(enterTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const activeKey = activeIndex !== null ? OPTIONS[activeIndex].key : null;
   const lampIntensity = activeKey === "enter" ? 1.25 : 1;
@@ -96,15 +129,19 @@ export default function MainMenu({ onEnter }: { onEnter: () => void }) {
   }
 
   const handleSelect = (key: (typeof OPTIONS)[number]["key"]) => {
-    if (entering) return;
+    if (enteringRef.current) return;
     if (key === "enter") {
       // Bukan langsung manggil onEnter — biar ada transisi "masuk" yang
-      // smooth (iris wipe dari titik lampu) sebelum beneran pindah ke hero.
+      // smooth (iris wipe dari titik lampu, lalu mampir hitam pekat)
+      // sebelum beneran pindah ke hero.
+      enteringRef.current = true;
       setEntering(true);
-      window.setTimeout(
-        () => onEnter(),
-        reduceMotion ? 300 : ENTER_TRANSITION_MS,
-      );
+      const wipeMs = reduceMotion ? 200 : ENTER_TRANSITION_MS;
+      const holdMs = reduceMotion ? 120 : ENTER_HOLD_MS;
+      enterTimerRef.current = window.setTimeout(() => {
+        setHoldBlack(true);
+        enterTimerRef.current = window.setTimeout(() => onEnter(), holdMs);
+      }, wipeMs);
       return;
     }
     setView(key);
@@ -176,7 +213,24 @@ export default function MainMenu({ onEnter }: { onEnter: () => void }) {
   };
 
   return (
-    <div
+    // Root-nya motion.div (bukan div biasa) supaya AnimatePresence di
+    // EntryGate menunggu exit-nya: setelah iris wipe menutup layar, iris ini
+    // MEMBUKA lagi dari titik lampu yang sama (bukan sekadar fade opacity) —
+    // jadi buka & tutupnya senada, dan reveal-nya kerasa jadi satu gerakan
+    // sinematik, bukan crossfade rata dari oranye ke Hero yang jomplang.
+    <motion.div
+      data-lenis-prevent
+      initial={{ opacity: 0, clipPath: ROOT_CLIP_COVER }}
+      animate={{ opacity: 1, clipPath: ROOT_CLIP_COVER }}
+      exit={
+        reduceMotion
+          ? { opacity: 0, transition: { duration: 0.3 } }
+          : {
+              clipPath: ROOT_CLIP_OPEN,
+              transition: { duration: 1.1, ease: [0.65, 0, 0.35, 1] },
+            }
+      }
+      transition={{ duration: reduceMotion ? 0.2 : 0.8 }}
       onPointerMove={handlePointerMove}
       className="fixed inset-0 z-[100] overflow-hidden bg-black"
     >
@@ -348,6 +402,30 @@ export default function MainMenu({ onEnter }: { onEnter: () => void }) {
           />
         )}
       </AnimatePresence>
-    </div>
+
+      {/* Lapisan hitam pekat penjembatan — muncul tepat setelah iris wipe
+          selesai nutup layar (di atas gradient hangatnya). Nggak langsung
+          fade rata ke hitam, tapi kedip-kedip dulu kayak lilin yang megap
+          sebelum padam — biar transisinya kerasa "hidup", bukan cuma
+          dissolve datar. Setelah solid, iris di atas (root) baru membuka
+          lagi ke Hero. */}
+      <AnimatePresence>
+        {holdBlack && (
+          <motion.div
+            key="hold-black"
+            className="pointer-events-none fixed inset-0 z-[301] bg-black"
+            initial={{ opacity: 0 }}
+            animate={{
+              opacity: reduceMotion ? 1 : [0, 0.4, 0.15, 0.75, 1],
+            }}
+            transition={{
+              duration: reduceMotion ? 0.12 : ENTER_HOLD_MS / 1000,
+              times: reduceMotion ? undefined : [0, 0.25, 0.45, 0.7, 1],
+              ease: "easeIn",
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

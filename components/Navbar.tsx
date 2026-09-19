@@ -14,7 +14,7 @@ export default function Navbar() {
   const pathname = usePathname();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 md:px-6 py-4 flex items-center justify-between backdrop-blur-sm bg-black/20">
+    <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-4 md:px-6 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]">
       <TransitionLink
         href="/"
         className="text-xs uppercase tracking-[0.2em] text-neutral-300"
@@ -31,7 +31,7 @@ export default function Navbar() {
               className="relative py-1"
             >
               <motion.span
-                animate={{ color: active ? "#ffffff" : "#8a8a8a" }}
+                animate={{ color: active ? "#ffffff" : "#c9c9c9" }}
                 whileHover={{ color: "#e5e5e5" }}
                 whileTap={{ scale: 0.9 }}
                 transition={{ duration: 0.25 }}

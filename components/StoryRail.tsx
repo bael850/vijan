@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, useScroll, useSpring } from "framer-motion";
 
 const CHAPTERS = [
-  { id: "chapter-prolog", label: "Prolog" },
+  { id: "chapter-", label: "" },
   { id: "chapter-kisah", label: "Kisah" },
   { id: "chapter-kage", label: "Kage" },
   { id: "chapter-epilog", label: "Epilog" },

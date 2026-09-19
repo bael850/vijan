@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useGraphics } from "@/components/providers/GraphicsProvider";
+import { useEntered } from "@/components/menu/EntryContext";
 
 const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
 
@@ -40,6 +41,11 @@ function AnimatedLine({
   children: ReactNode;
   custom: number;
 }) {
+  // Animasi baru jalan setelah boot/menu lewat (overlay mulai kebuka).
+  // Sebelumnya jalan pas mount, alias di balik overlay — waktu overlay
+  // hilang, judul sudah diam di tempatnya dan reveal-nya nggak pernah
+  // kelihatan.
+  const entered = useEntered();
   const [settled, setSettled] = useState(false);
 
   return (
@@ -47,9 +53,13 @@ function AnimatedLine({
       <motion.div
         custom={custom}
         initial="hidden"
-        animate="visible"
+        animate={entered ? "visible" : "hidden"}
         variants={lineVariants}
-        onAnimationComplete={() => setSettled(true)}
+        onAnimationComplete={() => {
+          // Jangan ikut "selesai" saat masih nunggu di state hidden —
+          // overflow-hidden harus tetap ada sampai teks benar-benar naik.
+          if (entered) setSettled(true);
+        }}
       >
         {children}
       </motion.div>
@@ -59,6 +69,7 @@ function AnimatedLine({
 
 export default function Hero() {
   const { reduceMotion } = useGraphics();
+  const entered = useEntered();
   const wrapRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: wrapRef,
@@ -106,7 +117,7 @@ export default function Hero() {
 
   return (
     <div
-      id="chapter-prolog"
+      id=""
       ref={wrapRef}
       className="relative h-[200svh]"
       style={{ perspective: "1400px" }}
@@ -119,65 +130,92 @@ export default function Hero() {
           opacity: stageOpacity,
           transformOrigin: "50% 100%",
         }}
-        className="sticky top-0 h-[100svh] flex flex-col justify-between overflow-hidden"
+        className="sticky top-0 h-[100svh] overflow-hidden"
       >
+        {/* Reveal masuk — begitu overlay "Enter" kebuka, seluruh panggung
+            Hero ini narik fokus dari agak zoom + blur ke posisi normalnya,
+            kayak kamera lagi fokus. Dipisah dari transform scroll di atas
+            (elemen beda) supaya dua-duanya jalan bareng tanpa saling ganggu
+            — efeknya numpuk begitu aja lewat nesting transform CSS biasa. */}
         <motion.div
-          style={{ y: grainY, willChange: "transform" }}
-          className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
-          aria-hidden
+          initial={{ scale: 1.06, filter: "blur(14px)" }}
+          animate={
+            reduceMotion
+              ? { scale: 1, filter: "blur(0px)" }
+              : {
+                  scale: entered ? 1 : 1.06,
+                  filter: entered ? "blur(0px)" : "blur(14px)",
+                }
+          }
+          transition={{
+            duration: reduceMotion ? 0.4 : 1.4,
+            delay: reduceMotion ? 0 : 0.1,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="absolute inset-0 flex flex-col justify-between"
         >
-          <svg width="100%" height="140%" xmlns="http://www.w3.org/2000/svg">
-            <filter id="grain">
-              <feTurbulence
-                type="fractalNoise"
-                baseFrequency="0.8"
-                numOctaves="3"
-                stitchTiles="stitch"
-              />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#grain)" />
-          </svg>
-        </motion.div>
-
-        <div className="absolute inset-0">
-          <Scene3D scrollYProgress={progress} />
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.6 }}
-          className="pointer-events-none absolute top-6 left-4 md:left-6 z-10 text-xs uppercase tracking-[0.3em] text-neutral-500"
-        >
-          Prolog
-        </motion.div>
-
-        <motion.div
-          style={{ y: textY, willChange: "transform" }}
-          className="pointer-events-none px-4 md:px-6 pb-16 pt-24"
-        >
-          <h1 className="font-display font-black leading-[0.82] tracking-tight text-[17vw] md:text-[11.5vw]">
-            {lines.map((line, i) => (
-              <AnimatedLine key={line.key} custom={i}>
-                {line.content}
-              </AnimatedLine>
-            ))}
-          </h1>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 1 }}
-          className="pointer-events-none absolute bottom-8 left-4 md:left-6 z-10 flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-neutral-500"
-        >
-          <span>Gulir untuk mulai</span>
-          <motion.span
-            animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          <motion.div
+            style={{ y: grainY, willChange: "transform" }}
+            className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
+            aria-hidden
           >
-            ↓
-          </motion.span>
+            <svg width="100%" height="140%" xmlns="http://www.w3.org/2000/svg">
+              <filter id="grain">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.8"
+                  numOctaves="3"
+                  stitchTiles="stitch"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#grain)" />
+            </svg>
+          </motion.div>
+
+          <div className="absolute inset-0">
+            <Scene3D scrollYProgress={progress} />
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: entered ? 1 : 0 }}
+            transition={{ duration: 1, delay: 0.6 }}
+            className="pointer-events-none absolute top-6 left-4 md:left-6 z-10 text-xs uppercase tracking-[0.3em] text-neutral-500"
+          >
+            Prolog
+          </motion.div>
+
+          <motion.div
+            style={{ y: textY, willChange: "transform" }}
+            className="pointer-events-none px-4 md:px-6 pb-16 pt-24"
+          >
+            <h1 className="font-display font-black leading-[0.82] tracking-tight text-[17vw] md:text-[11.5vw]">
+              {lines.map((line, i) => (
+                <AnimatedLine key={line.key} custom={i}>
+                  {line.content}
+                </AnimatedLine>
+              ))}
+            </h1>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: entered ? 1 : 0 }}
+            transition={{ duration: 1, delay: 1 }}
+            className="pointer-events-none absolute bottom-8 left-4 md:left-6 z-10 flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-neutral-500"
+          >
+            <span>Gulir untuk mulai</span>
+            <motion.span
+              animate={{ y: [0, 6, 0] }}
+              transition={{
+                duration: 1.6,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              ↓
+            </motion.span>
+          </motion.div>
         </motion.div>
       </motion.div>
     </div>

@@ -1,23 +1,35 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
 import BootScreen from "@/components/boot/BootScreen";
 import MainMenu from "@/components/menu/MainMenu";
+import { EntryContext } from "@/components/menu/EntryContext";
 
 type Phase = "boot" | "menu" | "entered";
 
 const SESSION_KEY = "vijan:entered";
 
+// Penanda "sudah Enter" yang hidup selama halaman belum di-reload (state
+// modul, bukan state komponen). Tanpa ini, pindah ke /vers lalu balik ke
+// Beranda lewat navigasi client-side me-mount ulang EntryGate dari phase
+// "boot": layar hitam boot sempat nongol & fade 0,6 detik, nutupin reveal
+// halaman. Di load pertama / reload (di-hydrate dari HTML server) nilainya
+// masih false, jadi hasil render tetap cocok dengan HTML server.
+let enteredThisPageLife = false;
+
 export default function EntryGate({ children }: { children: ReactNode }) {
   // Default "boot" (bukan phase "checking" terpisah) supaya nggak ada
   // celah render tanpa overlay — kalau ternyata sesi ini udah pernah
   // Enter, useEffect di bawah langsung skip ke "entered".
-  const [phase, setPhase] = useState<Phase>("boot");
+  const [phase, setPhase] = useState<Phase>(() =>
+    enteredThisPageLife ? "entered" : "boot",
+  );
 
   useEffect(() => {
     try {
       if (sessionStorage.getItem(SESSION_KEY) === "true") {
+        enteredThisPageLife = true;
         setPhase("entered");
       }
     } catch {
@@ -32,26 +44,37 @@ export default function EntryGate({ children }: { children: ReactNode }) {
     };
   }, [phase]);
 
+  // Cuma boleh maju dari "boot" ke "menu" — kalau callback ini telat kepanggil
+  // (mis. klik "lewati" + timer), menu nggak boleh muncul lagi setelah Enter.
+  const handleBootDone = useCallback(() => {
+    setPhase((p) => (p === "boot" ? "menu" : p));
+  }, []);
+
   const handleEnter = () => {
+    enteredThisPageLife = true;
     try {
       sessionStorage.setItem(SESSION_KEY, "true");
     } catch {}
+    // Halaman di belakang overlay bisa aja udah bergeser (mis. scroll
+    // restore browser setelah reload). Hero harus mulai dari paling atas.
+    try {
+      window.__lenis?.scrollTo(0, { immediate: true });
+    } catch {}
+    window.scrollTo(0, 0);
     setPhase("entered");
   };
 
   return (
-    <>
+    <EntryContext.Provider value={phase === "entered"}>
       {/* Konten asli tetap di DOM dari awal (bukan lazy-render) supaya
           tetap SEO-friendly — overlay boot/menu cuma menutupinya secara
           visual sampai "Enter" ditekan. */}
       {children}
 
       <AnimatePresence>
-        {phase === "boot" && (
-          <BootScreen key="boot" onDone={() => setPhase("menu")} />
-        )}
+        {phase === "boot" && <BootScreen key="boot" onDone={handleBootDone} />}
         {phase === "menu" && <MainMenu key="menu" onEnter={handleEnter} />}
       </AnimatePresence>
-    </>
+    </EntryContext.Provider>
   );
 }
