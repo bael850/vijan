@@ -8,11 +8,7 @@ const CandleScene = dynamic(() => import("@/components/boot/CandleScene"), {
   ssr: false,
 });
 
-const BOOT_LINES = [
-  "...menyusun kisah",
-  "...menyalakan ingatan",
-  "...merapikan kata",
-];
+const BOOT_LINES = ["...menyusun kisah", "...menyalakan ingatan"];
 
 // Boot minimal segini lama biar ritmenya tetap terasa (bukan kedip sekilas),
 // tapi TIDAK boleh berakhir sebelum lampunya benar-benar sudah menyala —
