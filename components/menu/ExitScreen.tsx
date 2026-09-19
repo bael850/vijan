@@ -35,8 +35,7 @@ export default function ExitScreen({ onBack }: { onBack: () => void }) {
               Yakin mau pergi?
             </p>
             <p className="mb-10 max-w-sm text-sm text-neutral-500">
-              Kisah selalu menunggu untuk dilanjutkan, kapan pun kamu siap
-              kembali.
+              Bumi adalah tempat meninggal, bukan tempat tinggal.
             </p>
             <div className="flex items-center justify-center gap-8">
               <button
