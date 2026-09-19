@@ -20,7 +20,7 @@ export default function BootScreen({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     // Nyala dinaikkan bertahap dari gelap total — dramatisasi "menyalakan
-    // lilin", bukan progress bar loading generik.
+    // lampu", bukan progress bar loading generik.
     const raiseTimer = setTimeout(() => setFlameIntensity(1), 150);
 
     const lineTimer = setInterval(() => {

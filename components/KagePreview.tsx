@@ -7,6 +7,7 @@ import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
 import SectionLabel from "@/components/SectionLabel";
 import CinematicReveal from "@/components/CinematicReveal";
+import DrawLine from "@/components/DrawLine";
 import TiltCard from "@/components/TiltCard";
 import { FotoKage } from "@/lib/types";
 import { useGraphics } from "@/components/providers/GraphicsProvider";
@@ -43,8 +44,12 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
     <section
       ref={ref}
       id="chapter-kage"
-      className="relative max-w-6xl mx-auto px-4 md:px-6 py-24 md:py-32 border-t border-neutral-800 overflow-hidden"
+      className="relative max-w-6xl mx-auto px-4 md:px-6 py-24 md:py-32 overflow-hidden"
     >
+      {/* Garis atas section — sebelumnya border-t statis, sekarang
+          digambar dari kiri ke kanan pas section masuk layar. */}
+      <DrawLine className="absolute inset-x-0 top-0" />
+
       <motion.div
         style={{ opacity: particleOpacity }}
         className="pointer-events-none absolute inset-0"
