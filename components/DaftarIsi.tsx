@@ -15,21 +15,19 @@ export interface TocItem {
   key: string;
   label: string;
   count: number;
-  folio: number; // nomor halaman "pembuka" rubrik — dihitung dari jumlah tulisan
   entries: TocEntry[];
   preview?: { judul: string; meta: string; teks: string };
 }
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const pad = (n: number) => String(n).padStart(2, "0");
 
 // Daftar isi majalah yang hidup:
-//   • tiap rubrik = satu baris, nama besar → garis titik-titik → nomor halaman
+//   • tiap rubrik = satu baris, nama besar → garis titik-titik → panah
 //   • rubrik yang lagi dibuka: titik penanda "berjalan" ke barisnya, garis
 //     jadi aksen, dan barisnya membuka daftar tulisan (seperti sub-entri
 //     di daftar isi cetak)
 //   • di layar lebar, kolom kanan menampilkan cuplikan rubrik yang
-//     di-hover/difokus — nomor halaman raksasa + tulisan terbarunya
+//     di-hover/difokus — nama rubrik raksasa (outline) + tulisan terbarunya
 export default function DaftarIsi({
   items,
   active,
@@ -91,12 +89,6 @@ export default function DaftarIsi({
                     }`}
                   >
                     {item.label}
-                    <sup
-                      aria-label={`${item.count} tulisan`}
-                      className="ml-1.5 align-super font-sans text-xs not-italic text-neutral-500"
-                    >
-                      {item.count}
-                    </sup>
                   </span>
 
                   {/* garis titik-titik → jadi aksen penuh saat aktif */}
@@ -111,13 +103,14 @@ export default function DaftarIsi({
                   </span>
 
                   <span
-                    className={`font-display text-xl md:text-2xl tabular-nums transition-colors duration-500 ${
+                    aria-hidden
+                    className={`font-display text-xl md:text-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                       isActive
-                        ? "text-[var(--accent-soft)]"
-                        : "text-neutral-600"
+                        ? "translate-x-0 text-[var(--accent-soft)] opacity-100"
+                        : "-translate-x-2 text-neutral-500 opacity-0 group-hover:translate-x-0 group-hover:opacity-70"
                     }`}
                   >
-                    {pad(item.folio)}
+                    →
                   </span>
                 </button>
 
@@ -184,10 +177,10 @@ export default function DaftarIsi({
             transition={{ duration: dur(0.3), ease: EASE }}
           >
             <span
-              className="block select-none font-display italic text-[11rem] leading-[0.9] tabular-nums text-transparent"
+              className="block select-none break-words font-display italic text-7xl xl:text-8xl leading-[0.95] text-transparent"
               style={{ WebkitTextStroke: "1px rgba(185, 207, 255, 0.35)" }}
             >
-              {pad(shown.folio)}
+              {shown.label}
             </span>
             {shown.preview ? (
               <div className="mt-6">

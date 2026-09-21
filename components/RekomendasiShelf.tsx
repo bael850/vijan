@@ -3,16 +3,6 @@ import BookCover3D from "@/components/BookCover3D";
 import Reveal from "@/components/Reveal";
 import type { Post } from "@/lib/types";
 
-function formatTanggal(tanggal: string) {
-  const d = new Date(tanggal);
-  if (isNaN(d.getTime())) return tanggal;
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
 // Rekomendasi = tulisan. Cover cuma hiasan yang menemani teksnya:
 //   • ada cover depan + belakang → buku 3D yang bisa diputar 360°
 //   • hanya cover depan (film/anime/series/buku tanpa cover belakang)
@@ -91,20 +81,9 @@ export default function RekomendasiShelf({ posts }: { posts: Post[] }) {
                   : "md:col-span-8 md:col-start-3"
               }`}
             >
-              <span
-                aria-hidden
-                className="genre-ghost pointer-events-none absolute -top-16 md:-top-24 -left-2 md:-left-6 text-[9rem] md:text-[14rem] leading-none"
-              >
-                {String(i + 1).padStart(2, "0")}
-              </span>
-
               <div className="relative">
                 <p className="font-display italic text-lg text-accent-soft">
                   {post.kategori ?? "rekomendasi"}
-                  <span className="not-italic text-neutral-600">
-                    {" "}
-                    · {formatTanggal(post.tanggal)}
-                  </span>
                 </p>
                 <h3 className="mt-2 font-display text-5xl md:text-7xl leading-[0.98] tracking-tight text-balance">
                   <Link

@@ -59,12 +59,9 @@ export default function VersListClient({
     (p) => segmen === "semua" || p.kategori === segmen,
   );
 
-  // Daftar isi dihitung dari data asli. Nomor halaman = urutan kumulatif
-  // jumlah tulisan per rubrik (halaman 1 = sampul, 2 = daftar isi), jadi
-  // ikut bergeser sendiri kalau tulisan bertambah.
+  // Daftar isi dihitung dari data asli.
   const items: TocItem[] = useMemo(() => {
     const result: TocItem[] = [];
-    let page = 3;
     for (const key of TYPES) {
       const list =
         key === "semua" ? posts : posts.filter((p) => p.tipe === key);
@@ -73,22 +70,19 @@ export default function VersListClient({
       const entries = list.slice(0, 4).map((p) => ({
         judul: p.judul,
         href: `/vers/${p.slug}`,
-        meta: formatTanggal(p.tanggal),
+        meta: key === "rekomendasi" ? p.kategori : undefined,
       }));
 
       const latest = list[0];
       const preview = latest
         ? {
             judul: latest.judul,
-            meta: `Terbaru — ${formatTanggal(latest.tanggal)}`,
+            meta: "Terbaru",
             teks: latest.ringkasan,
           }
         : undefined;
 
-      const folio = key === "semua" ? 1 : page;
-      if (key !== "semua") page += Math.max(count, 1);
-
-      result.push({ key, label: cap(key), count, folio, entries, preview });
+      result.push({ key, label: cap(key), count, entries, preview });
     }
     return result;
   }, [posts]);
