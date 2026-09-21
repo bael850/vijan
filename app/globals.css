@@ -56,6 +56,20 @@ body {
   letter-spacing: -0.02em;
   white-space: nowrap;
   user-select: none;
+  /* Kata genre yang panjang (mis. "rekomendasi") bisa lebih lebar dari
+     kolom di layar sempit dan kepotong tegas oleh overflow-hidden induknya.
+     Mask ini bikin potongannya jadi fade halus, bukan garis tegas. */
+  -webkit-mask-image: linear-gradient(to right, black 65%, transparent 96%);
+  mask-image: linear-gradient(to right, black 65%, transparent 96%);
+}
+
+/* Drop cap dikecilkan sedikit di layar sangat sempit (<480px) supaya
+   proporsinya nggak kebesaran dibanding lebar kolom teks. */
+@media (max-width: 480px) {
+  .article-content.dropcap > p:first-child::first-letter {
+    font-size: 3.25rem;
+    padding-right: 0.1em;
+  }
 }
 
 /* Drop cap hanya untuk fiksi (kelas .dropcap di halaman tulisan), dan hanya

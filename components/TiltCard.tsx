@@ -51,6 +51,13 @@ export default function TiltCard({
             ? undefined
             : { rotateX, rotateY, transformStyle: "preserve-3d" }
         }
+        // Efek tilt di atas murni berbasis mouse, jadi di touchscreen nggak
+        // pernah kepicu — kartunya tetap bisa di-tap (Link tetap jalan),
+        // tapi kelihatan "mati" tanpa reaksi visual apa pun. whileTap ini
+        // ngasih feedback tekan yang setara di HP: sedikit mengecil pas
+        // disentuh, jadi jelas kartunya memang interaktif.
+        whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+        transition={{ duration: 0.15 }}
       >
         {children}
       </motion.div>

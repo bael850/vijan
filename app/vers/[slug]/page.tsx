@@ -143,7 +143,7 @@ export default async function VersDetail({
           <div className="relative max-w-2xl overflow-hidden">
             <span
               aria-hidden
-              className="genre-ghost pointer-events-none absolute -left-2 -top-6 text-[4.5rem] md:text-[7rem] -rotate-2 select-none"
+              className="genre-ghost pointer-events-none absolute -left-2 -top-6 text-[3.25rem] sm:text-[4.5rem] md:text-[7rem] -rotate-2 select-none"
             >
               {post.tipe}
             </span>
