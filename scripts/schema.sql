@@ -57,3 +57,16 @@ CREATE TABLE IF NOT EXISTS comments
 );
 
 CREATE INDEX IF NOT EXISTS comments_post_slug_idx ON comments (post_slug);
+
+-- Rate limit kirim link login (lihat lib/rate-limit.ts).
+-- Kalau database sudah jalan, cukup jalankan bagian ini saja.
+CREATE TABLE IF NOT EXISTS login_attempts
+(
+  id SERIAL PRIMARY KEY,
+  ip TEXT,
+  email TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS login_attempts_ip_idx ON login_attempts (ip, created_at);
+CREATE INDEX IF NOT EXISTS login_attempts_email_idx ON login_attempts (email, created_at);

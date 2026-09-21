@@ -52,7 +52,7 @@ const ROOT_CLIP_OPEN = `circle(0% at ${LAMP_ANCHOR})`;
 
 // Berapa lama animasi masuk (iris wipe) sebelum benar-benar pindah
 // ke halaman utama.
-const ENTER_TRANSITION_MS = 900;
+const ENTER_TRANSITION_MS = 600;
 
 // Setelah iris wipe nutup layar penuh (warna hangat/oranye), kita "mampir"
 // ke hitam pekat dulu sebentar sebelum reveal ke Hero. Tanpa ini, exit-fade
@@ -60,7 +60,7 @@ const ENTER_TRANSITION_MS = 900;
 // biru/hitam/putih — dua warna yang jomplang, hasilnya kerasa kasar/patah.
 // Mampir ke hitam dulu bikin transisi akhirnya jadi hitam→Hero (lebih netral
 // & senada, karena hitam juga ada di palet Hero) alih-alih oranye→Hero.
-const ENTER_HOLD_MS = 320;
+const ENTER_HOLD_MS = 150;
 
 export default function MainMenu({ onEnter }: { onEnter: () => void }) {
   const { reduceMotion } = useGraphics();
@@ -162,8 +162,10 @@ export default function MainMenu({ onEnter }: { onEnter: () => void }) {
         );
       } else if (e.key === "Enter") {
         e.preventDefault();
+        // Belum ada yang disorot -> Enter = masuk situs (opsi pertama),
+        // jadi pengguna keyboard tidak menekan Enter tanpa hasil.
         setActiveIndex((current) => {
-          if (current !== null) handleSelect(OPTIONS[current].key);
+          handleSelect(OPTIONS[current ?? 0].key);
           return current;
         });
       }
@@ -227,7 +229,7 @@ export default function MainMenu({ onEnter }: { onEnter: () => void }) {
           ? { opacity: 0, transition: { duration: 0.3 } }
           : {
               clipPath: ROOT_CLIP_OPEN,
-              transition: { duration: 1.1, ease: [0.65, 0, 0.35, 1] },
+              transition: { duration: 0.8, ease: [0.65, 0, 0.35, 1] },
             }
       }
       transition={{ duration: reduceMotion ? 0.2 : 0.8 }}

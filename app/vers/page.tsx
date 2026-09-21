@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { getAllPosts } from "@/lib/data";
 import VersListClient from "@/components/VersListClient";
 import Reveal from "@/components/Reveal";
+
+export const metadata: Metadata = {
+  title: "Vers",
+  description: "Cerpen, cerbung, sajak, dan tulisan lainnya.",
+};
 
 export default async function VersPage() {
   const posts = await getAllPosts();

@@ -55,6 +55,13 @@ async function fetchRange(range: string): Promise<string[][]> {
 // ─────────────────────────────────────────────────────────────
 
 // Tab "Tulisan" kolom: judul, slug, tipe, ringkasan, isi, status, tanggal, series, urutan
+// "abc" / "" / spasi -> undefined, bukan NaN (NaN merusak urutan sort).
+function parseUrutan(value: string | undefined): number | undefined {
+  if (!value?.trim()) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function rowToPost(row: string[]): Post | null {
   const [judul, slug, tipe, ringkasan, isi, status, tanggal, series, urutan] =
     row;
@@ -70,7 +77,7 @@ function rowToPost(row: string[]): Post | null {
     status: (status as PostStatus) ?? "draft",
     tanggal: tanggal ?? "",
     series: series || undefined,
-    urutan: urutan ? Number(urutan) : undefined,
+    urutan: parseUrutan(urutan),
   };
 }
 
@@ -135,7 +142,11 @@ export async function getPostsBySeries(series: string): Promise<Post[]> {
   const posts = await getAllPosts();
   return posts
     .filter((p) => p.series === series)
-    .sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
+    .sort(
+      (a, b) =>
+        (a.urutan ?? 9999) - (b.urutan ?? 9999) ||
+        a.tanggal.localeCompare(b.tanggal),
+    );
 }
 
 export async function getAllFoto(): Promise<FotoKage[]> {

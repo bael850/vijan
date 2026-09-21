@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 
 const CandleScene = dynamic(() => import("@/components/boot/CandleScene"), {
   ssr: false,
@@ -13,7 +14,7 @@ const BOOT_LINES = ["...menyusun kisah", "...menyalakan ingatan"];
 // Boot minimal segini lama biar ritmenya tetap terasa (bukan kedip sekilas),
 // tapi TIDAK boleh berakhir sebelum lampunya benar-benar sudah menyala —
 // kalau nggak, di koneksi lambat menu muncul saat model lampu belum ada.
-const MIN_BOOT_MS = 2200;
+const MIN_BOOT_MS = 1400;
 // Batas atas: kalau model gagal/terlalu lama dimuat, tetap lanjut ke menu.
 const MAX_BOOT_MS = 7000;
 // Jeda dari "scene siap" sampai lampu mulai dinyalakan, dan lama naiknya
@@ -22,6 +23,7 @@ const IGNITE_DELAY_MS = 150;
 const IGNITE_RAMP_MS = 900;
 
 export default function BootScreen({ onDone }: { onDone: () => void }) {
+  const { reduceMotion, ready } = useGraphics();
   const [lineIndex, setLineIndex] = useState(0);
   const [flameIntensity, setFlameIntensity] = useState(0);
   const [sceneReady, setSceneReady] = useState(false);
@@ -44,6 +46,23 @@ export default function BootScreen({ onDone }: { onDone: () => void }) {
   }, []);
 
   const handleSceneReady = useCallback(() => setSceneReady(true), []);
+
+  // Pengunjung dengan Reduce Motion tidak perlu menunggu boot sinematik.
+  useEffect(() => {
+    if (ready && reduceMotion) finish();
+  }, [ready, reduceMotion, finish]);
+
+  // Bisa dilewati lewat keyboard, bukan cuma klik.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+        e.preventDefault();
+        finish();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [finish]);
 
   useEffect(() => {
     const lineTimer = setInterval(() => {
@@ -104,9 +123,16 @@ export default function BootScreen({ onDone }: { onDone: () => void }) {
       >
         {BOOT_LINES[lineIndex]}
       </motion.p>
-      <p className="absolute bottom-8 text-[10px] uppercase tracking-[0.2em] text-neutral-700">
-        Klik untuk lewati
-      </p>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          finish();
+        }}
+        className="absolute bottom-8 px-3 py-2 text-xs uppercase tracking-[0.2em] text-neutral-400 transition-colors hover:text-white focus-visible:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-neutral-400"
+      >
+        Lewati
+      </button>
     </motion.div>
   );
 }

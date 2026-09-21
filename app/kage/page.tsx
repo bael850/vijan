@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { getAllFoto } from "@/lib/data";
 import Reveal from "@/components/Reveal";
 import Image from "next/image";
+
+export const metadata: Metadata = {
+  title: "Kage",
+  description: "Gambar yang menyimpan cerita.",
+};
 
 export default async function KagePage() {
   const fotos = await getAllFoto();

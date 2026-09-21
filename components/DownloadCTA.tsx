@@ -12,6 +12,10 @@ const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
 });
 
+// TODO: file di bawah belum ada di public/files, jadi dilepas dulu supaya
+// tidak 404. Upload lalu tambahkan lagi barisnya:
+//   cv-productbuilder-muhammad-iqbal-malik.pdf  (CV · Product Builder)
+//   portfolio-muhammad-iqbal-malik.pdf          (Portfolio · All Projects)
 const DOWNLOADS = [
   {
     category: "CV",
@@ -20,18 +24,8 @@ const DOWNLOADS = [
   },
   {
     category: "CV",
-    label: "Product Builder",
-    href: "/files/cv-productbuilder-muhammad-iqbal-malik.pdf",
-  },
-  {
-    category: "CV",
     label: "Writer",
     href: "/files/cv-writer-muhammad-iqbal-malik.pdf",
-  },
-  {
-    category: "Portfolio",
-    label: "All Projects",
-    href: "/files/portfolio-muhammad-iqbal-malik.pdf",
   },
 ];
 
@@ -135,7 +129,7 @@ export default function DownloadCTA() {
 
             <Reveal variant="right" delay={0.25}>
               <a
-                href="baeeelll205@gmail.com"
+                href="mailto:baeeelll205@gmail.com"
                 className="group inline-block font-display text-xl md:text-2xl leading-snug mb-8 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-300"
               >
                 baeeelll205@gmail.com

@@ -8,7 +8,20 @@ import { EntryContext } from "@/components/menu/EntryContext";
 
 type Phase = "boot" | "menu" | "entered";
 
-const SESSION_KEY = "vijan:entered";
+// Disimpan di localStorage (bukan sessionStorage) supaya pengunjung yang
+// kembali tidak diputar lewat boot + menu lagi di setiap tab baru. Kedaluwarsa
+// supaya intro sinematiknya tetap muncul sesekali.
+const ENTERED_KEY = "vijan:entered-at";
+const ENTERED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 hari
+
+function hasEnteredRecently(): boolean {
+  try {
+    const ts = Number(localStorage.getItem(ENTERED_KEY));
+    return Number.isFinite(ts) && ts > 0 && Date.now() - ts < ENTERED_TTL_MS;
+  } catch {
+    return false;
+  }
+}
 
 // Penanda "sudah Enter" yang hidup selama halaman belum di-reload (state
 // modul, bukan state komponen). Tanpa ini, pindah ke /vers lalu balik ke
@@ -27,13 +40,9 @@ export default function EntryGate({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem(SESSION_KEY) === "true") {
-        enteredThisPageLife = true;
-        setPhase("entered");
-      }
-    } catch {
-      // sessionStorage gagal diakses — biarkan boot screen jalan normal
+    if (hasEnteredRecently()) {
+      enteredThisPageLife = true;
+      setPhase("entered");
     }
   }, []);
 
@@ -53,7 +62,7 @@ export default function EntryGate({ children }: { children: ReactNode }) {
   const handleEnter = () => {
     enteredThisPageLife = true;
     try {
-      sessionStorage.setItem(SESSION_KEY, "true");
+      localStorage.setItem(ENTERED_KEY, String(Date.now()));
     } catch {}
     // Halaman di belakang overlay bisa aja udah bergeser (mis. scroll
     // restore browser setelah reload). Hero harus mulai dari paling atas.

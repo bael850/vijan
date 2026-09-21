@@ -58,7 +58,9 @@ body {
   user-select: none;
 }
 
-.article-content > p:first-of-type::first-letter {
+/* Drop cap hanya untuk fiksi (kelas .dropcap di halaman tulisan), dan hanya
+   kalau paragraf pertama memang elemen pertama — bukan setelah heading/gambar. */
+.article-content.dropcap > p:first-child::first-letter {
   font-family: var(--font-display), serif;
   font-size: 4.25rem;
   line-height: 0.75;

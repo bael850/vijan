@@ -13,6 +13,9 @@ import type { CommentRow } from "@/lib/comments";
 const initialLoginState: RequestLoginState = { status: "idle" };
 const initialCommentState: PostCommentState = { status: "idle" };
 
+const inputClass =
+  "bg-transparent border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500 focus-visible:ring-1 focus-visible:ring-neutral-400";
+
 export default function Comments({
   slug,
   comments,
@@ -45,29 +48,34 @@ export default function Comments({
 
   return (
     <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800">
-      <p className="text-sm text-neutral-500 mb-8">
+      <h2 className="text-sm font-normal text-neutral-500 mb-8">
         Komentar {comments.length > 0 && `(${comments.length})`}
-      </p>
+      </h2>
 
       <div className="flex flex-col gap-8 mb-12">
         {comments.length === 0 && (
-          <p className="text-neutral-600 text-sm">
+          <p className="text-neutral-500 text-sm">
             Belum ada komentar. Jadi yang pertama?
           </p>
         )}
         {comments.map((c) => (
           <div key={c.id} className="border-b border-neutral-900 pb-6">
             <div className="flex items-baseline justify-between gap-4 mb-2">
-              <span className="font-display text-lg">{c.nama}</span>
-              <span className="text-xs text-neutral-600">
+              <span className="font-display text-lg break-words min-w-0">
+                {c.nama}
+              </span>
+              {/* timeZone dikunci: server (UTC) & browser (WIB) tidak boleh
+                  beda hari, kalau tidak hydration mismatch. */}
+              <span className="text-xs text-neutral-500 shrink-0">
                 {new Date(c.createdAt).toLocaleDateString("id-ID", {
                   day: "numeric",
                   month: "long",
                   year: "numeric",
+                  timeZone: "Asia/Jakarta",
                 })}
               </span>
             </div>
-            <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap">
+            <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap break-words">
               {c.isi}
             </p>
           </div>
@@ -80,19 +88,31 @@ export default function Comments({
           action={commentAction}
           className="flex flex-col gap-3"
         >
-          <input
-            type="text"
-            name="nama"
-            defaultValue={displayName ?? ""}
-            placeholder="Nama kamu"
-            className="bg-transparent border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-600"
-          />
+          <div className="flex flex-col gap-1.5">
+            <input
+              type="text"
+              name="nama"
+              required
+              minLength={2}
+              maxLength={40}
+              autoComplete="nickname"
+              aria-label="Nama tampilan"
+              defaultValue={displayName ?? ""}
+              placeholder="Nama kamu"
+              className={inputClass}
+            />
+            <p className="text-xs text-neutral-500">
+              Nama ini yang tampil di komentar. Email kamu tidak ditampilkan.
+            </p>
+          </div>
           <textarea
             name="isi"
             required
             rows={4}
+            maxLength={2000}
+            aria-label="Komentar"
             placeholder="Tulis komentar..."
-            className="bg-transparent border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-600 resize-none"
+            className={`${inputClass} resize-none`}
           />
           <button
             type="submit"
@@ -102,7 +122,9 @@ export default function Comments({
             {commentPending ? "Mengirim..." : "Kirim komentar"}
           </button>
           {commentState.status === "error" && (
-            <p className="text-sm text-red-400">{commentState.message}</p>
+            <p role="alert" className="text-sm text-red-400">
+              {commentState.message}
+            </p>
           )}
         </form>
       ) : (
@@ -116,8 +138,11 @@ export default function Comments({
               type="email"
               name="email"
               required
+              maxLength={254}
+              autoComplete="email"
+              aria-label="Alamat email"
               placeholder="email@kamu.com"
-              className="flex-1 bg-transparent border border-neutral-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-600"
+              className={`flex-1 min-w-0 ${inputClass}`}
             />
             <button
               type="submit"
@@ -128,11 +153,14 @@ export default function Comments({
             </button>
           </div>
           {loginState.status === "error" && (
-            <p className="text-sm text-red-400">{loginState.message}</p>
+            <p role="alert" className="text-sm text-red-400">
+              {loginState.message}
+            </p>
           )}
           {loginState.status === "sent" && (
-            <p className="text-sm text-neutral-500">
-              Link masuk sudah dikirim, cek email kamu.
+            <p role="status" className="text-sm text-neutral-400">
+              Link masuk sudah dikirim, cek email kamu. Belum ketemu? Coba cek
+              folder spam.
             </p>
           )}
         </form>

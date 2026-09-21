@@ -119,7 +119,7 @@ export default function Hero() {
     <div
       id=""
       ref={wrapRef}
-      className="relative h-[200svh]"
+      className="relative h-[150svh]"
       style={{ perspective: "1400px" }}
     >
       <motion.div

@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { TransitionLink } from "@/components/PageTransition";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { getPostBySlug, getAllPosts, getPostsBySeries } from "@/lib/data";
 import { auth } from "@/auth";
 import { getCommentsBySlug } from "@/lib/comments";
@@ -9,6 +11,40 @@ import Comments from "@/components/Comments";
 import Reveal from "@/components/Reveal";
 import ScrollProgress from "@/components/ScrollProgress";
 import SocialLinks from "@/components/SocialLinks";
+import ShareButtons from "@/components/ShareButtons";
+import ShareStory from "@/components/ShareStory";
+
+// Sajak: tiap baris di Sheets = satu baris puisi (bukan digabung jadi paragraf).
+const BREAK_TYPES = ["sajak"];
+// Drop cap hanya cocok untuk prosa fiksi.
+const DROPCAP_TYPES = ["cerpen", "cerbung"];
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+  if (!post) return { title: "Tidak ditemukan" };
+
+  const published = new Date(post.tanggal);
+  return {
+    title: post.judul,
+    description: post.ringkasan || undefined,
+    alternates: { canonical: `/vers/${post.slug}` },
+    openGraph: {
+      type: "article",
+      title: post.judul,
+      description: post.ringkasan || undefined,
+      siteName: "Vijan",
+      ...(isNaN(published.getTime())
+        ? {}
+        : { publishedTime: published.toISOString() }),
+    },
+    twitter: { card: "summary_large_image" },
+  };
+}
 
 function genreLabel(tipe: string) {
   return tipe.charAt(0).toUpperCase() + tipe.slice(1);
@@ -51,11 +87,16 @@ export default async function VersDetail({
   const moreReadsLabel =
     sameGenre.length > 0 ? `${genreLabel(post.tipe)} lainnya` : "Tulisan lain";
 
-  const tanggalFormatted = new Date(post.tanggal).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const tanggalDate = new Date(post.tanggal);
+  const tanggalFormatted = isNaN(tanggalDate.getTime())
+    ? post.tanggal
+    : tanggalDate.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC", // "2026-09-15" di-parse sebagai UTC
+      });
+  const hasDropcap = DROPCAP_TYPES.includes(post.tipe);
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -85,9 +126,17 @@ export default async function VersDetail({
             >
               ← Vers
             </TransitionLink>
-            <div className="flex items-baseline gap-3 text-sm text-neutral-500">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-neutral-500">
               <span>{post.tipe}</span>
               <span>{tanggalFormatted}</span>
+              {seriesInfo && (
+                <TransitionLink
+                  href={`/novel/${post.series}`}
+                  className="hover:text-neutral-300 transition-colors"
+                >
+                  Bab {seriesInfo.current} dari {seriesInfo.total}
+                </TransitionLink>
+              )}
             </div>
           </div>
 
@@ -124,8 +173,16 @@ export default async function VersDetail({
           </div>
 
           <Reveal delay={0.25}>
-            <article className="article-content prose prose-invert prose-lg max-w-2xl prose-p:text-neutral-300 prose-p:leading-[1.8] prose-headings:font-display prose-headings:font-normal prose-a:text-white prose-a:underline prose-a:underline-offset-4 mt-14 pt-10 border-t border-neutral-800">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <article
+              className={`article-content ${hasDropcap ? "dropcap " : ""}prose prose-invert prose-lg max-w-2xl prose-p:text-neutral-300 prose-p:leading-[1.8] prose-headings:font-display prose-headings:font-normal prose-a:text-white prose-a:underline prose-a:underline-offset-4 mt-14 pt-10 border-t border-neutral-800`}
+            >
+              <ReactMarkdown
+                remarkPlugins={
+                  BREAK_TYPES.includes(post.tipe)
+                    ? [remarkGfm, remarkBreaks]
+                    : [remarkGfm]
+                }
+              >
                 {post.isi}
               </ReactMarkdown>
             </article>
@@ -208,6 +265,18 @@ export default async function VersDetail({
               </Reveal>
             )
           )}
+
+          <Reveal delay={0.18}>
+            <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800">
+              <p className="text-sm text-neutral-500 mb-6">
+                Bagikan tulisan ini
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <ShareButtons title={post.judul} text={post.ringkasan} />
+                <ShareStory post={post} tanggalFormatted={tanggalFormatted} />
+              </div>
+            </div>
+          </Reveal>
 
           <Reveal delay={0.15}>
             <Comments

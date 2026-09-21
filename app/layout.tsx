@@ -21,9 +21,27 @@ const publicSans = Public_Sans({
   display: "swap",
 });
 
+// Set NEXT_PUBLIC_SITE_URL di production (mis. https://vijan.id) supaya link
+// preview (og:image, canonical) memakai domain yang benar.
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
+
 export const metadata: Metadata = {
-  title: "Vijan — An Ordinary People",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Vijan — An Ordinary People",
+    template: "%s — Vijan",
+  },
   description: "Portofolio & blog pribadi: artikel, cerpen, novel, naskah.",
+  openGraph: {
+    siteName: "Vijan",
+    locale: "id_ID",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

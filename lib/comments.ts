@@ -34,3 +34,15 @@ export async function addComment(params: {
   );
   return rows[0];
 }
+
+// Simpan nama tampilan ke akun kalau akun itu belum punya nama, supaya
+// komentar berikutnya sudah terisi otomatis. Tidak menimpa nama yang ada.
+export async function rememberDisplayName(
+  userId: string | number,
+  nama: string,
+): Promise<void> {
+  await pool.query(
+    `UPDATE users SET name = $2 WHERE id = $1 AND (name IS NULL OR name = '')`,
+    [userId, nama],
+  );
+}

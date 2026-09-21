@@ -24,10 +24,15 @@ type TransitionContextValue = {
 
 const TransitionContext = createContext<TransitionContextValue | null>(null);
 
+// Halaman baca (tulisan & daftar bab). Pindah antar-halaman ini TIDAK pakai
+// curtain supaya membaca bab demi bab tidak terputus animasi tiap klik.
+const isReadingPath = (path: string) =>
+  path.startsWith("/vers/") || path.startsWith("/novel/");
+
 const EASE = [0.76, 0, 0.24, 1] as const;
-const CLOSE_DURATION = 0.5;
-const OPEN_DURATION = 0.6;
-const OPEN_DELAY = 0.08;
+const CLOSE_DURATION = 0.3;
+const OPEN_DURATION = 0.4;
+const OPEN_DELAY = 0.04;
 const WAIT_FALLBACK_MS = 4000;
 // Reduce Motion: curtain tetap ada (biar transisi konten tetap "bersih"),
 // tapi tanpa slide penuh layar — cuma fade, durasi jauh lebih pendek.
@@ -138,7 +143,8 @@ export function TransitionLink({
           e.ctrlKey ||
           e.shiftKey ||
           e.altKey ||
-          href.toString() === currentPath
+          href.toString() === currentPath ||
+          (isReadingPath(currentPath) && isReadingPath(href.toString()))
         ) {
           return;
         }

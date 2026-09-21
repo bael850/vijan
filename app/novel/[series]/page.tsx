@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPostsBySeries } from "@/lib/data";
@@ -5,6 +6,15 @@ import Reveal from "@/components/Reveal";
 
 function seriesTitle(slug: string) {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ series: string }>;
+}): Promise<Metadata> {
+  const { series } = await params;
+  return { title: seriesTitle(series) };
 }
 
 export default async function NovelSeries({
@@ -54,7 +64,7 @@ export default async function NovelSeries({
                 className="group flex items-start gap-6 py-8"
               >
                 <span className="font-display text-2xl text-neutral-600 pt-1 shrink-0 w-10">
-                  {String(post.urutan ?? i + 1).padStart(2, "0")}
+                  {String(i + 1).padStart(2, "0")}
                 </span>
                 <div>
                   <h3 className="font-display text-2xl md:text-3xl leading-tight mb-2 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5">

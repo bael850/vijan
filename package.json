@@ -22,6 +22,7 @@
     "react-dom": "19.2.8",
     "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.28.1",
     "three": "^0.186.0"
