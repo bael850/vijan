@@ -19,6 +19,7 @@ export default function MenuOption({
       onClick={onSelect}
       onMouseEnter={onHover}
       onFocus={onHover}
+      onTouchStart={onHover}
       whileTap={{ scale: 0.97 }}
       className="group relative flex items-center gap-4 py-2.5 text-left focus:outline-none md:gap-5 md:py-3"
     >

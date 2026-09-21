@@ -90,6 +90,14 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
                       scale: 1.02,
                     }
               }
+              whileTap={
+                reduceMotion
+                  ? undefined
+                  : {
+                      rotate: hoverRotate[i % hoverRotate.length],
+                      scale: 1.02,
+                    }
+              }
               className={offsets[i % offsets.length]}
             >
               <Link href="/kage" className="group block">
@@ -101,7 +109,7 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
                     src={foto.gambar}
                     alt={foto.judul}
                     fill
-                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110"
+                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-110 group-active:scale-110"
                   />
                 </TiltCard>
                 <h3 className="font-display text-lg leading-tight transition-colors group-hover:text-neutral-400">

@@ -67,15 +67,15 @@ export default function PostList({ posts }: { posts: Post[] }) {
                   {featured.tipe}
                 </span>
               </div>
-              <h2 className="font-display text-4xl md:text-6xl leading-[1.02] mb-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-2 group-hover:skew-x-[-2deg]">
+              <h2 className="font-display text-4xl md:text-6xl leading-[1.02] mb-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-2 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-2 group-active:skew-x-[-2deg]">
                 {featured.judul}
               </h2>
               <p className="text-neutral-400 leading-relaxed max-w-xl text-lg">
                 {featured.ringkasan}
               </p>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm uppercase tracking-wide border-b border-neutral-600 pb-1 transition-colors group-hover:border-white">
+              <span className="mt-6 inline-flex items-center gap-2 text-sm uppercase tracking-wide border-b border-neutral-600 pb-1 transition-colors group-hover:border-white group-active:border-white">
                 Baca selengkapnya
-                <span className="transition-transform group-hover:translate-x-1">
+                <span className="transition-transform group-hover:translate-x-1 group-active:translate-x-1">
                   →
                 </span>
               </span>
@@ -103,13 +103,13 @@ export default function PostList({ posts }: { posts: Post[] }) {
                     {post.tipe}
                   </span>
                 </div>
-                <h3 className="font-display text-2xl md:text-3xl leading-tight mb-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5 group-hover:skew-x-[-2deg]">
+                <h3 className="font-display text-2xl md:text-3xl leading-tight mb-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-1.5 group-active:skew-x-[-2deg]">
                   {post.judul}
                 </h3>
                 <p className="text-neutral-500 leading-relaxed">
                   {post.ringkasan}
                 </p>
-                <div className="mt-4 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
+                <div className="mt-4 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full group-active:w-full" />
               </Link>
             </motion.div>
           ))}
