@@ -63,6 +63,16 @@ function parseUrutan(value: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+// Sort tanggal sebelumnya bandingin string mentah ("a.tanggal < b.tanggal"),
+// yang cuma bener kalau semua baris di Sheets formatnya konsisten YYYY-MM-DD.
+// Sekali aja ada baris ketik manual pakai format lain (mis. 09-16-2026),
+// urutan "terbaru dulu" bisa kacau tanpa ketahuan. Parse ke timestamp dulu
+// biar aman dari format tanggal apa pun yang bisa dibaca `Date`.
+function tanggalTs(tanggal: string): number {
+  const t = new Date(tanggal).getTime();
+  return Number.isFinite(t) ? t : 0; // tanggal kosong/rusak -> dianggap paling lama
+}
+
 function rowToPost(row: string[]): Post | null {
   const [
     judul,
@@ -146,7 +156,7 @@ export async function getAllPosts(): Promise<Post[]> {
   const posts = await fetchAllPostsRaw();
   return posts
     .filter((p) => p.status === "published")
-    .sort((a, b) => (a.tanggal < b.tanggal ? 1 : -1));
+    .sort((a, b) => tanggalTs(b.tanggal) - tanggalTs(a.tanggal));
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
@@ -169,7 +179,7 @@ export async function getAllFoto(): Promise<FotoKage[]> {
   const foto = await fetchAllFotoRaw();
   return foto
     .filter((f) => f.status === "published")
-    .sort((a, b) => (a.tanggal < b.tanggal ? 1 : -1));
+    .sort((a, b) => tanggalTs(b.tanggal) - tanggalTs(a.tanggal));
 }
 
 export async function getFotoBySlug(slug: string): Promise<FotoKage | null> {

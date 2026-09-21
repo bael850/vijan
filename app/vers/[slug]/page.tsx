@@ -13,6 +13,7 @@ import ScrollProgress from "@/components/ScrollProgress";
 import SocialLinks from "@/components/SocialLinks";
 import ShareButtons from "@/components/ShareButtons";
 import ShareStory from "@/components/ShareStory";
+import BookCover3D from "@/components/BookCover3D";
 
 // Sajak: tiap baris di Sheets = satu baris puisi (bukan digabung jadi paragraf).
 const BREAK_TYPES = ["sajak"];
@@ -41,6 +42,10 @@ export async function generateMetadata({
       ...(isNaN(published.getTime())
         ? {}
         : { publishedTime: published.toISOString() }),
+      // Cover rekomendasi (buku/film) dipakai juga sebagai gambar preview
+      // link — sebelumnya link yang di-share sama sekali nggak nampilin
+      // covernya, cuma judul & ringkasan polos.
+      ...(post.cover ? { images: [post.cover] } : {}),
     },
     twitter: { card: "summary_large_image" },
   };
@@ -97,6 +102,12 @@ export default async function VersDetail({
         timeZone: "UTC", // "2026-09-15" di-parse sebagai UTC
       });
   const hasDropcap = DROPCAP_TYPES.includes(post.tipe);
+
+  // Rekomendasi: cover ditampilkan di halaman detailnya sendiri juga —
+  // sebelumnya cover cuma nongol di daftar /vers?rubrik=rekomendasi, jadi
+  // link yang di-share ke tulisan ini nggak nunjukin covernya sama sekali.
+  const isBook = !!(post.cover && post.coverBelakang);
+  const hasCover = !!post.cover;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -171,6 +182,41 @@ export default async function VersDetail({
               </p>
             </Reveal>
           </div>
+
+          {hasCover && (
+            <Reveal delay={0.2}>
+              <div className="relative mx-auto mt-12 w-full max-w-[220px] pb-6">
+                {/* sorot lampu dari atas, senada sama versi di daftar shelf */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -inset-x-12 -top-16 bottom-0 bg-[radial-gradient(ellipse_at_50%_38%,rgba(91,141,239,0.2),transparent_62%)]"
+                />
+                {isBook ? (
+                  <BookCover3D
+                    src={post.cover!}
+                    backSrc={post.coverBelakang}
+                    alt={`Cover ${post.judul}`}
+                    title={post.judul}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.cover}
+                    alt={`Cover ${post.judul}`}
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="relative aspect-[2/3] w-full rounded-[3px] object-cover shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9),0_0_0_0.5px_rgba(255,255,255,0.12)]"
+                  />
+                )}
+                {isBook && (
+                  <p className="mt-6 text-center font-display italic text-sm text-neutral-500">
+                    geser untuk memutar buku
+                  </p>
+                )}
+              </div>
+            </Reveal>
+          )}
 
           <Reveal delay={0.25}>
             <article

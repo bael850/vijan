@@ -13,6 +13,18 @@ const LINKS = [
 export default function Navbar() {
   const pathname = usePathname();
 
+  // Sebelumnya cuma cocok kalau path-nya PERSIS sama ("/vers" doang) —
+  // begitu masuk ke "/vers/judul-tulisan" atau "/novel/seri", penanda
+  // aktifnya mati padahal pembaca masih di rubrik yang sama. Sekarang
+  // ikut nyala buat semua path turunannya, dan "/novel/..." dianggap
+  // masih bagian dari Vers (karena diakses dari sana).
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    if (pathname === href || pathname.startsWith(`${href}/`)) return true;
+    if (href === "/vers" && pathname.startsWith("/novel/")) return true;
+    return false;
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 md:px-6 md:py-4">
       {/* Scrim — kontras teks navbar sebelumnya cuma mengandalkan text-shadow,
@@ -32,7 +44,7 @@ export default function Navbar() {
       </TransitionLink>
       <nav className="flex items-center gap-4 sm:gap-6">
         {LINKS.map((link) => {
-          const active = pathname === link.href;
+          const active = isActive(link.href);
           return (
             <TransitionLink
               key={link.href}

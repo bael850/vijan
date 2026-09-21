@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BookCover3D from "@/components/BookCover3D";
 import Reveal from "@/components/Reveal";
+import { useGraphics } from "@/components/providers/GraphicsProvider";
 import type { Post } from "@/lib/types";
 
 // Rekomendasi = tulisan. Cover cuma hiasan yang menemani teksnya:
@@ -10,6 +11,8 @@ import type { Post } from "@/lib/types";
 //   • tanpa cover → teks saja, layoutnya menyesuaikan
 // Posisi cover bergantian kiri/kanan supaya ritme scroll-nya nggak monoton.
 export default function RekomendasiShelf({ posts }: { posts: Post[] }) {
+  const { reduceMotion } = useGraphics();
+
   return (
     <div className="flex flex-col gap-28 md:gap-40">
       {posts.map((post, i) => {
@@ -60,7 +63,17 @@ export default function RekomendasiShelf({ posts }: { posts: Post[] }) {
                       loading="lazy"
                       decoding="async"
                       referrerPolicy="no-referrer"
-                      className="relative aspect-[2/3] w-full rounded-[3px] object-cover shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9),0_0_0_0.5px_rgba(255,255,255,0.12)] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:[transform:perspective(900px)_rotateY(-9deg)_rotateX(3deg)_scale(1.02)]"
+                      // onTouchStart kosong ini bukan buat nangkep event —
+                      // cuma trik supaya Safari iOS mau memicu :active sama
+                      // sekali (tanpa ini, style active: nggak pernah nyala
+                      // di iPhone karena :active di sana defaultnya cuma
+                      // aktif buat elemen yang punya listener sentuhan).
+                      onTouchStart={reduceMotion ? undefined : () => {}}
+                      className={`relative aspect-[2/3] w-full rounded-[3px] object-cover shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9),0_0_0_0.5px_rgba(255,255,255,0.12)] ${
+                        reduceMotion
+                          ? ""
+                          : "transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:[transform:perspective(900px)_rotateY(-9deg)_rotateX(3deg)_scale(1.02)] active:duration-150 active:[transform:perspective(900px)_rotateY(-9deg)_rotateX(3deg)_scale(1.02)]"
+                      }`}
                     />
                   )}
                 </div>

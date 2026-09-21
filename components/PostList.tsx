@@ -64,25 +64,42 @@ export default function PostList({ posts }: { posts: Post[] }) {
           >
             <Link
               href={`/vers/${featured.slug}`}
-              className="group block mb-20 md:mb-28"
+              className="group flex flex-col-reverse items-start gap-8 mb-20 md:mb-28 md:flex-row md:items-center md:gap-12"
             >
-              <div className="mb-4">
-                <span className="text-xs uppercase tracking-[0.2em] text-neutral-500 border border-neutral-700 rounded-full px-3 py-1">
-                  {featured.tipe}
+              <div className="min-w-0 flex-1">
+                <div className="mb-4">
+                  <span className="text-xs uppercase tracking-[0.2em] text-neutral-500 border border-neutral-700 rounded-full px-3 py-1">
+                    {featured.tipe}
+                  </span>
+                </div>
+                <h2 className="font-display text-4xl md:text-6xl leading-[1.02] mb-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-2 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-2 group-active:skew-x-[-2deg]">
+                  {featured.judul}
+                </h2>
+                <p className="text-neutral-400 leading-relaxed max-w-xl text-lg">
+                  {featured.ringkasan}
+                </p>
+                <span className="mt-6 inline-flex items-center gap-2 text-sm uppercase tracking-wide border-b border-neutral-600 pb-1 transition-colors group-hover:border-white group-active:border-white">
+                  Baca selengkapnya
+                  <span className="transition-transform group-hover:translate-x-1 group-active:translate-x-1">
+                    →
+                  </span>
                 </span>
               </div>
-              <h2 className="font-display text-4xl md:text-6xl leading-[1.02] mb-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-2 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-2 group-active:skew-x-[-2deg]">
-                {featured.judul}
-              </h2>
-              <p className="text-neutral-400 leading-relaxed max-w-xl text-lg">
-                {featured.ringkasan}
-              </p>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm uppercase tracking-wide border-b border-neutral-600 pb-1 transition-colors group-hover:border-white group-active:border-white">
-                Baca selengkapnya
-                <span className="transition-transform group-hover:translate-x-1 group-active:translate-x-1">
-                  →
-                </span>
-              </span>
+              {/* Rekomendasi kelihatan beda dari jenis tulisan lain sejak
+                  di beranda — sebelumnya semua tipe dirender sama rata di
+                  sini, jadi review buku/film nggak kelihatan istimewa
+                  sebelum orang masuk ke Vers. */}
+              {featured.tipe === "rekomendasi" && featured.cover && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={featured.cover}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="aspect-[2/3] w-28 shrink-0 rounded-[3px] object-cover shadow-[0_20px_40px_-15px_rgba(0,0,0,0.9)] md:w-40"
+                />
+              )}
             </Link>
           </motion.div>
         )}
@@ -101,19 +118,35 @@ export default function PostList({ posts }: { posts: Post[] }) {
               }}
               className={i % 2 === 1 ? "md:mt-16" : ""}
             >
-              <Link href={`/vers/${post.slug}`} className="group block">
-                <div className="mb-3">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
-                    {post.tipe}
-                  </span>
+              <Link
+                href={`/vers/${post.slug}`}
+                className="group flex items-start gap-5"
+              >
+                {post.tipe === "rekomendasi" && post.cover && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.cover}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="aspect-[2/3] w-14 shrink-0 rounded-[2px] object-cover shadow-[0_14px_28px_-12px_rgba(0,0,0,0.9)]"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+                      {post.tipe}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-2xl md:text-3xl leading-tight mb-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-1.5 group-active:skew-x-[-2deg]">
+                    {post.judul}
+                  </h3>
+                  <p className="text-neutral-500 leading-relaxed">
+                    {post.ringkasan}
+                  </p>
+                  <div className="mt-4 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full group-active:w-full" />
                 </div>
-                <h3 className="font-display text-2xl md:text-3xl leading-tight mb-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-1.5 group-active:skew-x-[-2deg]">
-                  {post.judul}
-                </h3>
-                <p className="text-neutral-500 leading-relaxed">
-                  {post.ringkasan}
-                </p>
-                <div className="mt-4 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full group-active:w-full" />
               </Link>
             </motion.div>
           ))}

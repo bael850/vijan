@@ -55,9 +55,21 @@ export default function VersListClient({
       if (p.tipe === "rekomendasi" && p.kategori) set.add(p.kategori);
     return Array.from(set);
   }, [posts]);
-  const rekList = filtered.filter(
-    (p) => segmen === "semua" || p.kategori === segmen,
-  );
+
+  // Pencarian teks bebas di dalam rekomendasi — cocokin ke judul & ringkasan,
+  // jalan bareng filter kategori (bukan gantiin). Query kosong = nggak
+  // nyaring apa-apa, jadi nggak mengubah tampilan kalau nggak dipakai.
+  const [query, setQuery] = useState("");
+  const rekList = filtered
+    .filter((p) => segmen === "semua" || p.kategori === segmen)
+    .filter((p) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        p.judul.toLowerCase().includes(q) ||
+        p.ringkasan.toLowerCase().includes(q)
+      );
+    });
 
   // Daftar isi dihitung dari data asli.
   const items: TocItem[] = useMemo(() => {
@@ -128,11 +140,25 @@ export default function VersListClient({
               Yang pernah bikin saya berhenti sejenak — dibedah sedikit.
             </p>
 
+            <div className="mt-10 max-w-sm">
+              <label htmlFor="cari-rekomendasi" className="sr-only">
+                Cari rekomendasi
+              </label>
+              <input
+                id="cari-rekomendasi"
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cari judul atau ringkasan…"
+                className="w-full border-b border-neutral-700 bg-transparent py-2 text-sm text-white placeholder:text-neutral-600 focus:border-white focus:outline-none"
+              />
+            </div>
+
             {segmenList.length > 0 && (
               <div
                 role="group"
                 aria-label="Segmen rekomendasi"
-                className="mt-10 mb-20 flex flex-wrap gap-x-7 gap-y-2 font-display text-2xl"
+                className="mt-8 mb-20 flex flex-wrap gap-x-7 gap-y-2 font-display text-2xl"
               >
                 {["semua", ...segmenList].map((k) => (
                   <button
@@ -164,7 +190,9 @@ export default function VersListClient({
                   <RekomendasiShelf posts={rekList} />
                 ) : (
                   <p className="text-neutral-500 text-center py-20">
-                    Belum ada rekomendasi di segmen ini.
+                    {query.trim()
+                      ? "Nggak ketemu yang cocok sama pencarianmu."
+                      : "Belum ada rekomendasi di segmen ini."}
                   </p>
                 )}
               </motion.div>
