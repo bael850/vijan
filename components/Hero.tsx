@@ -181,9 +181,7 @@ export default function Hero() {
             animate={{ opacity: entered ? 1 : 0 }}
             transition={{ duration: 1, delay: 0.6 }}
             className="pointer-events-none absolute top-6 left-4 md:left-6 z-10 text-xs uppercase tracking-[0.3em] text-neutral-500"
-          >
-            Prolog
-          </motion.div>
+          ></motion.div>
 
           <motion.div
             style={{ y: textY, willChange: "transform" }}
