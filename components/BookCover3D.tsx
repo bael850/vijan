@@ -148,9 +148,16 @@ export default function BookCover3D({
   title?: string;
   className?: string;
 }) {
-  const { reduceMotion, ready } = useGraphics();
+  const { reduceMotion, ready, quality } = useGraphics();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { margin: "120px 0px" });
+
+  // low → jangan render 3D-nya sama sekali (dipasang di bawah, setelah semua
+  // hook selesai dipanggil, biar jumlah hook tetap konsisten tiap render).
+  const flat = quality === "low";
+  // medium → 3D & lighting tetap jalan pas disentuh, tapi animasi idle
+  // (melayang + goyang pelan) yang jalan terus-menerus dimatikan.
+  const idleEnabled = quality === "high";
 
   // ── Ukuran (px) — dibaca dari lebar container ────────────
   const [width, setWidth] = useState(240);
@@ -224,7 +231,7 @@ export default function BookCover3D({
   // ── Masuk layar sekali, lalu melayang selama masih kelihatan ──
   const entered = useRef(false);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || flat) return;
     if (reduceMotion) {
       enter.set(0);
       return;
@@ -233,10 +240,10 @@ export default function BookCover3D({
       entered.current = true;
       animate(enter, 0, { duration: 1.5, ease: [0.22, 1, 0.36, 1] });
     }
-  }, [ready, reduceMotion, inView, enter]);
+  }, [ready, reduceMotion, inView, enter, flat]);
 
   useEffect(() => {
-    if (reduceMotion || !inView) return;
+    if (reduceMotion || !inView || !idleEnabled) return;
     const a = animate(floatY, [0, -7, 0], {
       duration: 7,
       repeat: Infinity,
@@ -251,7 +258,7 @@ export default function BookCover3D({
       a.stop();
       b.stop();
     };
-  }, [reduceMotion, inView, floatY, sway]);
+  }, [reduceMotion, inView, idleEnabled, floatY, sway]);
 
   // ── Pointer: hover (mouse) + drag (mouse & sentuh) ───────
   const drag = useRef<{
@@ -379,6 +386,24 @@ export default function BookCover3D({
 
   const fontSize = Math.max(9, Math.round(D * 0.4));
   const shadowH = Math.max(18, W * 0.09);
+
+  // Device low-end: cover depan doang, datar, tanpa apparatus 3D/lighting
+  // di atas sama sekali (nggak cuma disembunyikan lewat CSS).
+  if (flat) {
+    return (
+      <div ref={ref} className={`relative aspect-[2/3] ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 h-full w-full rounded-[3px] object-cover shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9),0_0_0_0.5px_rgba(255,255,255,0.12)]"
+        />
+      </div>
+    );
+  }
 
   return (
     <div
