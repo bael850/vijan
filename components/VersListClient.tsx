@@ -73,7 +73,7 @@ export default function VersListClient({ posts }: { posts: Post[] }) {
                 <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
                   {featured.tipe} — {formatTanggal(featured.tanggal)}
                 </span>
-                <h2 className="font-display text-4xl md:text-6xl leading-[1.05] mt-3 mb-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-2 group-hover:skew-x-[-2deg]">
+                <h2 className="font-display text-4xl md:text-6xl leading-[1.05] mt-3 mb-5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-2 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-2 group-active:skew-x-[-2deg]">
                   {featured.judul}
                 </h2>
                 <p className="text-neutral-500 leading-relaxed max-w-xl">
@@ -99,7 +99,7 @@ export default function VersListClient({ posts }: { posts: Post[] }) {
                   <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
                     {post.tipe} — {formatTanggal(post.tanggal)}
                   </span>
-                  <h3 className="font-display text-2xl md:text-3xl leading-tight mt-2 mb-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5 group-hover:skew-x-[-2deg]">
+                  <h3 className="font-display text-2xl md:text-3xl leading-tight mt-2 mb-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5 group-hover:skew-x-[-2deg] group-active:text-neutral-400 group-active:translate-x-1.5 group-active:skew-x-[-2deg]">
                     {post.judul}
                   </h3>
                   <p className="text-neutral-500 leading-relaxed max-w-xl">
