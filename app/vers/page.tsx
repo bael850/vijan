@@ -8,8 +8,13 @@ export const metadata: Metadata = {
   description: "Cerpen, cerbung, sajak, dan tulisan lainnya.",
 };
 
-export default async function VersPage() {
-  const posts = await getAllPosts();
+export default async function VersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rubrik?: string }>;
+}) {
+  const [posts, { rubrik }] = await Promise.all([getAllPosts(), searchParams]);
+  const initial = rubrik === "rekomendasi" ? "rekomendasi" : "semua";
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -20,7 +25,7 @@ export default async function VersPage() {
           </h1>
         </Reveal>
 
-        <VersListClient posts={posts} />
+        <VersListClient posts={posts} initial={initial} />
       </div>
     </main>
   );

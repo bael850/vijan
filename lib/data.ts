@@ -54,7 +54,8 @@ async function fetchRange(range: string): Promise<string[][]> {
 // Mapping baris sheet → tipe data (lib/types.ts)
 // ─────────────────────────────────────────────────────────────
 
-// Tab "Tulisan" kolom: judul, slug, tipe, ringkasan, isi, status, tanggal, series, urutan
+// Tab "Tulisan" kolom: judul, slug, tipe, ringkasan, isi, status, tanggal, series, urutan,
+// kategori, cover, cover_belakang  (3 kolom terakhir khusus rekomendasi, boleh kosong)
 // "abc" / "" / spasi -> undefined, bukan NaN (NaN merusak urutan sort).
 function parseUrutan(value: string | undefined): number | undefined {
   if (!value?.trim()) return undefined;
@@ -63,8 +64,20 @@ function parseUrutan(value: string | undefined): number | undefined {
 }
 
 function rowToPost(row: string[]): Post | null {
-  const [judul, slug, tipe, ringkasan, isi, status, tanggal, series, urutan] =
-    row;
+  const [
+    judul,
+    slug,
+    tipe,
+    ringkasan,
+    isi,
+    status,
+    tanggal,
+    series,
+    urutan,
+    kategori,
+    cover,
+    coverBelakang,
+  ] = row;
 
   if (!judul || !slug) return null; // skip baris kosong
 
@@ -78,6 +91,9 @@ function rowToPost(row: string[]): Post | null {
     tanggal: tanggal ?? "",
     series: series || undefined,
     urutan: parseUrutan(urutan),
+    kategori: kategori?.trim().toLowerCase() || undefined,
+    cover: cover?.trim() || undefined,
+    coverBelakang: coverBelakang?.trim() || undefined,
   };
 }
 
@@ -105,7 +121,7 @@ function rowToFoto(row: string[]): FotoKage | null {
 const fetchAllPostsRaw = unstable_cache(
   async (): Promise<Post[]> => {
     // Skip baris 1 (header) → mulai dari A2
-    const rows = await fetchRange("Tulisan!A2:I");
+    const rows = await fetchRange("Tulisan!A2:L");
     return rows.map(rowToPost).filter((p): p is Post => p !== null);
   },
   ["sheets-posts"],

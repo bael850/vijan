@@ -18,6 +18,10 @@ export interface Post {
   tanggal: string; // format: "2026-09-15"
   series?: string;
   urutan?: number;
+  // Khusus tipe "rekomendasi" (semua opsional):
+  kategori?: string; // "buku" | "anime" | "film" | "series" | apa pun — huruf kecil
+  cover?: string; // URL cover depan / poster
+  coverBelakang?: string; // URL cover belakang — kalau ada, tampil sebagai buku 3D 360°
 }
 
 export interface FotoKage {

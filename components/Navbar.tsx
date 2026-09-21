@@ -8,7 +8,6 @@ const LINKS = [
   { href: "/", label: "Beranda" },
   { href: "/vers", label: "Vers" },
   { href: "/kage", label: "Kage" },
-  { href: "/rekomendasi", label: "Rekomendasi" },
 ];
 
 export default function Navbar() {
