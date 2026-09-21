@@ -11,6 +11,7 @@ import DrawLine from "@/components/DrawLine";
 import TiltCard from "@/components/TiltCard";
 import { FotoKage } from "@/lib/types";
 import { useGraphics } from "@/components/providers/GraphicsProvider";
+import { useInViewport } from "@/lib/useInViewport";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
@@ -23,6 +24,7 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
   const { reduceMotion } = useGraphics();
   const preview = fotos.slice(0, 3);
   const ref = useRef<HTMLDivElement>(null);
+  const inView = useInViewport(ref);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
@@ -54,11 +56,13 @@ export default function KagePreview({ fotos }: { fotos: FotoKage[] }) {
         style={{ opacity: particleOpacity }}
         className="pointer-events-none absolute inset-0"
       >
-        <AmbientParticles
-          scrollYProgress={progress}
-          count={90}
-          color="#5b8def"
-        />
+        {inView && (
+          <AmbientParticles
+            scrollYProgress={progress}
+            count={90}
+            color="#5b8def"
+          />
+        )}
       </motion.div>
 
       <CinematicReveal className="relative">

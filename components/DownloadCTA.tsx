@@ -7,6 +7,7 @@ import Reveal from "@/components/Reveal";
 import CinematicReveal from "@/components/CinematicReveal";
 import DrawLine from "@/components/DrawLine";
 import SocialLinks from "@/components/SocialLinks";
+import { useInViewport } from "@/lib/useInViewport";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
@@ -31,6 +32,7 @@ const DOWNLOADS = [
 
 export default function DownloadCTA() {
   const ref = useRef<HTMLDivElement>(null);
+  const inView = useInViewport(ref);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
@@ -60,11 +62,13 @@ export default function DownloadCTA() {
         style={{ opacity: particleOpacity }}
         className="pointer-events-none absolute inset-0"
       >
-        <AmbientParticles
-          scrollYProgress={progress}
-          count={140}
-          color="#5b8def"
-        />
+        {inView && (
+          <AmbientParticles
+            scrollYProgress={progress}
+            count={140}
+            color="#5b8def"
+          />
+        )}
       </motion.div>
 
       <div className="relative">

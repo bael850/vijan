@@ -6,6 +6,7 @@ import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Post } from "@/lib/types";
 import { useGraphics } from "@/components/providers/GraphicsProvider";
+import { useInViewport } from "@/lib/useInViewport";
 
 const AmbientParticles = dynamic(() => import("./AmbientParticles"), {
   ssr: false,
@@ -15,6 +16,7 @@ export default function PostList({ posts }: { posts: Post[] }) {
   const { reduceMotion } = useGraphics();
   const [featured, ...rest] = posts;
   const ref = useRef<HTMLDivElement>(null);
+  const inView = useInViewport(ref);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
@@ -40,11 +42,13 @@ export default function PostList({ posts }: { posts: Post[] }) {
         style={{ opacity: particleOpacity }}
         className="pointer-events-none absolute inset-0"
       >
-        <AmbientParticles
-          scrollYProgress={progress}
-          count={90}
-          color="#5b8def"
-        />
+        {inView && (
+          <AmbientParticles
+            scrollYProgress={progress}
+            count={90}
+            color="#5b8def"
+          />
+        )}
       </motion.div>
 
       <div className="relative">
