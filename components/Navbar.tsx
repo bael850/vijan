@@ -1,76 +1,85 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { TransitionLink } from "@/components/PageTransition";
+import {
+  motion,
+  useMotionValueEvent,
+  useScroll,
+  useSpring,
+} from "framer-motion";
 
 const LINKS = [
-  { href: "/", label: "Beranda" },
-  { href: "/vers", label: "Vers" },
-  { href: "/kage", label: "Kage" },
+  { href: "/", label: "Galeri" },
+  { href: "/vers", label: "Tulisan" },
+  { href: "/kage", label: "Foto" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { scrollY, scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 200, damping: 40 });
+  const [hidden, setHidden] = useState(false);
 
-  // Sebelumnya cuma cocok kalau path-nya PERSIS sama ("/vers" doang) —
-  // begitu masuk ke "/vers/judul-tulisan" atau "/novel/seri", penanda
-  // aktifnya mati padahal pembaca masih di rubrik yang sama. Sekarang
-  // ikut nyala buat semua path turunannya, dan "/novel/..." dianggap
-  // masih bagian dari Vers (karena diakses dari sana).
-  function isActive(href: string) {
-    if (href === "/") return pathname === "/";
-    if (pathname === href || pathname.startsWith(`${href}/`)) return true;
-    if (href === "/vers" && pathname.startsWith("/novel/")) return true;
-    return false;
-  }
+  useMotionValueEvent(scrollY, "change", (y) => {
+    const prev = scrollY.getPrevious() ?? 0;
+    setHidden(y > prev && y > 120);
+  });
+
+  const isActive = (href: string) =>
+    href === "/"
+      ? pathname === "/"
+      : pathname === href ||
+        pathname.startsWith(`${href}/`) ||
+        (href === "/vers" && pathname.startsWith("/novel/"));
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 md:px-6 md:py-4">
-      {/* Scrim — kontras teks navbar sebelumnya cuma mengandalkan text-shadow,
-          jadi gampang tenggelam di atas foto/hero yang terang (mis. Kage,
-          hero foto). Gradasi tipis ini jaga kontras tanpa perlu bikin bar
-          solid yang berat secara visual. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-black/55 via-black/15 to-transparent"
+    <>
+      <motion.div
+        style={{ scaleX: progress }}
+        className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-lime"
       />
-
-      <TransitionLink
-        href="/"
-        className="flex min-h-11 items-center pr-2 text-xs uppercase tracking-[0.2em] text-neutral-300 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]"
+      <motion.header
+        animate={{ y: hidden ? "-140%" : 0 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-3xl items-center justify-between rounded-full border-2 border-ink bg-ink py-1.5 pl-5 pr-1.5 shadow-[4px_4px_0_0_var(--lime)]"
       >
-        Vijan
-      </TransitionLink>
-      <nav className="flex items-center gap-4 sm:gap-6">
-        {LINKS.map((link) => {
-          const active = isActive(link.href);
-          return (
-            <TransitionLink
-              key={link.href}
-              href={link.href}
-              className="relative flex min-h-11 items-center px-0.5 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]"
-            >
-              <motion.span
-                animate={{ color: active ? "#ffffff" : "#c9c9c9" }}
-                whileHover={{ color: "#e5e5e5" }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.25 }}
-                className="inline-block text-xs uppercase tracking-[0.15em]"
+        <Link
+          href="/"
+          className="stretch font-display text-xl font-black tracking-tight text-white"
+        >
+          vijan<span className="text-lime">*</span>
+        </Link>
+
+        <nav className="flex items-center gap-0.5">
+          {LINKS.map((l) => {
+            const active = isActive(l.href);
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="relative rounded-full px-4 py-2 text-sm font-semibold"
               >
-                {link.label}
-              </motion.span>
-              {active && (
-                <motion.div
-                  layoutId="nav-underline"
-                  className="absolute bottom-[12px] left-0.5 right-0.5 h-px bg-white"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-            </TransitionLink>
-          );
-        })}
-      </nav>
-    </header>
+                {active && (
+                  <motion.span
+                    layoutId="nav-pill"
+                    className="absolute inset-0 rounded-full bg-lime"
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  />
+                )}
+                <span
+                  className={`relative transition-colors ${
+                    active ? "text-ink" : "text-sky hover:text-white"
+                  }`}
+                >
+                  {l.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      </motion.header>
+    </>
   );
 }

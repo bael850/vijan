@@ -1,28 +1,33 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Public_Sans } from "next/font/google";
+import { Archivo, Instrument_Serif, Inter } from "next/font/google";
 import "./globals.css";
-import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import Navbar from "@/components/Navbar";
-import { PageTransitionProvider } from "@/components/PageTransition";
+import Footer from "@/components/Footer";
 import { GraphicsProvider } from "@/components/providers/GraphicsProvider";
 
-const bodoniModa = Bodoni_Moda({
+// Archivo (sumbu lebar) = judul super tebal yang bisa melebar saat hover.
+// Instrument Serif italic = kata aksen yang elegan sebagai kontras.
+const archivo = Archivo({
   subsets: ["latin"],
   variable: "--font-display",
-  style: ["normal", "italic"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  axes: ["wdth"],
   display: "swap",
 });
 
-const publicSans = Public_Sans({
+const instrument = Instrument_Serif({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: "400",
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-// Set NEXT_PUBLIC_SITE_URL di production (mis. https://vijan.id) supaya link
-// preview (og:image, canonical) memakai domain yang benar.
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -31,16 +36,10 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: {
-    default: "Vijan — An Ordinary People",
-    template: "%s — Vijan",
-  },
-  description: "Portofolio & blog pribadi: artikel, cerpen, novel, naskah.",
-  openGraph: {
-    siteName: "Vijan",
-    locale: "id_ID",
-    type: "website",
-  },
+  title: { default: "Vijan — Galeri tulisan & foto", template: "%s — Vijan" },
+  description:
+    "Galeri tulisan dan fotografi pribadi: cerpen, sajak, cerbung, dan potret sehari-hari.",
+  openGraph: { siteName: "Vijan", locale: "id_ID", type: "website" },
   twitter: { card: "summary_large_image" },
 };
 
@@ -50,15 +49,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={`${bodoniModa.variable} ${publicSans.variable}`}>
-      <body className="font-sans antialiased bg-black text-white">
+    <html
+      lang="id"
+      className={`${archivo.variable} ${instrument.variable} ${inter.variable}`}
+    >
+      <body className="min-h-screen bg-paper font-sans text-ink antialiased">
         <GraphicsProvider>
-          <SmoothScrollProvider>
-            <PageTransitionProvider>
-              <Navbar />
-              {children}
-            </PageTransitionProvider>
-          </SmoothScrollProvider>
+          <Navbar />
+          {children}
+          <Footer />
         </GraphicsProvider>
       </body>
     </html>
