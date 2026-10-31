@@ -1,76 +1,119 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* ── Vijan · Galeri (biru berani) ───────────────────────────
-   Kobalt + navy + es, ditemani lime / sky / pink sebagai pop. */
+/* ── Vijan · Senja ───────────────────────────────────────────
+   Aturan dunia:
+   - Senja di kota kecil abad ke-14: ungu-abu, kayu cokelat, kabut tipis.
+   - Kuning lampu (--lantern) HANYA untuk yang bisa diklik / disorot.
+   - Satu font saja (IM Fell English). Hierarki lewat ukuran, bukan tebal.
+   - Gerak pelan dan tenang. */
 :root {
-  --paper: #eef2ff;
-  --card: #ffffff;
-  --ink: #0a1033;
-  --muted: #4a5280;
-  --line: #c9d3ff;
-  --accent: #2b3dff; /* kobalt */
-  --accent-soft: #1a2bd6;
-  --lime: #d4ff4f;
-  --sky: #9fbaff;
-  --pink: #ffb8d9;
+  --paper: #17121a; /* langit senja yang sudah gelap */
+  --surface: #1f1820;
+  --card: #261d26;
+  --ink: #efe3cf; /* kertas tua */
+  --muted: #a39484;
+  --line: #3a2e36;
+  --accent: #9c8fb8; /* ungu-abu senja */
+  --accent-soft: #bdb1d4;
+  --lantern: #ffb866; /* cahaya lampu: yang bisa diklik */
+  --lantern-soft: #ffd9a3;
+
+  /* Nama lama dipertahankan supaya halaman yang belum dirombak tidak error. */
+  --lime: var(--lantern);
+  --sky: #2b2233;
+  --pink: #3a2a3a;
+
   --background: var(--paper);
   --foreground: var(--ink);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-paper: var(--paper);
+  --color-surface: var(--surface);
   --color-card: var(--card);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-lantern: var(--lantern);
+  --color-lantern-soft: var(--lantern-soft);
   --color-lime: var(--lime);
   --color-sky: var(--sky);
   --color-pink: var(--pink);
+
+  /* Semua jenis huruf dialihkan ke IM Fell English. */
+  --font-sans: var(--font-fell), Georgia, serif;
+  --font-serif: var(--font-fell), Georgia, serif;
+  --font-display: var(--font-fell), Georgia, serif;
 }
 
 html {
+  /* IM Fell berukuran kecil secara optis, jadi semua rem dinaikkan sedikit. */
+  font-size: 112.5%;
   scroll-behavior: smooth;
+  /* Font ini hanya punya satu bobot: jangan biarkan browser memalsukan tebal. */
+  font-synthesis: none;
 }
 
 body {
   background: var(--paper);
   color: var(--ink);
+  line-height: 1.6;
 }
 
-::selection {
-  background: var(--lime);
-  color: var(--ink);
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong,
+b {
+  font-weight: 400;
 }
 
 .font-display {
-  font-family: var(--font-display), system-ui, sans-serif;
+  font-family: var(--font-fell), Georgia, serif;
+}
+
+::selection {
+  background: var(--lantern);
+  color: var(--paper);
+}
+
+/* Fokus keyboard terlihat jelas, dengan cahaya lampu. */
+:focus-visible {
+  outline: 2px solid var(--lantern);
+  outline-offset: 3px;
+}
+
+/* Scrollbar tipis, menyatu dengan senja. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
 }
 
 .text-accent {
-  color: var(--accent);
+  color: var(--accent-soft);
 }
-
 .text-accent-soft {
   color: var(--accent-soft);
 }
 
-/* ── Animasi font ────────────────────────────────────────────
-   Archivo punya sumbu lebar (wdth). Saat di-hover, huruf
-   melebar. Murni CSS. */
+/* Kelas lama yang masih dipakai komponen yang belum dirombak. */
 .stretch {
-  font-variation-settings: "wdth" 100;
-  transition: font-variation-settings 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: none;
 }
-.stretch:hover,
-.group:hover .stretch {
-  font-variation-settings: "wdth" 125;
-}
-
-/* ── Marquee ─────────────────────────────────────────────── */
 @keyframes marquee {
   to {
     transform: translateX(-50%);
@@ -80,6 +123,34 @@ body {
   display: flex;
   width: max-content;
   animation: marquee 28s linear infinite;
+}
+.mask-fade {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+}
+@keyframes mist {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-mist {
+  animation: mist 14s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -92,25 +163,20 @@ body {
   }
 }
 
-/* Drop cap dikecilkan sedikit di layar sangat sempit (<480px) supaya
-   proporsinya nggak kebesaran dibanding lebar kolom teks. */
-@media (max-width: 480px) {
-  .article-content.dropcap > p:first-child::first-letter {
-    font-size: 3.25rem;
-    padding-right: 0.1em;
-  }
-}
-
-/* Drop cap hanya untuk fiksi (kelas .dropcap di halaman tulisan), dan hanya
-   kalau paragraf pertama memang elemen pertama — bukan setelah heading/gambar. */
+/* ── Isi tulisan ─────────────────────────────────────────── */
 .article-content.dropcap > p:first-child::first-letter {
-  font-family: var(--font-display), serif;
-  font-size: 4.25rem;
+  font-family: var(--font-fell), serif;
+  font-size: 4.5rem;
   line-height: 0.75;
   float: left;
-  padding-right: 0.15em;
+  padding-right: 0.12em;
   padding-top: 0.1em;
-  color: var(--accent-soft);
+  color: var(--lantern);
+}
+@media (max-width: 480px) {
+  .article-content.dropcap > p:first-child::first-letter {
+    font-size: 3.5rem;
+  }
 }
 
 .article-content blockquote {
@@ -118,27 +184,22 @@ body {
   border-left: none;
   padding-left: 2.5rem;
   margin: 2.75rem 0;
-  font-family: var(--font-display), serif;
   font-style: italic;
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   line-height: 1.6;
   color: var(--foreground);
 }
-
 .article-content blockquote::before {
   content: "\201C";
   position: absolute;
   left: -0.25rem;
   top: -1.5rem;
-  font-family: var(--font-display), serif;
   font-style: normal;
   font-size: 5rem;
   line-height: 1;
   color: var(--accent);
   opacity: 0.4;
 }
-
 .article-content strong {
   color: var(--accent-soft);
-  font-weight: 600;
 }

@@ -1,0 +1,49 @@
+// Angka cahaya dan kabut. "start" = awal perjalanan, "end" = tiba di rumah.
+// Warna kabut sebaiknya dekat dengan warna cakrawala di skyShader.ts supaya menyatu.
+
+export const LIGHT = {
+  // 1.0 lebih aman untuk malam; >1.1 mudah blow highlight di atap/plaster
+  exposure: 1.0,
+
+  fog: {
+    colorStart: "#4f9080",
+    colorEnd: "#3a7470",
+    nearStart: 30,
+    nearEnd: 18,
+    farStart: 260,
+    farEnd: 190,
+  },
+
+  hemi: {
+    sky: "#7fa6e0",
+    ground: "#2a5a3a",
+    // hemi terlalu kuat = bayangan jadi abu-abu, tidak gelap
+    startIntensity: 0.45,
+    endIntensity: 0.35,
+  },
+
+  // cahaya bulan: arah harus match skyShader (normalize ~ -0.39, 0.43, -0.84)
+  moon: {
+    color: "#ffe4a0",
+    // 2.0 terlalu terang untuk directional night; 1.15–1.35 lebih masuk akal
+    startIntensity: 1.25,
+    endIntensity: 1.05,
+    position: [-190, 210, -410] as [number, number, number],
+  },
+
+  // fill dari belakang hanya untuk buka sedikit detail, jangan hancurkan kontras
+  fill: {
+    color: "#6aa0ff",
+    intensity: 0.12,
+    position: [30, 50, 120] as [number, number, number],
+  },
+};
+
+// Langit malam. Ubah di sini kalau terasa terlalu ramai atau terlalu pucat.
+export const SKY = {
+  encode: true, // true = warna langit dikonversi ke sRGB seperti benda lain. Kalau langit terasa terlalu terang/pucat, coba false.
+  saturation: 0.82, // 1 = warna penuh, makin kecil makin kalem
+  clouds: 0.5, // kekuatan sapuan awan halus (0 = polos)
+  aurora: 0.5, // kekuatan cahaya hijau di cakrawala utara (0 = mati)
+  stars: 1, // jumlah bintang (0 = tanpa bintang, 1 = biasa, 2 = ramai)
+};

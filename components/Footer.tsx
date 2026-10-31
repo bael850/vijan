@@ -1,32 +1,30 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// Di beranda tidak ada footer: ceritanya berakhir di dalam rumah.
 export default function Footer() {
+  const pathname = usePathname();
+  if (pathname === "/") return null;
+
   return (
-    <footer className="mt-28 overflow-hidden rounded-t-[2.5rem] bg-ink text-white md:rounded-t-[4rem]">
-      <div className="mx-auto max-w-6xl px-4 pt-14 md:px-6">
-        <div className="flex flex-col gap-6 text-sm md:flex-row md:items-end md:justify-between">
-          <p className="max-w-sm text-lg leading-snug text-sky">
-            Tulisan dan potret, apa adanya. Baca, lihat, komen, bagikan.
-          </p>
-          <nav className="flex gap-6 font-semibold">
-            <Link href="/vers" className="hover:text-lime">
-              Tulisan
-            </Link>
-            <Link href="/kage" className="hover:text-lime">
-              Foto
-            </Link>
-            <Link href="/rekomendasi" className="hover:text-lime">
-              Rekomendasi
-            </Link>
-          </nav>
-        </div>
+    <footer className="mt-28 border-t border-line">
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+        {/* Teks sementara — ganti dengan kalimatmu sendiri */}
+        <p className="italic">Makasih udah mampir. Lampunya tetap nyala.</p>
+        <nav className="flex gap-6">
+          <Link href="/" className="transition-colors hover:text-lantern">
+            Pulang
+          </Link>
+          <Link href="/vers" className="transition-colors hover:text-lantern">
+            Tulisan
+          </Link>
+          <Link href="/kage" className="transition-colors hover:text-lantern">
+            Foto
+          </Link>
+        </nav>
       </div>
-      <p
-        aria-hidden
-        className="stretch select-none text-center font-display text-[clamp(6rem,30vw,26rem)] font-black leading-[0.8] tracking-tighter text-accent"
-      >
-        vijan
-      </p>
     </footer>
   );
 }

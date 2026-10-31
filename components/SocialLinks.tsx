@@ -48,7 +48,7 @@ export default function SocialLinks({
                 : "noopener noreferrer"
             }
             aria-label={link.label}
-            className="group flex h-11 w-11 items-center justify-center rounded-full border border-neutral-700 text-neutral-400 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--accent-soft)] hover:text-[var(--accent-soft)]"
+            className="group flex h-11 w-11 items-center justify-center rounded-full border border-line text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-lantern hover:text-lantern"
           >
             <link.icon size={16} />
           </a>
@@ -71,7 +71,7 @@ export default function SocialLinks({
           rel={
             link.href.startsWith("mailto:") ? undefined : "noopener noreferrer"
           }
-          className="text-xs text-neutral-500 underline decoration-neutral-700 underline-offset-4 transition-colors hover:text-[var(--accent-soft)] hover:decoration-[var(--accent-soft)]"
+          className="text-xs text-muted underline decoration-line underline-offset-4 transition-colors hover:text-lantern hover:decoration-lantern"
         >
           {link.label}
         </a>

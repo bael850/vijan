@@ -1,85 +1,52 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  motion,
-  useMotionValueEvent,
-  useScroll,
-  useSpring,
-} from "framer-motion";
 
+// Navbar sengaja nyaris tak terlihat. Di beranda (cerita 3D) hanya ada nama;
+// tautan ke halaman lain datang dari dalam ceritanya sendiri.
 const LINKS = [
-  { href: "/", label: "Galeri" },
   { href: "/vers", label: "Tulisan" },
   { href: "/kage", label: "Foto" },
+  { href: "/rekomendasi", label: "Rak" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { scrollY, scrollYProgress } = useScroll();
-  const progress = useSpring(scrollYProgress, { stiffness: 200, damping: 40 });
-  const [hidden, setHidden] = useState(false);
-
-  useMotionValueEvent(scrollY, "change", (y) => {
-    const prev = scrollY.getPrevious() ?? 0;
-    setHidden(y > prev && y > 120);
-  });
-
-  const isActive = (href: string) =>
-    href === "/"
-      ? pathname === "/"
-      : pathname === href ||
-        pathname.startsWith(`${href}/`) ||
-        (href === "/vers" && pathname.startsWith("/novel/"));
+  const home = pathname === "/";
 
   return (
-    <>
-      <motion.div
-        style={{ scaleX: progress }}
-        className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-lime"
-      />
-      <motion.header
-        animate={{ y: hidden ? "-140%" : 0 }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-3xl items-center justify-between rounded-full border-2 border-ink bg-ink py-1.5 pl-5 pr-1.5 shadow-[4px_4px_0_0_var(--lime)]"
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-start justify-between px-5 pb-10 pt-4 sm:px-8 sm:pt-5">
+      <Link
+        href="/"
+        className="pointer-events-auto text-2xl italic tracking-wide text-ink transition-colors hover:text-lantern"
       >
-        <Link
-          href="/"
-          className="stretch font-display text-xl font-black tracking-tight text-white"
-        >
-          vijan<span className="text-lime">*</span>
-        </Link>
+        vijan
+      </Link>
 
-        <nav className="flex items-center gap-0.5">
+      {!home && (
+        <nav className="pointer-events-auto flex items-center gap-5 pt-1 text-sm sm:gap-7">
           {LINKS.map((l) => {
-            const active = isActive(l.href);
+            const active =
+              pathname === l.href ||
+              pathname.startsWith(`${l.href}/`) ||
+              (l.href === "/vers" && pathname.startsWith("/novel/"));
             return (
               <Link
                 key={l.href}
                 href={l.href}
-                className="relative rounded-full px-4 py-2 text-sm font-semibold"
+                className={`transition-colors hover:text-lantern ${
+                  active
+                    ? "text-ink underline underline-offset-8"
+                    : "text-muted"
+                }`}
               >
-                {active && (
-                  <motion.span
-                    layoutId="nav-pill"
-                    className="absolute inset-0 rounded-full bg-lime"
-                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  />
-                )}
-                <span
-                  className={`relative transition-colors ${
-                    active ? "text-ink" : "text-sky hover:text-white"
-                  }`}
-                >
-                  {l.label}
-                </span>
+                {l.label}
               </Link>
             );
           })}
         </nav>
-      </motion.header>
-    </>
+      )}
+    </header>
   );
 }

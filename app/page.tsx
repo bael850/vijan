@@ -1,43 +1,49 @@
-import { getAllPosts, getAllFoto } from "@/lib/data";
-import GalleryHero from "@/components/gallery/GalleryHero";
-import Marquee from "@/components/gallery/Marquee";
-import Feed, { type FeedItem } from "@/components/gallery/Feed";
+import WorldJourney from "@/components/world/WorldJourney";
+import type { ContentItem } from "@/components/world/house/content/contentLayout";
+import { getAllFoto, getAllPosts } from "@/lib/data";
+
+export const revalidate = 300;
 
 export default async function Home() {
-  const [posts, fotos] = await Promise.all([getAllPosts(), getAllFoto()]);
+  const [posts, fotos] = await Promise.all([
+    getAllPosts().catch((e) => {
+      console.error("Gagal ambil tulisan:", e);
+      return [];
+    }),
+    getAllFoto().catch((e) => {
+      console.error("Gagal ambil foto:", e);
+      return [];
+    }),
+  ]);
 
-  const items: FeedItem[] = [
-    ...posts.map((p) => ({
-      id: `p-${p.slug}`,
-      kind: "tulisan" as const,
+  const seen = new Set<string>();
+  const writings: ContentItem[] = [];
+  for (const p of posts) {
+    if (p.series) {
+      if (seen.has(p.series)) continue;
+      seen.add(p.series);
+    }
+    writings.push({
+      id: p.slug,
       label: p.tipe,
-      judul: p.judul,
-      ringkasan: p.ringkasan,
-      tanggal: p.tanggal,
-      href: `/vers/${p.slug}`,
-    })),
-    ...fotos.map((f) => ({
-      id: `f-${f.slug}`,
-      kind: "foto" as const,
-      label: "foto",
-      judul: f.judul,
-      ringkasan: f.cerita,
-      gambar: f.gambar,
-      tanggal: f.tanggal,
-      // Sementara ke /kage. Halaman detail foto (komen + share) di cicilan 2.
-      href: "/kage",
-    })),
-  ].sort(
-    (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime(),
-  );
+      title: p.series ?? p.judul,
+      date: p.tanggal,
+      href: p.series ? `/novel/${p.series}` : `/vers/${p.slug}`,
+    });
+  }
+
+  const photos: ContentItem[] = fotos.map((f) => ({
+    id: f.slug,
+    label: "foto",
+    title: f.judul,
+    date: f.tanggal,
+    href: `/kage#${f.slug}`,
+    image: f.gambar,
+  }));
 
   return (
     <main>
-      <GalleryHero />
-      <div className="relative z-10 -mt-3 pt-8">
-        <Marquee />
-      </div>
-      <Feed items={items} />
+      <WorldJourney writings={writings} photos={photos} />
     </main>
   );
 }

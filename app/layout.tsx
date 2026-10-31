@@ -1,30 +1,19 @@
-import type { Metadata } from "next";
-import { Archivo, Instrument_Serif, Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { IM_Fell_English } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import SoundToggle from "@/components/SoundToggle";
 import { GraphicsProvider } from "@/components/providers/GraphicsProvider";
 
-// Archivo (sumbu lebar) = judul super tebal yang bisa melebar saat hover.
-// Instrument Serif italic = kata aksen yang elegan sebagai kontras.
-const archivo = Archivo({
+// Satu font untuk semuanya: IM Fell English, serif bergaya cetakan Inggris
+// lama. Cuma punya satu bobot (reguler) dan italic, jadi hierarki dibuat
+// lewat ukuran dan jarak, bukan tebal.
+const fell = IM_Fell_English({
   subsets: ["latin"],
-  variable: "--font-display",
-  axes: ["wdth"],
-  display: "swap",
-});
-
-const instrument = Instrument_Serif({
-  subsets: ["latin"],
-  variable: "--font-serif",
+  variable: "--font-fell",
   weight: "400",
   style: ["normal", "italic"],
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
   display: "swap",
 });
 
@@ -34,13 +23,18 @@ const siteUrl =
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : "http://localhost:3000");
 
+// Teks deskripsi ini sementara — tulis ulang dengan suaramu sendiri.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: "Vijan — Galeri tulisan & foto", template: "%s — Vijan" },
-  description:
-    "Galeri tulisan dan fotografi pribadi: cerpen, sajak, cerbung, dan potret sehari-hari.",
+  title: { default: "Vijan — An Ordinary People", template: "%s — Vijan" },
+  description: "Tulisan, foto, dan hal-hal kecil yang sempat kuingat.",
   openGraph: { siteName: "Vijan", locale: "id_ID", type: "website" },
   twitter: { card: "summary_large_image" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#17121a",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -49,15 +43,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="id"
-      className={`${archivo.variable} ${instrument.variable} ${inter.variable}`}
-    >
+    <html lang="id" className={fell.variable}>
       <body className="min-h-screen bg-paper font-sans text-ink antialiased">
         <GraphicsProvider>
           <Navbar />
           {children}
           <Footer />
+          <SoundToggle />
         </GraphicsProvider>
       </body>
     </html>
