@@ -19,7 +19,15 @@ export function ReaderCloseLink({ className = "" }: { className?: string }) {
 
 // Lapisan baca di atas dunia 3D. Dunia tetap hidup di belakang; menutupnya
 // (tombol X, Esc) kembali ke posisi terakhir lewat router.back().
-export default function ReaderOverlay({ children }: { children: ReactNode }) {
+export default function ReaderOverlay({
+  children,
+  variant = "parchment",
+  wide = false,
+}: {
+  children: ReactNode;
+  variant?: "parchment" | "dark";
+  wide?: boolean;
+}) {
   const router = useRouter();
 
   useEffect(() => {
@@ -66,7 +74,9 @@ export default function ReaderOverlay({ children }: { children: ReactNode }) {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="sheet parchment"
+            className={`sheet ${wide ? "sheet-wide " : ""}${
+              variant === "parchment" ? "parchment" : "sheet-dark"
+            }`}
           >
             {children}
           </motion.div>

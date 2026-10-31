@@ -104,9 +104,21 @@ function Print({ foto, i }: { foto: FotoKage; i: number }) {
   );
 }
 
-export default function Darkroom({ fotos }: { fotos: FotoKage[] }) {
+export default function Darkroom({
+  fotos,
+  overlay = false,
+}: {
+  fotos: FotoKage[];
+  overlay?: boolean;
+}) {
   return (
-    <main className="min-h-screen px-4 pb-28 pt-28 text-ink md:px-6 md:pt-36">
+    <main
+      className={
+        overlay
+          ? "px-6 pb-20 pt-16 text-ink md:px-12"
+          : "min-h-screen px-4 pb-28 pt-28 text-ink md:px-6 md:pt-36"
+      }
+    >
       <div className="mx-auto max-w-5xl">
         <p className="text-xs uppercase tracking-[0.3em] text-muted">
           {kage.eyebrow}

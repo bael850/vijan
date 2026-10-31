@@ -275,3 +275,13 @@ html {
   --color-neutral-700: #404040;
   --color-neutral-800: #262626;
 }
+
+.sheet-wide {
+  width: min(100% - 1.5rem, 64rem);
+}
+/* Kamar gelap: lembaran gelap, bukan kertas. */
+.sheet-dark {
+  background: rgba(23, 18, 26, 0.96);
+  border: 1px solid var(--line);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.85);
+}
