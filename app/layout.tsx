@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { IM_Fell_English } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import SoundToggle from "@/components/SoundToggle";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import SoundToggle from "@/components/sound/SoundToggle";
 import { GraphicsProvider } from "@/components/providers/GraphicsProvider";
+import { site } from "@/content/site";
 
 // Satu font untuk semuanya: IM Fell English, serif bergaya cetakan Inggris
 // lama. Cuma punya satu bobot (reguler) dan italic, jadi hierarki dibuat
@@ -26,9 +27,9 @@ const siteUrl =
 // Teks deskripsi ini sementara — tulis ulang dengan suaramu sendiri.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: "Vijan — An Ordinary People", template: "%s — Vijan" },
-  description: "Tulisan, foto, dan hal-hal kecil yang sempat kuingat.",
-  openGraph: { siteName: "Vijan", locale: "id_ID", type: "website" },
+  title: { default: site.title, template: `%s — ${site.name}` },
+  description: site.description,
+  openGraph: { siteName: site.name, locale: "id_ID", type: "website" },
   twitter: { card: "summary_large_image" },
 };
 

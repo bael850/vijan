@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { getAllFoto } from "@/lib/data";
-import Darkroom from "@/components/world/Darkroom";
+import { getAllFoto } from "@/lib/content/data";
+import Darkroom from "@/components/kage/Darkroom";
+import { kage } from "@/content/kage";
 
 export const metadata: Metadata = {
-  title: "Kamar gelap",
-  description: "Foto-foto yang menyimpan cerita.",
+  title: kage.meta.title,
+  description: kage.meta.description,
 };
 
 export default async function KagePage() {

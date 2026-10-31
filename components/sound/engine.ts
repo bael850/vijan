@@ -40,9 +40,9 @@ class SoundEngine {
   private timer: number | null = null;
   private on = false;
   private state: SoundState = { ...DEFAULT_STATE };
-  private masterVol = SOUND.master;
-  private wetIn = SOUND.reverb.indoorWet;
-  private wetOut = SOUND.reverb.outdoorWet;
+  private masterVol: number = SOUND.master;
+  private wetIn: number = SOUND.reverb.indoorWet;
+  private wetOut: number = SOUND.reverb.outdoorWet;
 
   private build() {
     const AC =

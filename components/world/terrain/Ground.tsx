@@ -55,7 +55,7 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
       c.lerp(teal, smoothstep(0.2, 0.0, n) * 0.35);
       c.lerp(rock, smoothstep(16, 34, y) * 0.5);
       c.lerp(sand, (1 - smoothstep(0.98, 1.1, lakeDist(x, z))) * 0.8); // pasir pantai
-      c.lerp(sand, (1 - smoothstep(2.2, 6, Math.abs(x - roadX(z)))) * 0.35);
+      c.lerp(sand, (1 - smoothstep(2.0, 5, Math.abs(x - roadX(z)))) * 0.25);
 
       col[i * 3] = c.r;
       col[i * 3 + 1] = c.g;

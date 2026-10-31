@@ -9,37 +9,48 @@ import {
 } from "react";
 import { Canvas } from "@react-three/fiber";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
-import Cat from "../cat/Cat";
+import Cat from "../fauna/cat/Cat";
+import StrayCats from "../fauna/cat/StrayCats";
+import Dragons from "../fauna/dragon/Dragons";
 import { AMBIENT } from "../config/ambient";
 import { CAMERA } from "../config/scroll";
 import Content from "../house/content/Content";
 import type { ContentItem } from "../house/content/contentLayout";
+import LakeWords from "../lake/LakeWords";
+import ShoreMarker from "../lake/ShoreMarker";
+import { newFocus, type Wish } from "../lake/wish";
 import Door from "../house/Door";
 import Yard from "../house/Yard";
 import Exterior from "../house/Exterior";
 import Interior from "../house/rooms/Interior";
 import Smoke from "../house/Smoke";
 import Stairs from "../house/Stairs";
-import Birds from "../nature/Birds";
-import Fireflies from "../nature/Fireflies";
-import Flowers from "../nature/Flowers";
-import Forest from "../nature/Forest";
-import Landmarks from "../nature/Landmarks";
-import Pier from "../nature/Pier";
-import Sheep from "../nature/Sheep";
-import Streetlamps from "../nature/Streetlamps";
-import Village from "../nature/Village";
+import Birds from "../fauna/Birds";
+import Fish from "../fauna/Fish";
+import Fireflies from "../effects/Fireflies";
+import Forest from "../flora/Forest";
+import Landmarks from "../village/Landmarks";
+import Pier from "../village/Pier";
+import Sheep from "../fauna/Sheep";
+import Guards from "../folk/Guards";
+import Spearmen from "../folk/Spearmen";
+import Villagers from "../folk/Villagers";
+import SkyLanterns from "../effects/SkyLanterns";
+import Streetlamps from "../village/Streetlamps";
+import Undergrowth from "../flora/Undergrowth";
+import Village from "../village/Village";
 import PathMesh from "../path/PathMesh";
 import SidePaths from "../path/SidePaths";
 import Sky from "../sky/Sky";
 import Ground from "../terrain/Ground";
+import Splash from "../terrain/Splash";
 import Water from "../terrain/Water";
 import CameraRig from "./CameraRig";
 import SoundDriver from "./SoundDriver";
 import TimeOfDay from "./TimeOfDay";
 
-// Kalau model kucing gagal dimuat, dunia tetap tampil tanpa kucing.
-class CatBoundary extends Component<
+// Kalau sebuah model gagal dimuat (kucing, pohon), dunia tetap tampil tanpa model itu.
+class SafeBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
 > {
@@ -61,6 +72,9 @@ export default function WorldScene({
   writings,
   photos,
   onOpen,
+  wish,
+  shore,
+  onEnterShore,
 }: {
   progress: MutableRefObject<number>;
   quality: GraphicsQuality;
@@ -69,9 +83,13 @@ export default function WorldScene({
   writings: ContentItem[];
   photos: ContentItem[];
   onOpen: (href: string) => void;
+  wish: MutableRefObject<Wish>;
+  shore: MutableRefObject<boolean>;
+  onEnterShore: () => void;
 }) {
   const camDist = useRef(0);
   const indoor = useRef(0);
+  const focus = useRef(newFocus());
 
   return (
     <Canvas
@@ -86,6 +104,8 @@ export default function WorldScene({
         progress={progress}
         camDist={camDist}
         indoor={indoor}
+        shore={shore}
+        focus={focus}
         reduceMotion={reduceMotion}
       />
 
@@ -93,14 +113,38 @@ export default function WorldScene({
       <Sky />
       <Ground quality={quality} />
       <Water />
+      <Fish quality={quality} reduceMotion={reduceMotion} />
+      <Splash />
+      <LakeWords wish={wish} focus={focus} reduceMotion={reduceMotion} />
+      <ShoreMarker progress={progress} shore={shore} onEnter={onEnterShore} />
       <PathMesh />
       <SidePaths />
-      <Forest quality={quality} />
-      <Flowers quality={quality} />
+      <SafeBoundary>
+        <Suspense fallback={null}>
+          <Forest quality={quality} />
+        </Suspense>
+      </SafeBoundary>
+      <Undergrowth quality={quality} />
       <Pier />
       <Village />
       <Landmarks reduceMotion={reduceMotion} />
       <Sheep reduceMotion={reduceMotion} />
+      <SafeBoundary>
+        <Suspense fallback={null}>
+          <Guards
+            amount={AMBIENT.guards[quality]}
+            reduceMotion={reduceMotion}
+          />
+          <Spearmen
+            amount={AMBIENT.spearmen[quality]}
+            reduceMotion={reduceMotion}
+          />
+          <Villagers
+            amount={AMBIENT.villagers[quality]}
+            reduceMotion={reduceMotion}
+          />
+        </Suspense>
+      </SafeBoundary>
 
       <Exterior />
       <Yard />
@@ -110,6 +154,10 @@ export default function WorldScene({
       />
       <Smoke amount={AMBIENT.smoke[quality]} reduceMotion={reduceMotion} />
       {!reduceMotion && <Birds amount={AMBIENT.birds[quality]} />}
+      <SkyLanterns
+        amount={AMBIENT.lanterns[quality]}
+        reduceMotion={reduceMotion}
+      />
       <Fireflies
         amount={AMBIENT.fireflies[quality]}
         indoor={indoor}
@@ -125,11 +173,25 @@ export default function WorldScene({
       />
       <Interior indoor={indoor} quality={quality} reduceMotion={reduceMotion} />
 
-      <CatBoundary>
+      {!reduceMotion && (
+        <SafeBoundary>
+          <Suspense fallback={null}>
+            <Dragons quality={quality} />
+          </Suspense>
+        </SafeBoundary>
+      )}
+
+      <SafeBoundary>
         <Suspense fallback={null}>
           <Cat camDist={camDist} reduceMotion={reduceMotion} />
         </Suspense>
-      </CatBoundary>
+      </SafeBoundary>
+
+      <SafeBoundary>
+        <Suspense fallback={null}>
+          <StrayCats quality={quality} reduceMotion={reduceMotion} />
+        </Suspense>
+      </SafeBoundary>
     </Canvas>
   );
 }

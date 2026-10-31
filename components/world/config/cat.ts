@@ -20,3 +20,35 @@ export const CAT = {
   loafAfter: 20, // detik diam sebelum meringkuk
   maxHeadYaw: 1.1, // batas menoleh ke kamera (rad)
 };
+
+// Kucing lain di dunia. Warna bulu dicat lewat shader di atas model yang sama (kucing.glb).
+// style: 0 polos, 1 tuxedo (putih di dada, kaki, moncong), 2 calico (hitam-oranye-putih), 3 putih berbercak.
+// Urutan = urutan titik tinggal (lihat STRAY_SPOTS di StrayCats.tsx): yang pertama paling dekat titik awal.
+export type CatVariant = {
+  name: string;
+  coat: string;
+  patch?: string;
+  style: 0 | 1 | 2 | 3;
+  white?: number;
+  seed?: number;
+  scale?: number;
+};
+
+export const CAT_VARIANTS: CatVariant[] = [
+  {
+    name: "calico",
+    coat: "#1c1b1f",
+    patch: "#dd8a2e",
+    style: 2,
+    seed: 3.7,
+    scale: 0.88,
+  },
+  { name: "abu", coat: "#7d8088", style: 0, scale: 0.92 },
+  { name: "hitam", coat: "#1c1b1f", style: 0, scale: 0.9 },
+  { name: "tuxedo", coat: "#1c1b1f", style: 1, scale: 0.95 },
+  { name: "abu-putih", coat: "#8b909a", style: 3, seed: 8.1, scale: 0.86 },
+  { name: "krem-putih", coat: "#e5c590", style: 3, seed: 1.9, scale: 0.82 },
+];
+
+// Jumlah kucing lain menurut kualitas grafis.
+export const STRAY_COUNT = { low: 3, medium: 5, high: 6 } as const;

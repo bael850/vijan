@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getPostBySlug } from "@/lib/data";
+import { getPostBySlug } from "@/lib/content/data";
 import { OgCard, OG_SIZE } from "@/lib/og";
 
 export const alt = "Vijan";

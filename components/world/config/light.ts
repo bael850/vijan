@@ -10,8 +10,8 @@ export const LIGHT = {
     colorEnd: "#3a7470",
     nearStart: 30,
     nearEnd: 18,
-    farStart: 260,
-    farEnd: 190,
+    farStart: 320,
+    farEnd: 250,
   },
 
   hemi: {

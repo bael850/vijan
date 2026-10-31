@@ -4,9 +4,12 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { CAMERA, FREELOOK, SCROLL } from "../config/scroll";
+import { SHORE } from "../config/shore";
 import { LAKE } from "../config/world";
 import { clamp, lerp, smoothstep } from "../core/math";
 import { tourAt, type Key } from "../house/tour";
+import type { Focus } from "../lake/wish";
+import { PIER } from "../village/pierLayout";
 import { ROAD_LENGTH, roadPointAt } from "../path/roadDistance";
 import { groundHeight } from "../terrain/heightmap";
 
@@ -67,19 +70,28 @@ function roadPose(s: number, pos: THREE.Vector3, look: THREE.Vector3) {
 // dengan goyang halus mengikuti mouse.
 // progress = scroll 0..1 (masukan). camDist = posisi kamera sepanjang jalan dalam meter (keluaran,
 // dibaca kucing). indoor = 0 di luar, 1 di dalam rumah (keluaran, dibaca cahaya).
+// shore = true: kamera meninggalkan jalan dan pindah ke ujung dermaga (adegan tepi danau).
+// focus = tulisan yang baru dilepas di danau; kamera menoleh ke sana sampai focus.until.
 export default function CameraRig({
   progress,
   camDist,
   indoor,
+  shore,
+  focus,
   reduceMotion,
 }: {
   progress: MutableRefObject<number>;
   camDist: MutableRefObject<number>;
   indoor: MutableRefObject<number>;
+  shore: MutableRefObject<boolean>;
+  focus: MutableRefObject<Focus>;
   reduceMotion: boolean;
 }) {
   const gl = useThree((s) => s.gl);
   const smooth = useRef<number | null>(null);
+  const shoreT = useRef(0); // 0 = di jalan, 1 = di tepi danau
+  const shorePrev = useRef(false);
+  const focusT = useRef(0); // 0 = menatap danau, 1 = menatap tulisan yang baru dilepas
   // pandangan manual: yaw/pitch = yang tampil, ty/tp = target dari seretan
   const free = useRef({
     yaw: 0,
@@ -222,6 +234,46 @@ export default function CameraRig({
       look.set(out.lx, out.ly, out.lz);
     }
 
+    // pindah ke tepi danau: kamera naik sedikit di tengah jalan, lalu mendarat di ujung dermaga
+    const goal = shore.current ? 1 : 0;
+    if (shore.current !== shorePrev.current) {
+      shorePrev.current = shore.current;
+      free.current.ty = 0; // pandangan manual dikembalikan ke depan
+      free.current.tp = 0;
+    }
+    const sr = reduceMotion ? SHORE.rateReduced : SHORE.rate;
+    shoreT.current += (goal - shoreT.current) * (1 - Math.exp(-sr * dt));
+    if (Math.abs(goal - shoreT.current) < 0.0005) shoreT.current = goal;
+    const e = smoothstep(0, 1, shoreT.current);
+    if (e > 0) {
+      const sy = PIER.y + 0.05 + SHORE.eye;
+      pos.set(
+        lerp(pos.x, SHORE.stand.x, e),
+        lerp(pos.y, sy, e) + Math.sin(Math.PI * e) * SHORE.arc,
+        lerp(pos.z, SHORE.stand.z, e),
+      );
+      look.set(
+        lerp(look.x, SHORE.look.x, e),
+        lerp(look.y, SHORE.look.y, e),
+        lerp(look.z, SHORE.look.z, e),
+      );
+    }
+
+    // setelah tulisan dilepas: kamera pelan menoleh ke tulisan dan mundur sedikit di dermaga
+    const wantFocus =
+      shore.current && clock.elapsedTime < focus.current.until ? 1 : 0;
+    focusT.current += (wantFocus - focusT.current) * (1 - Math.exp(-0.9 * dt));
+    const fe = smoothstep(0, 1, focusT.current) * e;
+    if (fe > 0.001) {
+      look.set(
+        lerp(look.x, focus.current.x, fe * 0.9),
+        lerp(look.y, 6.2, fe),
+        lerp(look.z, focus.current.z, fe * 0.9),
+      );
+      pos.x -= 2.5 * fe;
+      pos.y += 0.35 * fe;
+    }
+
     indoor.current = smoothstep(-122, -126, pos.z);
 
     if (!reduceMotion) {
@@ -278,6 +330,7 @@ export default function CameraRig({
     const fov =
       (portrait ? CAMERA.fovPortrait : CAMERA.fov) +
       CAMERA.fovIndoorBoost * indoor.current +
+      SHORE.fovBoost * e +
       kick;
     if (Math.abs(cam.fov - fov) > 0.01) {
       cam.fov = fov;

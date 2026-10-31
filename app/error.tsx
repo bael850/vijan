@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { errorPage } from "@/content/pages";
 
 export default function ErrorBoundary({
   error,
@@ -19,20 +20,19 @@ export default function ErrorBoundary({
     <main className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="max-w-md text-center">
         <p className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4">
-          Ada yang salah
+          {errorPage.eyebrow}
         </p>
         <h1 className="font-display text-3xl md:text-4xl mb-4">
-          Halaman ini lagi nggak bisa dimuat
+          {errorPage.title}
         </h1>
         <p className="text-neutral-400 leading-relaxed mb-8">
-          Kemungkinan sumber datanya (Google Sheets/database) lagi bermasalah
-          sebentar. Coba muat ulang beberapa saat lagi.
+          {errorPage.body}
         </p>
         <button
           onClick={() => reset()}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-neutral-700 text-sm hover:border-white transition-colors"
         >
-          Coba lagi
+          {errorPage.retry}
         </button>
       </div>
     </main>

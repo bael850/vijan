@@ -8,6 +8,7 @@ import { H } from "../houseLayout";
 import { Box, Cyl, WOOD, WOOD_DARK } from "../rooms/parts";
 import { RECORD } from "./contentLayout";
 import { Tip, useHover } from "./Tip";
+import { record } from "@/content/world";
 
 const FY = H.floorY;
 
@@ -100,10 +101,10 @@ export default function RecordPlayer({
 
   const { x, z } = RECORD;
   const label = failed
-    ? "Lagunya tidak ditemukan"
+    ? record.notFound
     : playing
-      ? `♪ ${SONGS[song].title}`
-      : "Putar lagu";
+      ? record.nowPlaying(SONGS[song].title)
+      : record.play;
 
   return (
     <group>
@@ -182,7 +183,7 @@ export default function RecordPlayer({
             color="#b4543a"
           />
           {hoverNext && (
-            <Tip position={[x + 0.45, FY + 1.2, z]}>Lagu berikutnya</Tip>
+            <Tip position={[x + 0.45, FY + 1.2, z]}>{record.next}</Tip>
           )}
         </group>
       )}

@@ -3,9 +3,10 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { auth, signIn } from "@/auth";
-import { addComment, rememberDisplayName } from "@/lib/comments";
-import { getPostBySlug } from "@/lib/data";
-import { allowLoginAttempt } from "@/lib/rate-limit";
+import { addComment, rememberDisplayName } from "@/lib/comments/queries";
+import { getPostBySlug } from "@/lib/content/data";
+import { allowLoginAttempt } from "@/lib/comments/rate-limit";
+import { commentErrors } from "@/content/comments";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -57,7 +58,7 @@ export async function requestLoginLink(
       : "/";
 
   if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
-    return { status: "error", message: "Masukkan alamat email yang valid." };
+    return { status: "error", message: commentErrors.emailInvalid };
   }
 
   try {
@@ -65,8 +66,7 @@ export async function requestLoginLink(
     if (!allowed) {
       return {
         status: "error",
-        message:
-          "Terlalu banyak percobaan. Coba lagi beberapa menit lagi, atau cek email kamu — link sebelumnya masih berlaku.",
+        message: commentErrors.tooManyAttempts,
       };
     }
 
@@ -80,7 +80,7 @@ export async function requestLoginLink(
     console.error(err);
     return {
       status: "error",
-      message: "Gagal mengirim link masuk. Coba lagi sebentar lagi.",
+      message: commentErrors.sendLinkFailed,
     };
   }
 }
@@ -100,14 +100,14 @@ export async function postComment(
   if (!session?.user?.id) {
     return {
       status: "error",
-      message: "Kamu harus masuk dulu untuk berkomentar.",
+      message: commentErrors.loginRequired,
     };
   }
 
   // Komentar hanya boleh untuk tulisan yang benar-benar ada.
   const post = await getPostBySlug(slug);
   if (!post) {
-    return { status: "error", message: "Tulisan tidak ditemukan." };
+    return { status: "error", message: commentErrors.postNotFound };
   }
 
   // Nama tampilan: dari form, atau nama akun. TIDAK PERNAH jatuh ke email.
@@ -119,13 +119,13 @@ export async function postComment(
   if (nama.length < 2) {
     return {
       status: "error",
-      message: "Isi nama tampilan dulu (minimal 2 karakter).",
+      message: commentErrors.nameRequired,
     };
   }
   if (nama.length > 40) {
     return {
       status: "error",
-      message: "Nama terlalu panjang (maks 40 karakter).",
+      message: commentErrors.nameTooLong,
     };
   }
 
@@ -137,17 +137,17 @@ export async function postComment(
   if (!isAuthor && RESERVED_NAMES.has(normalizeName(nama))) {
     return {
       status: "error",
-      message: "Nama itu dicadangkan. Pakai nama lain ya.",
+      message: commentErrors.nameReserved,
     };
   }
 
   if (!isi) {
-    return { status: "error", message: "Komentar tidak boleh kosong." };
+    return { status: "error", message: commentErrors.commentEmpty };
   }
   if (isi.length > 2000) {
     return {
       status: "error",
-      message: "Komentar terlalu panjang (maks 2000 karakter).",
+      message: commentErrors.commentTooLong,
     };
   }
 
@@ -159,7 +159,7 @@ export async function postComment(
     console.error(err);
     return {
       status: "error",
-      message: "Gagal menyimpan komentar. Coba lagi sebentar lagi.",
+      message: commentErrors.saveFailed,
     };
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, useEffect, useRef, type ReactNode } from "react";
+import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,13 +11,18 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { useEntered } from "@/components/menu/EntryContext";
+import { useEntered } from "@/components/providers/EntryContext";
 import { useGraphics } from "@/components/providers/GraphicsProvider";
-import { useInViewport } from "@/lib/useInViewport";
-import { useScrollTransform } from "@/lib/useScrollTransform";
+import { useInViewport } from "@/hooks/useInViewport";
+import { useScrollTransform } from "@/hooks/useScrollTransform";
 import type { ContentItem } from "./house/content/contentLayout";
+import LakeIntro from "./lake/LakeIntro";
+import LakeWriter from "./lake/LakeWriter";
+import { SHORE } from "./config/shore";
+import { newWish } from "./lake/wish";
 import QuickLinks from "./QuickLinks";
 import { LINES, SCROLL, TITLE } from "./config/scroll";
+import { journey } from "@/content/world";
 
 const WorldScene = dynamic(() => import("./scene/WorldScene"), { ssr: false });
 
@@ -91,6 +96,37 @@ export default function WorldJourney({
   const ref = useRef<HTMLDivElement>(null);
   const isActive = useInViewport(ref, "100px 0px");
   const progress = useRef(0);
+  const wish = useRef(newWish());
+  // adegan tepi danau: state untuk tampilan HTML, ref untuk dibaca kamera 3D
+  const [shore, setShore] = useState(false);
+  const shoreRef = useRef(false);
+  const [run, setRun] = useState(0); // naik tiap masuk tepi danau, supaya kata pembuka dan kotak tulis mulai dari awal
+
+  function enterShore() {
+    shoreRef.current = true;
+    setRun((n) => n + 1);
+    setShore(true);
+  }
+  function leaveShore() {
+    shoreRef.current = false;
+    setShore(false);
+  }
+
+  // di tepi danau scroll dikunci supaya pengunjung tidak tergeser tanpa sengaja; Esc untuk kembali
+  useEffect(() => {
+    if (!shore) return;
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") leaveShore();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      html.style.overflow = prev;
+    };
+  }, [shore]);
 
   const { scrollYProgress: p } = useScroll({
     target: ref,
@@ -117,9 +153,7 @@ export default function WorldJourney({
     const el = ref.current;
     if (!el) return;
     const y = el.offsetTop + el.offsetHeight;
-    if (window.__lenis) window.__lenis.scrollTo(y, { offset: 0 });
-    else
-      window.scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
+    window.scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" });
   }
 
   return (
@@ -135,6 +169,9 @@ export default function WorldJourney({
               writings={writings}
               photos={photos}
               onOpen={(href) => router.push(href)}
+              wish={wish}
+              shore={shoreRef}
+              onEnterShore={enterShore}
             />
           </SceneBoundary>
         </div>
@@ -166,12 +203,51 @@ export default function WorldJourney({
           </motion.h1>
         </motion.div>
 
-        {LINES.map((k) => (
-          <Line key={k.text} p={p} r={k.r} text={k.text} />
-        ))}
+        <LakeIntro key={`i${run}`} open={shore} reduceMotion={reduceMotion} />
+        <LakeWriter
+          key={`w${run}`}
+          open={shore}
+          wish={wish}
+          delay={reduceMotion ? SHORE.writerDelayReduced : SHORE.writerDelay}
+        />
+
+        {/* kalimat perjalanan memudar saat pengunjung berada di tepi danau */}
+        <div
+          className={`transition-opacity duration-1000 ${
+            shore ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          {LINES.map((k) => (
+            <Line key={k.text} p={p} r={k.r} text={k.text} />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={leaveShore}
+          tabIndex={shore ? 0 : -1}
+          aria-label={journey.backToPath}
+          title={journey.backToPath}
+          className={`absolute right-[6.75rem] top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/50 text-[#fff3e0] backdrop-blur-md transition-all duration-1000 hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866] sm:right-[7.5rem] sm:top-5 ${
+            shore ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
+          <svg
+            aria-hidden
+            viewBox="0 0 24 24"
+            className="h-[17px] w-[17px]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M19 12H5M11 6l-6 6 6 6" />
+          </svg>
+        </button>
 
         {/* daftar tautan untuk pembaca layar dan keyboard */}
-        <nav aria-label="Isi rumah" className="sr-only">
+        <nav aria-label={journey.houseNavLabel} className="sr-only">
           {writings.map((it) => (
             <Link key={it.id} href={it.href}>
               {it.title}
@@ -182,19 +258,21 @@ export default function WorldJourney({
               {it.title}
             </Link>
           ))}
-          <Link href="/vers">Perpustakaan</Link>
-          <Link href="/kage">Kamar gelap</Link>
+          <Link href="/vers">{journey.libraryLink}</Link>
+          <Link href="/kage">{journey.darkroomLink}</Link>
         </nav>
 
         <motion.div
           style={{ opacity: hint }}
-          className="pointer-events-none absolute inset-x-0 bottom-8 flex flex-col items-center gap-3"
+          className={`pointer-events-none absolute inset-x-0 bottom-8 flex flex-col items-center gap-3 transition-opacity duration-700 ${
+            shore ? "!opacity-0" : ""
+          }`}
         >
           <span
             className="px-6 text-center text-[11px] uppercase tracking-[0.25em] text-[#fff3e0]/60"
             style={{ textShadow: TEXT_SHADOW }}
           >
-            Scroll untuk berjalan · seret untuk melihat sekeliling
+            {journey.hint}
           </span>
           <span className="block h-8 w-px animate-pulse bg-gradient-to-b from-[#ffe9a8] to-transparent" />
         </motion.div>
@@ -204,7 +282,10 @@ export default function WorldJourney({
         <button
           type="button"
           onClick={skip}
-          className="absolute bottom-6 right-6 z-30 text-xs uppercase tracking-[0.25em] text-[#fff3e0]/40 transition-colors hover:text-[#ffe9a8]"
+          tabIndex={shore ? -1 : 0}
+          className={`absolute bottom-6 right-6 z-30 text-xs uppercase tracking-[0.25em] text-[#fff3e0]/40 transition-all hover:text-[#ffe9a8] ${
+            shore ? "pointer-events-none opacity-0" : ""
+          }`}
         >
           Skip
         </button>

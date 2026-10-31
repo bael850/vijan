@@ -1,19 +1,24 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { TransitionLink } from "@/components/PageTransition";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { getPostBySlug, getAllPosts, getPostsBySeries } from "@/lib/data";
+import {
+  getPostBySlug,
+  getAllPosts,
+  getPostsBySeries,
+} from "@/lib/content/data";
 import { auth } from "@/auth";
-import { getCommentsBySlug } from "@/lib/comments";
-import Comments from "@/components/Comments";
-import Reveal from "@/components/Reveal";
-import ScrollProgress from "@/components/ScrollProgress";
-import SocialLinks from "@/components/SocialLinks";
-import ShareButtons from "@/components/ShareButtons";
-import ShareStory from "@/components/ShareStory";
-import BookCover3D from "@/components/BookCover3D";
+import { getCommentsBySlug } from "@/lib/comments/queries";
+import Comments from "@/components/vers/Comments";
+import Reveal from "@/components/ui/Reveal";
+import ScrollProgress from "@/components/layout/ScrollProgress";
+import SocialLinks from "@/components/vers/SocialLinks";
+import ShareButtons from "@/components/vers/ShareButtons";
+import ShareStory from "@/components/vers/ShareStory";
+import BookCover3D from "@/components/rekomendasi/BookCover3D";
+import { reading } from "@/content/reading";
 
 // Sajak: tiap baris di Sheets = satu baris puisi (bukan digabung jadi paragraf).
 const BREAK_TYPES = ["sajak"];
@@ -27,7 +32,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
-  if (!post) return { title: "Tidak ditemukan" };
+  if (!post) return { title: reading.notFoundTitle };
 
   const published = new Date(post.tanggal);
   return {
@@ -90,7 +95,9 @@ export default async function VersDetail({
   const sameGenre = others.filter((p) => p.tipe === post.tipe).slice(0, 2);
   const moreReads = sameGenre.length > 0 ? sameGenre : others.slice(0, 2);
   const moreReadsLabel =
-    sameGenre.length > 0 ? `${genreLabel(post.tipe)} lainnya` : "Tulisan lain";
+    sameGenre.length > 0
+      ? reading.moreSameGenre(genreLabel(post.tipe))
+      : reading.moreFallback;
 
   const tanggalDate = new Date(post.tanggal);
   const tanggalFormatted = isNaN(tanggalDate.getTime())
@@ -116,12 +123,12 @@ export default async function VersDetail({
       <div className="relative max-w-6xl mx-auto px-4 md:px-6 py-20 md:py-28">
         {/* Spine — cuma tampil di desktop, nempel di kiri seperti punggung buku */}
         <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-10 lg:absolute lg:left-2 lg:top-28 lg:bottom-16">
-          <TransitionLink
+          <Link
             href="/vers"
             className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
           >
-            ← Vers
-          </TransitionLink>
+            {reading.back}
+          </Link>
           <span className="spine-label text-xs tracking-[0.25em] text-neutral-400">
             {post.tipe}
           </span>
@@ -131,22 +138,22 @@ export default async function VersDetail({
         <div className="lg:pl-28 lg:pr-[14%]">
           {/* Meta ringkas — cuma tampil di mobile/tablet */}
           <div className="lg:hidden mb-10 flex flex-col gap-3">
-            <TransitionLink
+            <Link
               href="/vers"
               className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
             >
-              ← Vers
-            </TransitionLink>
+              {reading.back}
+            </Link>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-neutral-500">
               <span>{post.tipe}</span>
               <span>{tanggalFormatted}</span>
               {seriesInfo && (
-                <TransitionLink
+                <Link
                   href={`/novel/${post.series}`}
                   className="hover:text-neutral-300 transition-colors"
                 >
                   Bab {seriesInfo.current} dari {seriesInfo.total}
-                </TransitionLink>
+                </Link>
               )}
             </div>
           </div>
@@ -171,12 +178,12 @@ export default async function VersDetail({
                 {seriesInfo && (
                   <>
                     {" "}
-                    <TransitionLink
+                    <Link
                       href={`/novel/${post.series}`}
                       className="hover:text-neutral-300 transition-colors"
                     >
                       · Bab {seriesInfo.current} dari {seriesInfo.total}
-                    </TransitionLink>
+                    </Link>
                   </>
                 )}
               </p>
@@ -211,7 +218,7 @@ export default async function VersDetail({
                 )}
                 {isBook && (
                   <p className="mt-6 text-center font-display italic text-sm text-neutral-500">
-                    geser untuk memutar buku
+                    {reading.dragBook}
                   </p>
                 )}
               </div>
@@ -239,42 +246,42 @@ export default async function VersDetail({
             <Reveal delay={0.1}>
               <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800 flex flex-col gap-10">
                 {nextChapter && (
-                  <TransitionLink
+                  <Link
                     href={`/vers/${nextChapter.slug}`}
                     className="group block"
                   >
                     <p className="text-sm text-neutral-500 mb-3">
-                      Bab selanjutnya
+                      {reading.chapter.next}
                     </p>
                     <h3 className="font-display text-3xl md:text-4xl leading-tight transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5">
                       {nextChapter.judul}
                     </h3>
                     <div className="mt-3 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
-                  </TransitionLink>
+                  </Link>
                 )}
 
                 {!nextChapter && (
-                  <TransitionLink
+                  <Link
                     href={`/novel/${post.series}`}
                     className="font-display text-2xl md:text-3xl hover:text-[var(--accent-soft)] transition-colors"
                   >
-                    Bab terakhir — lihat semua bab
-                  </TransitionLink>
+                    {reading.chapter.last}
+                  </Link>
                 )}
 
                 {prevChapter && (
-                  <TransitionLink
+                  <Link
                     href={`/vers/${prevChapter.slug}`}
                     className="group block"
                   >
                     <p className="text-sm text-neutral-500 mb-3">
-                      Bab sebelumnya
+                      {reading.chapter.prev}
                     </p>
                     <h3 className="font-display text-xl md:text-2xl leading-tight text-neutral-400 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-white group-hover:translate-x-1.5">
                       {prevChapter.judul}
                     </h3>
                     <div className="mt-3 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
-                  </TransitionLink>
+                  </Link>
                 )}
               </div>
             </Reveal>
@@ -287,7 +294,7 @@ export default async function VersDetail({
                   </p>
                   <div className="flex flex-col gap-10">
                     {moreReads.map((p) => (
-                      <TransitionLink
+                      <Link
                         key={p.slug}
                         href={`/vers/${p.slug}`}
                         className="group block"
@@ -304,7 +311,7 @@ export default async function VersDetail({
                           {p.ringkasan}
                         </p>
                         <div className="mt-3 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
-                      </TransitionLink>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -315,7 +322,7 @@ export default async function VersDetail({
           <Reveal delay={0.18}>
             <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800">
               <p className="text-sm text-neutral-500 mb-6">
-                Bagikan tulisan ini
+                {reading.shareHeading}
               </p>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <ShareButtons title={post.judul} text={post.ringkasan} />
@@ -335,12 +342,12 @@ export default async function VersDetail({
 
           <Reveal delay={0.2}>
             <div className="max-w-2xl mt-16 pt-8 border-t border-neutral-800 flex items-center justify-between flex-wrap gap-6">
-              <TransitionLink
+              <Link
                 href="/vers"
                 className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
               >
-                Semua Vers
-              </TransitionLink>
+                {reading.allVers}
+              </Link>
               <SocialLinks className="lg:hidden" />
             </div>
           </Reveal>

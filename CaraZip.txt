@@ -1,1 +1,0 @@
- tar -a -c -f vijan.zip --exclude=node_modules --exclude=.next --exclude=vendor --exclude=.git --exclude=vijan.zip --exclude=.env.local --exclude=service-account.json *

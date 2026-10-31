@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { journey } from "@/content/world";
 
 // Fast path for visitors in a hurry (recruiters): one small icon opens a
 // short menu with the work lists, both résumés and the email.
@@ -55,8 +56,8 @@ export default function QuickLinks({ className = "" }: { className?: string }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="true"
-        aria-label="Menu"
-        title="Menu"
+        aria-label={journey.menuLabel}
+        title={journey.menuLabel}
         className="flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/50 text-[#fff3e0] backdrop-blur-md transition-colors hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866]"
       >
         <svg

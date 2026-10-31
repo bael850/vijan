@@ -1,6 +1,6 @@
 import WorldJourney from "@/components/world/WorldJourney";
 import type { ContentItem } from "@/components/world/house/content/contentLayout";
-import { getAllFoto, getAllPosts } from "@/lib/data";
+import { getAllFoto, getAllPosts } from "@/lib/content/data";
 
 export const revalidate = 300;
 

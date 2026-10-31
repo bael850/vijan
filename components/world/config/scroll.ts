@@ -1,3 +1,5 @@
+import { journey } from "@/content/world";
+
 // Angka scroll dan kamera. Ubah di sini kalau perjalanan terasa terlalu cepat, lambat, atau tinggi.
 
 export const SCROLL = {
@@ -35,21 +37,24 @@ export const FREELOOK = {
 
 // Kalimat yang muncul sepanjang jalan. Rentang = progress scroll 0..1:
 // [mulai muncul, tampil penuh, mulai pudar, hilang].
-// Semua kalimat ini sementara. Tulis ulang dengan suaramu sendiri.
-export const TITLE = "Pulang ke rumah";
+// Teks kalimatnya ada di content/world.ts.
+export const TITLE = journey.title;
 
 export const LINES = [
   {
-    text: "Jalan ini panjang, dan aku tidak terburu-buru.",
+    text: journey.lines[0],
     r: [0.05, 0.08, 0.14, 0.17],
   },
-  { text: "Ada kucing yang selalu tahu arahnya.", r: [0.2, 0.23, 0.29, 0.32] },
   {
-    text: "Di tepi danau, langit pun ikut pelan.",
+    text: journey.lines[1],
+    r: [0.2, 0.23, 0.29, 0.32],
+  },
+  {
+    text: journey.lines[2],
     r: [0.34, 0.37, 0.42, 0.45],
   },
   {
-    text: "Lampu rumah itu menyala. Ada yang menunggu.",
+    text: journey.lines[3],
     r: [0.46, 0.48, 0.52, 0.55],
   },
 ] as const;

@@ -1,3 +1,5 @@
+import { site } from "@/content/site";
+
 // Kartu preview link (WhatsApp, Telegram, X, dll). Sengaja polos: latar gelap,
 // judul besar. Satori (renderer di balik next/og) mewajibkan display:flex
 // pada elemen yang punya lebih dari satu anak.
@@ -7,7 +9,7 @@ export const OG_SIZE = { width: 1200, height: 630 };
 export function OgCard({
   eyebrow,
   title,
-  footer = "Vijan — An Ordinary People",
+  footer = site.title,
 }: {
   eyebrow?: string;
   title: string;

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPostsBySeries } from "@/lib/data";
-import Reveal from "@/components/Reveal";
+import { getPostsBySeries } from "@/lib/content/data";
+import Reveal from "@/components/ui/Reveal";
+import { vers } from "@/content/vers";
 
 function seriesTitle(slug: string) {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -34,13 +35,13 @@ export default async function NovelSeries({
             href="/vers"
             className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-300 transition-colors mb-12"
           >
-            ← Kembali ke semua Vers
+            {vers.series.back}
           </Link>
         </Reveal>
 
         <Reveal delay={0.05}>
           <span className="text-xs uppercase tracking-[0.2em] text-neutral-500 border border-neutral-700 rounded-full px-3 py-1">
-            cerbung
+            {vers.series.badge}
           </span>
         </Reveal>
 
