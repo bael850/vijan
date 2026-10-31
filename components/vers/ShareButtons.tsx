@@ -31,7 +31,7 @@ type ShareButtonsProps = {
 };
 
 const ICON_BTN =
-  "group relative flex h-11 w-11 items-center justify-center rounded-full border border-neutral-700 text-neutral-400 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--accent-soft)] hover:text-[var(--accent-soft)]";
+  "group relative flex h-11 w-11 items-center justify-center rounded-full text-[#f3dcc0] bg-[radial-gradient(circle_at_34%_28%,#c0463c,#8a241d_62%,#5e1612)] shadow-[0_2px_0_#4a110d,0_8px_14px_-6px_rgba(60,10,6,0.7),inset_0_0_0_3px_rgba(255,255,255,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95";
 
 async function copyToClipboard(value: string): Promise<boolean> {
   try {

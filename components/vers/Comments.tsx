@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/comments";
 import type { CommentRow } from "@/lib/comments/queries";
 import { commentUi } from "@/content/comments";
+import { reading } from "@/content/reading";
 
 const initialLoginState: RequestLoginState = { status: "idle" };
 const initialCommentState: PostCommentState = { status: "idle" };
@@ -49,8 +50,8 @@ export default function Comments({
 
   return (
     <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800">
-      <h2 className="text-sm font-normal text-neutral-500 mb-8">
-        Komentar {comments.length > 0 && `(${comments.length})`}
+      <h2 className="font-display text-2xl font-normal text-neutral-400 mb-8">
+        {reading.guestbook}
       </h2>
 
       <div className="flex flex-col gap-8 mb-12">

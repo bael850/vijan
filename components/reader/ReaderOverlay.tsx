@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { reading } from "@/content/reading";
 
 const CloseContext = createContext<() => void>(() => {});
@@ -37,22 +38,40 @@ export default function ReaderOverlay({ children }: { children: ReactNode }) {
 
   return (
     <CloseContext.Provider value={() => router.back()}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/85 backdrop-blur-sm"
-      >
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label={reading.close}
-          title={reading.close}
-          className="fixed right-4 top-4 z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-neutral-600 bg-black/60 text-neutral-200 transition-colors hover:border-white hover:text-white"
+      <>
+        {/* tirai gelap terpisah dari kertas, supaya elemen fixed di dalam tulisan tetap normal */}
+        <div
+          aria-hidden
+          className="fixed inset-0 z-50 bg-[#0b080e]/80 backdrop-blur-[3px]"
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-lenis-prevent
+          onClick={(e) => {
+            if (e.target === e.currentTarget) router.back();
+          }}
+          className="fixed inset-0 z-[51] overflow-y-auto overscroll-contain"
         >
-          ✕
-        </button>
-        {children}
-      </div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label={reading.close}
+            title={reading.close}
+            className="fixed right-4 top-4 z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper/80 text-ink transition-colors hover:border-lantern hover:text-lantern"
+          >
+            ✕
+          </button>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="sheet parchment"
+          >
+            {children}
+          </motion.div>
+        </div>
+      </>
     </CloseContext.Provider>
   );
 }

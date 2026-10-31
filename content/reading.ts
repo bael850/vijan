@@ -13,7 +13,8 @@ export const reading = {
     last: "Bab terakhir — lihat semua bab",
     prev: "Bab sebelumnya",
   },
-  shareHeading: "Bagikan tulisan ini",
+  shareHeading: "Bagikan lewat segel",
+  guestbook: "Buku tamu",
 } as const;
 
 export const toc = {

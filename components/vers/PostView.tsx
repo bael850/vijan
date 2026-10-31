@@ -88,14 +88,20 @@ export default async function PostView({
   const hasCover = !!post.cover;
 
   return (
-    <main
-      className={`${overlay ? "min-h-full" : "min-h-screen"} bg-black text-white`}
-    >
+    <main className={overlay ? "" : "min-h-screen bg-black text-white"}>
       {!overlay && <ScrollProgress />}
 
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6 py-20 md:py-28">
+      <div
+        className={
+          overlay
+            ? "relative px-6 py-14 sm:px-12 md:py-16"
+            : "relative max-w-6xl mx-auto px-4 md:px-6 py-20 md:py-28"
+        }
+      >
         {/* Spine — cuma tampil di desktop, nempel di kiri seperti punggung buku */}
-        <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-10 lg:absolute lg:left-2 lg:top-28 lg:bottom-16">
+        <div
+          className={`${overlay ? "!hidden" : ""} hidden lg:flex lg:flex-col lg:items-center lg:gap-10 lg:absolute lg:left-2 lg:top-28 lg:bottom-16`}
+        >
           {!overlay ? (
             <Link
               href="/vers"
@@ -112,9 +118,11 @@ export default async function PostView({
           <SocialLinks layout="stack" className="mt-auto" />
         </div>
 
-        <div className="lg:pl-28 lg:pr-[14%]">
+        <div className={overlay ? "" : "lg:pl-28 lg:pr-[14%]"}>
           {/* Meta ringkas — cuma tampil di mobile/tablet */}
-          <div className="lg:hidden mb-10 flex flex-col gap-3">
+          <div
+            className={`${overlay ? "" : "lg:hidden"} mb-10 flex flex-col gap-3`}
+          >
             {!overlay ? (
               <Link
                 href="/vers"
@@ -143,7 +151,7 @@ export default async function PostView({
           <div className="relative max-w-2xl overflow-hidden">
             <span
               aria-hidden
-              className="genre-ghost pointer-events-none absolute -left-2 -top-6 text-[3.25rem] sm:text-[4.5rem] md:text-[7rem] -rotate-2 select-none"
+              className={`${overlay ? "hidden" : ""} genre-ghost pointer-events-none absolute -left-2 -top-6 text-[3.25rem] sm:text-[4.5rem] md:text-[7rem] -rotate-2 select-none`}
             >
               {post.tipe}
             </span>
@@ -155,7 +163,9 @@ export default async function PostView({
             </Reveal>
 
             <Reveal delay={0.15}>
-              <p className="hidden lg:block text-sm text-neutral-500">
+              <p
+                className={`${overlay ? "hidden" : "hidden lg:block"} text-sm text-neutral-500`}
+              >
                 {tanggalFormatted}
                 {seriesInfo && (
                   <>
@@ -210,7 +220,7 @@ export default async function PostView({
 
           <Reveal delay={0.25}>
             <article
-              className={`article-content ${hasDropcap ? "dropcap " : ""}prose prose-invert prose-lg max-w-2xl prose-p:text-neutral-300 prose-p:leading-[1.8] prose-headings:font-display prose-headings:font-normal prose-a:text-white prose-a:underline prose-a:underline-offset-4 mt-14 pt-10 border-t border-neutral-800`}
+              className={`article-content ${hasDropcap ? "dropcap " : ""}${overlay ? "prose" : "prose prose-invert"} prose-lg max-w-2xl prose-p:text-neutral-300 prose-p:leading-[1.8] prose-headings:font-display prose-headings:font-normal prose-a:text-[var(--foreground)] prose-a:underline prose-a:underline-offset-4 mt-14 pt-10 border-t border-neutral-800`}
             >
               <ReactMarkdown
                 remarkPlugins={
@@ -339,7 +349,7 @@ export default async function PostView({
               ) : (
                 <ReaderCloseLink className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors" />
               )}
-              <SocialLinks className="lg:hidden" />
+              <SocialLinks className={overlay ? "" : "lg:hidden"} />
             </div>
           </Reveal>
         </div>

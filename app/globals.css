@@ -203,3 +203,75 @@ html {
 .article-content strong {
   color: var(--accent-soft);
 }
+
+/* ── Lapisan baca: kertas perkamen ───────────────────────── */
+.sheet {
+  position: relative;
+  margin: 1.5rem auto 3rem;
+  width: min(100% - 1.5rem, 48rem);
+  border-radius: 3px;
+}
+@media (min-width: 768px) {
+  .sheet {
+    margin-top: 3.5rem;
+  }
+}
+
+/* Di atas kertas terang, warna "neutral" Tailwind dibalik jadi tinta cokelat. */
+.parchment {
+  --color-neutral-300: #3d2b1a;
+  --color-neutral-400: #54402e;
+  --color-neutral-500: #7a6450;
+  --color-neutral-600: #8c7660;
+  --color-neutral-700: #a68f70;
+  --color-neutral-800: #c4ad88;
+  --color-neutral-900: #d6c29f;
+  --foreground: #2a1b0e;
+  --accent: #7a2e1c;
+  --accent-soft: #7a2e1c;
+  --lantern: #8e2a22; /* huruf awal bergaya tinta merah */
+  --tw-prose-body: #3d2b1a;
+  --tw-prose-headings: #2a1b0e;
+  --tw-prose-bold: #2a1b0e;
+  --tw-prose-links: #2a1b0e;
+  --tw-prose-quotes: #2a1b0e;
+  --tw-prose-bullets: #8c7660;
+  --tw-prose-counters: #7a6450;
+  --tw-prose-hr: #c4ad88;
+  color: #2f2013;
+  background-color: #e8d9b8;
+  background-image:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(255, 247, 225, 0.55),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse at 0% 100%,
+      rgba(120, 80, 30, 0.25),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 100% 100%,
+      rgba(120, 80, 30, 0.25),
+      transparent 55%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .24 0 0 0 0 .1 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow:
+    inset 0 0 70px rgba(110, 70, 25, 0.38),
+    inset 0 0 8px rgba(80, 50, 20, 0.45),
+    0 30px 80px -20px rgba(0, 0, 0, 0.85);
+}
+.parchment ::selection {
+  background: #8e2a22;
+  color: #f3e6c8;
+}
+/* Jendela "Bagikan sebagai Story" tetap gelap, jangan ikut berubah jadi cokelat. */
+.parchment [class~="z-[100]"] {
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+}
