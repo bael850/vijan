@@ -2,6 +2,8 @@
 export const reading = {
   notFoundTitle: "Tidak ditemukan",
   back: "← Vers",
+  close: "Tutup",
+  closeReading: "Tutup tulisan",
   allVers: "Semua Vers",
   moreFallback: "Tulisan lain",
   moreSameGenre: (genre: string) => `${genre} lainnya`,

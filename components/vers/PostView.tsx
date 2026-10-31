@@ -1,0 +1,349 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
+import {
+  getPostBySlug,
+  getAllPosts,
+  getPostsBySeries,
+} from "@/lib/content/data";
+import { auth } from "@/auth";
+import { getCommentsBySlug } from "@/lib/comments/queries";
+import Comments from "@/components/vers/Comments";
+import Reveal from "@/components/ui/Reveal";
+import ScrollProgress from "@/components/layout/ScrollProgress";
+import SocialLinks from "@/components/vers/SocialLinks";
+import ShareButtons from "@/components/vers/ShareButtons";
+import ShareStory from "@/components/vers/ShareStory";
+import BookCover3D from "@/components/rekomendasi/BookCover3D";
+import { ReaderCloseLink } from "@/components/reader/ReaderOverlay";
+import { reading } from "@/content/reading";
+
+// Sajak: tiap baris di Sheets = satu baris puisi (bukan digabung jadi paragraf).
+const BREAK_TYPES = ["sajak"];
+// Drop cap hanya cocok untuk prosa fiksi.
+const DROPCAP_TYPES = ["cerpen", "cerbung"];
+
+function genreLabel(tipe: string) {
+  return tipe.charAt(0).toUpperCase() + tipe.slice(1);
+}
+
+export default async function PostView({
+  slug,
+  overlay = false,
+}: {
+  slug: string;
+  // true = dibuka di dalam dunia (overlay), false = halaman penuh (link langsung / refresh)
+  overlay?: boolean;
+}) {
+  const post = await getPostBySlug(slug);
+  if (!post) return notFound();
+
+  const [allPosts, session, comments] = await Promise.all([
+    getAllPosts(),
+    auth(),
+    getCommentsBySlug(post.slug),
+  ]);
+
+  // Series: bisa tipe apa pun asal kolom "series" diisi (cerbung, novel,
+  // atau tipe lain nanti) — bukan cuma di-hardcode ke tipe "cerbung".
+  let prevChapter = null;
+  let nextChapter = null;
+  let seriesInfo: { current: number; total: number } | null = null;
+
+  if (post.series) {
+    const chapters = await getPostsBySeries(post.series);
+    const idx = chapters.findIndex((p) => p.slug === post.slug);
+    prevChapter = idx > 0 ? chapters[idx - 1] : null;
+    nextChapter = chapters[idx + 1] ?? null;
+    seriesInfo = { current: idx + 1, total: chapters.length };
+  }
+
+  // Non-series: cari tulisan lain dengan genre yang sama. Kalau belum ada
+  // yang lain segenre, baru fallback ke tulisan terbaru apa pun.
+  const others = allPosts.filter((p) => p.slug !== post.slug);
+  const sameGenre = others.filter((p) => p.tipe === post.tipe).slice(0, 2);
+  const moreReads = sameGenre.length > 0 ? sameGenre : others.slice(0, 2);
+  const moreReadsLabel =
+    sameGenre.length > 0
+      ? reading.moreSameGenre(genreLabel(post.tipe))
+      : reading.moreFallback;
+
+  const tanggalDate = new Date(post.tanggal);
+  const tanggalFormatted = isNaN(tanggalDate.getTime())
+    ? post.tanggal
+    : tanggalDate.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC", // "2026-09-15" di-parse sebagai UTC
+      });
+  const hasDropcap = DROPCAP_TYPES.includes(post.tipe);
+
+  // Rekomendasi: cover ditampilkan di halaman detailnya sendiri juga —
+  // sebelumnya cover cuma nongol di daftar /vers?rubrik=rekomendasi, jadi
+  // link yang di-share ke tulisan ini nggak nunjukin covernya sama sekali.
+  const isBook = !!(post.cover && post.coverBelakang);
+  const hasCover = !!post.cover;
+
+  return (
+    <main
+      className={`${overlay ? "min-h-full" : "min-h-screen"} bg-black text-white`}
+    >
+      {!overlay && <ScrollProgress />}
+
+      <div className="relative max-w-6xl mx-auto px-4 md:px-6 py-20 md:py-28">
+        {/* Spine — cuma tampil di desktop, nempel di kiri seperti punggung buku */}
+        <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-10 lg:absolute lg:left-2 lg:top-28 lg:bottom-16">
+          {!overlay ? (
+            <Link
+              href="/vers"
+              className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+            >
+              {reading.back}
+            </Link>
+          ) : (
+            <ReaderCloseLink className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors" />
+          )}
+          <span className="spine-label text-xs tracking-[0.25em] text-neutral-400">
+            {post.tipe}
+          </span>
+          <SocialLinks layout="stack" className="mt-auto" />
+        </div>
+
+        <div className="lg:pl-28 lg:pr-[14%]">
+          {/* Meta ringkas — cuma tampil di mobile/tablet */}
+          <div className="lg:hidden mb-10 flex flex-col gap-3">
+            {!overlay ? (
+              <Link
+                href="/vers"
+                className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                {reading.back}
+              </Link>
+            ) : (
+              <ReaderCloseLink className="self-start text-sm text-neutral-500 hover:text-neutral-300 transition-colors" />
+            )}
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-neutral-500">
+              <span>{post.tipe}</span>
+              <span>{tanggalFormatted}</span>
+              {seriesInfo && (
+                <Link
+                  href={`/novel/${post.series}`}
+                  replace={overlay}
+                  className="hover:text-neutral-300 transition-colors"
+                >
+                  Bab {seriesInfo.current} dari {seriesInfo.total}
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div className="relative max-w-2xl overflow-hidden">
+            <span
+              aria-hidden
+              className="genre-ghost pointer-events-none absolute -left-2 -top-6 text-[3.25rem] sm:text-[4.5rem] md:text-[7rem] -rotate-2 select-none"
+            >
+              {post.tipe}
+            </span>
+
+            <Reveal delay={0.1}>
+              <h1 className="relative font-display text-5xl md:text-7xl leading-[1.02] mb-4">
+                {post.judul}
+              </h1>
+            </Reveal>
+
+            <Reveal delay={0.15}>
+              <p className="hidden lg:block text-sm text-neutral-500">
+                {tanggalFormatted}
+                {seriesInfo && (
+                  <>
+                    {" "}
+                    <Link
+                      href={`/novel/${post.series}`}
+                      replace={overlay}
+                      className="hover:text-neutral-300 transition-colors"
+                    >
+                      · Bab {seriesInfo.current} dari {seriesInfo.total}
+                    </Link>
+                  </>
+                )}
+              </p>
+            </Reveal>
+          </div>
+
+          {hasCover && (
+            <Reveal delay={0.2}>
+              <div className="relative mx-auto mt-12 w-full max-w-[220px] pb-6">
+                {/* sorot lampu dari atas, senada sama versi di daftar shelf */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -inset-x-12 -top-16 bottom-0 bg-[radial-gradient(ellipse_at_50%_38%,rgba(91,141,239,0.2),transparent_62%)]"
+                />
+                {isBook ? (
+                  <BookCover3D
+                    src={post.cover!}
+                    backSrc={post.coverBelakang}
+                    alt={`Cover ${post.judul}`}
+                    title={post.judul}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.cover}
+                    alt={`Cover ${post.judul}`}
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="relative aspect-[2/3] w-full rounded-[3px] object-cover shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9),0_0_0_0.5px_rgba(255,255,255,0.12)]"
+                  />
+                )}
+                {isBook && (
+                  <p className="mt-6 text-center font-display italic text-sm text-neutral-500">
+                    {reading.dragBook}
+                  </p>
+                )}
+              </div>
+            </Reveal>
+          )}
+
+          <Reveal delay={0.25}>
+            <article
+              className={`article-content ${hasDropcap ? "dropcap " : ""}prose prose-invert prose-lg max-w-2xl prose-p:text-neutral-300 prose-p:leading-[1.8] prose-headings:font-display prose-headings:font-normal prose-a:text-white prose-a:underline prose-a:underline-offset-4 mt-14 pt-10 border-t border-neutral-800`}
+            >
+              <ReactMarkdown
+                remarkPlugins={
+                  BREAK_TYPES.includes(post.tipe)
+                    ? [remarkGfm, remarkBreaks]
+                    : [remarkGfm]
+                }
+              >
+                {post.isi}
+              </ReactMarkdown>
+            </article>
+          </Reveal>
+
+          {/* Series: navigasi bab sebelumnya & selanjutnya */}
+          {seriesInfo ? (
+            <Reveal delay={0.1}>
+              <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800 flex flex-col gap-10">
+                {nextChapter && (
+                  <Link
+                    href={`/vers/${nextChapter.slug}`}
+                    replace={overlay}
+                    className="group block"
+                  >
+                    <p className="text-sm text-neutral-500 mb-3">
+                      {reading.chapter.next}
+                    </p>
+                    <h3 className="font-display text-3xl md:text-4xl leading-tight transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5">
+                      {nextChapter.judul}
+                    </h3>
+                    <div className="mt-3 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
+                  </Link>
+                )}
+
+                {!nextChapter && (
+                  <Link
+                    href={`/novel/${post.series}`}
+                    replace={overlay}
+                    className="font-display text-2xl md:text-3xl hover:text-[var(--accent-soft)] transition-colors"
+                  >
+                    {reading.chapter.last}
+                  </Link>
+                )}
+
+                {prevChapter && (
+                  <Link
+                    href={`/vers/${prevChapter.slug}`}
+                    replace={overlay}
+                    className="group block"
+                  >
+                    <p className="text-sm text-neutral-500 mb-3">
+                      {reading.chapter.prev}
+                    </p>
+                    <h3 className="font-display text-xl md:text-2xl leading-tight text-neutral-400 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-white group-hover:translate-x-1.5">
+                      {prevChapter.judul}
+                    </h3>
+                    <div className="mt-3 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
+                  </Link>
+                )}
+              </div>
+            </Reveal>
+          ) : (
+            moreReads.length > 0 && (
+              <Reveal delay={0.15}>
+                <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800">
+                  <p className="text-sm text-neutral-500 mb-8">
+                    {moreReadsLabel}
+                  </p>
+                  <div className="flex flex-col gap-10">
+                    {moreReads.map((p) => (
+                      <Link
+                        key={p.slug}
+                        href={`/vers/${p.slug}`}
+                        replace={overlay}
+                        className="group block"
+                      >
+                        <div className="mb-2">
+                          <span className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+                            {p.tipe}
+                          </span>
+                        </div>
+                        <h3 className="font-display text-2xl md:text-3xl leading-tight mb-2 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-400 group-hover:translate-x-1.5">
+                          {p.judul}
+                        </h3>
+                        <p className="text-neutral-500 leading-relaxed">
+                          {p.ringkasan}
+                        </p>
+                        <div className="mt-3 h-px w-0 bg-neutral-600 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-full" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            )
+          )}
+
+          <Reveal delay={0.18}>
+            <div className="max-w-2xl mt-24 pt-10 border-t border-neutral-800">
+              <p className="text-sm text-neutral-500 mb-6">
+                {reading.shareHeading}
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <ShareButtons title={post.judul} text={post.ringkasan} />
+                <ShareStory post={post} tanggalFormatted={tanggalFormatted} />
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.15}>
+            <Comments
+              slug={post.slug}
+              comments={comments}
+              isLoggedIn={!!session?.user}
+              displayName={session?.user?.name}
+            />
+          </Reveal>
+
+          <Reveal delay={0.2}>
+            <div className="max-w-2xl mt-16 pt-8 border-t border-neutral-800 flex items-center justify-between flex-wrap gap-6">
+              {!overlay ? (
+                <Link
+                  href="/vers"
+                  className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  {reading.allVers}
+                </Link>
+              ) : (
+                <ReaderCloseLink className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors" />
+              )}
+              <SocialLinks className="lg:hidden" />
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </main>
+  );
+}

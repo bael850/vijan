@@ -40,8 +40,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  modal: React.ReactNode;
 }) {
   return (
     <html lang="id" className={fell.variable}>
@@ -49,6 +51,7 @@ export default function RootLayout({
         <GraphicsProvider>
           <Navbar />
           {children}
+          {modal}
           <Footer />
           <SoundToggle />
         </GraphicsProvider>
