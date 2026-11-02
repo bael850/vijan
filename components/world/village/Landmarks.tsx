@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { HOUSE } from "../config/world";
 import { getGlow } from "../core/glow";
+import { dayState } from "../core/dayCycle";
+import { LitMesh } from "../core/nightLights";
 import { roadAt } from "../path/road";
 import { groundHeight, lakeDist } from "../terrain/heightmap";
 import { LANDMARKS, type LandmarkType } from "./villageLayout";
@@ -14,7 +16,12 @@ import { LANDMARKS, type LandmarkType } from "./villageLayout";
 // Yang bergerak dipisah: baling-baling kincir, kristal menara, dan cahaya berdenyut.
 // Dasar ditanam 0.8 ke tanah. Sisi depan = +z lokal.
 
-type Part = { g: THREE.BufferGeometry; c: string; lit?: boolean };
+type Part = {
+  g: THREE.BufferGeometry;
+  c: string;
+  lit?: boolean;
+  stone?: boolean;
+};
 type Glow = {
   pos: [number, number, number];
   color: string;
@@ -33,6 +40,10 @@ const WHITE = "#ece4d0";
 const NAVY = "#3a3f6b";
 const SAIL = "#e8dcc0";
 const WARM = "#ffd479";
+const SLIT = "#14110d";
+const IRON_C = "#2b2724";
+const FLAME = "#ff8a2a";
+const GOLD = "#c9a24a";
 
 function put(
   g: THREE.BufferGeometry,
@@ -190,32 +201,190 @@ function lighthouse(): Part[] {
   return parts;
 }
 
-function gate(): Part[] {
-  const parts: Part[] = [
-    { g: put(box(8.2, 0.7, 1.1), 0, 4.75, 0), c: STONE },
-    { g: put(box(0.05, 0.9, 0.05), 0, 4.0, 0), c: BEAM },
-    { g: put(box(0.5, 0.7, 0.5), 0, 3.35, 0), c: WARM, lit: true },
-  ];
+// Gerbang kerajaan: dua menara, lengkung batu di atas bukaan, dan tembok panjang
+// yang mengikuti kontur tanah ke kiri-kanan. Daun pintunya ada di GateDoors.tsx.
+// Sisi pendatang = -z lokal. Dasar ditanam dalam supaya tembok menyatu dengan bukit.
+const GATE = {
+  half: 3.0,
+  towerW: 3.2,
+  seg: 6, // panjang satu segmen tembok
+  nSeg: 8, // 8 x 6 = 48 m per sisi (dulu 30)
+  wallH: 6.5, // tinggi tembok di atas titik tanah tertinggi segmen
+};
+const GATE_WALL_START = GATE.half + GATE.towerW;
+// lentera dinding di muka menara, mengapit pintu (tidak lagi menggantung di depan pintu)
+const LANTERN_POS = (sx: number): [number, number, number] => [
+  sx * 3.7,
+  4.3,
+  -2.05,
+];
+
+// tinggi tanah relatif ke dasar gerbang, pada x lokal tertentu
+function gateDy(p: Placed, lx: number) {
+  const w = toWorld(p, lx, 0, 0);
+  return groundHeight(w[0], w[2]) - p.y;
+}
+// posisi nyala obor (lokal) di tiap sisi
+function torchPos(p: Placed, sx: number): [number, number, number] {
+  const x = sx * (GATE_WALL_START + 1.4);
+  return [x, gateDy(p, x) + 3.9, -1.25];
+}
+
+function gate(_s: number, p: Placed): Part[] {
+  const parts: Part[] = [];
+  const st = (g: THREE.BufferGeometry, c: string = STONE): Part => ({
+    g,
+    c,
+    stone: true,
+  });
+  const tx = GATE.half + GATE.towerW / 2; // pusat menara
+
+  // lengkung batu di atas bukaan + list profil + lambang
+  parts.push(
+    st(put(box(GATE.half * 2 + 0.4, 2.4, 2.0), 0, 6.3, 0)),
+    st(put(box(GATE.half * 2 + 1.0, 0.45, 2.5), 0, 7.7, 0), STONE_D),
+    st(put(box(GATE.half * 2 + 0.7, 0.28, 2.3), 0, 5.2, 0), STONE_D),
+    { g: put(box(1.7, 1.2, 0.1), 0, 6.4, -1.05), c: RED },
+    { g: put(box(0.55, 0.55, 0.06), 0, 6.4, -1.12), c: GOLD },
+  );
+
   for (const sx of [-1, 1]) {
+    // menara (dasar ditanam dalam)
     parts.push(
-      { g: put(box(1.0, 5.2, 1.0), sx * 3.4, 1.8, 0), c: STONE },
-      { g: put(box(1.25, 0.35, 1.25), sx * 3.4, 4.5, 0), c: STONE_D },
+      st(put(box(GATE.towerW, 18, GATE.towerW), sx * tx, 4.1, 0)),
+      st(
+        put(box(GATE.towerW + 0.7, 0.5, GATE.towerW + 0.7), sx * tx, 12.4, 0),
+        STONE_D,
+      ),
+      st(
+        put(box(GATE.towerW + 0.5, 0.35, GATE.towerW + 0.5), sx * tx, 6.6, 0),
+        STONE_D,
+      ),
       {
         g: put(
-          new THREE.ConeGeometry(0.9, 1.0, 4),
-          sx * 3.4,
-          5.5,
+          new THREE.ConeGeometry(2.6, 3.4, 4),
+          sx * tx,
+          14.7,
           0,
           Math.PI / 4,
         ),
         c: RED,
       },
+      // celah jendela menyala di dua sisi
+      {
+        g: put(box(0.35, 1.2, 0.1), sx * tx, 9.2, -GATE.towerW / 2 - 0.02),
+        c: WARM,
+        lit: true,
+      },
+      {
+        g: put(box(0.35, 1.2, 0.1), sx * tx, 9.2, GATE.towerW / 2 + 0.02),
+        c: WARM,
+        lit: true,
+      },
+      // panji merah di muka menara
+      {
+        g: put(box(1.3, 3.6, 0.06), sx * tx, 8.0, -GATE.towerW / 2 - 0.06),
+        c: RED,
+      },
+      {
+        g: put(box(1.3, 0.25, 0.08), sx * tx, 9.7, -GATE.towerW / 2 - 0.06),
+        c: BEAM,
+      },
     );
+    // celah panah gelap di muka menara
+    for (const dx of [-0.8, 0.8]) {
+      parts.push({
+        g: put(box(0.2, 1.3, 0.06), sx * tx + dx, 4.2, -GATE.towerW / 2 - 0.02),
+        c: SLIT,
+      });
+    }
+
+    // tembok per segmen, mengikuti tanah
+    const xs = Array.from(
+      { length: GATE.nSeg + 1 },
+      (_, j) => GATE_WALL_START + j * GATE.seg,
+    );
+    const dy = xs.map((x) => gateDy(p, sx * x));
+    const base: number[] = [];
+    const top: number[] = [];
+    for (let i = 0; i < GATE.nSeg; i++) {
+      base.push(Math.min(dy[i], dy[i + 1]) - 3);
+      top.push(Math.max(dy[i], dy[i + 1]) + GATE.wallH);
+    }
+    for (let i = 0; i < GATE.nSeg; i++) {
+      const cx = sx * (xs[i] + GATE.seg / 2);
+      const len = GATE.seg + 0.05;
+      parts.push(
+        st(put(box(len, top[i] - base[i], 1.8), cx, (top[i] + base[i]) / 2, 0)),
+        st(put(box(len, 0.4, 2.1), cx, top[i], 0), STONE_D),
+        {
+          g: put(box(0.2, 1.1, 0.06), cx, top[i] - 2.6, -0.92),
+          c: SLIT,
+        },
+      );
+      // gerigi
+      for (const k of [1, 3, 5]) {
+        parts.push(
+          st(put(box(1.0, 1.1, 1.8), sx * (xs[i] + k), top[i] + 0.75, 0)),
+        );
+      }
+    }
+    // penguat di tiap sambungan segmen
+    for (let j = 1; j <= GATE.nSeg; j++) {
+      const lo = Math.min(base[j - 1], j < GATE.nSeg ? base[j] : base[j - 1]);
+      const hi =
+        Math.max(top[j - 1], j < GATE.nSeg ? top[j] : top[j - 1]) - 0.8;
+      parts.push(
+        st(put(box(1.6, hi - lo, 2.8), sx * xs[j], (hi + lo) / 2, 0), STONE_D),
+      );
+    }
+
+    // obor di dinding dekat menara
+    const [ox, oy, oz] = torchPos(p, sx);
+    parts.push(
+      { g: put(box(0.12, 0.12, 0.4), ox, oy - 0.35, -1.05), c: IRON_C },
+      { g: put(box(0.1, 0.8, 0.1), ox, oy - 0.1, oz), c: BEAM },
+      { g: put(box(0.22, 0.1, 0.22), ox, oy + 0.32, oz), c: IRON_C },
+      {
+        g: put(new THREE.ConeGeometry(0.13, 0.42, 5), ox, oy + 0.58, oz),
+        c: FLAME,
+        lit: true,
+      },
+    );
+
+    // lentera dinding: lengan besi, rantai, rangka, kaca menyala, atap
+    const [lx, ly, lz] = LANTERN_POS(sx);
+    parts.push(
+      { g: put(box(0.08, 0.08, 0.5), lx, ly + 0.42, -1.85), c: IRON_C },
+      { g: put(box(0.03, 0.16, 0.03), lx, ly + 0.34, lz), c: IRON_C },
+      {
+        g: put(
+          new THREE.ConeGeometry(0.26, 0.16, 4),
+          lx,
+          ly + 0.27,
+          lz,
+          Math.PI / 4,
+        ),
+        c: IRON_C,
+      },
+      { g: put(box(0.36, 0.05, 0.36), lx, ly + 0.19, lz), c: IRON_C },
+      { g: put(box(0.36, 0.05, 0.36), lx, ly - 0.19, lz), c: IRON_C },
+      { g: put(box(0.23, 0.32, 0.23), lx, ly, lz), c: FLAME, lit: true },
+    );
+    for (const cx of [-0.15, 0.15]) {
+      for (const cz of [-0.15, 0.15]) {
+        parts.push({
+          g: put(box(0.04, 0.36, 0.04), lx + cx, ly, lz + cz),
+          c: IRON_C,
+        });
+      }
+    }
   }
+
   return parts;
 }
 
-const MAKE: Record<LandmarkType, (s: number) => Part[]> = {
+const MAKE: Record<LandmarkType, (s: number, p: Placed) => Part[]> = {
   windmill,
   tower,
   lighthouse,
@@ -257,6 +426,8 @@ function assemble() {
   });
 
   const solid: THREE.BufferGeometry[] = [];
+  const stone: THREE.BufferGeometry[] = [];
+  let gateLights: [number, number, number][] = [];
   const lit: THREE.BufferGeometry[] = [];
   const glows: Glow[] = [];
   const mills: Placed[] = [];
@@ -265,7 +436,17 @@ function assemble() {
   placed.forEach((p, i) => {
     const M = new THREE.Matrix4().makeRotationY(p.yaw);
     M.setPosition(p.x, p.y, p.z);
-    for (const part of MAKE[p.t](p.s)) {
+    for (const part of MAKE[p.t](p.s, p)) {
+      if (part.stone) {
+        // koordinat & normal lokal disimpan untuk pola batu di shader
+        const ng = paint(part.g, part.c);
+        ng.setAttribute("aLoc", ng.attributes.position.clone());
+        ng.setAttribute("aLn", ng.attributes.normal.clone());
+        ng.deleteAttribute("uv");
+        ng.applyMatrix4(M);
+        stone.push(ng);
+        continue;
+      }
       part.g.applyMatrix4(M);
       (part.lit ? lit : solid).push(paint(part.g, part.c));
     }
@@ -290,23 +471,108 @@ function assemble() {
       });
     }
     if (p.t === "gate") {
-      glows.push({
-        pos: toWorld(p, 0, 3.35, 0),
-        color: "#ffb866",
-        size: 4.5,
-        base: 0.7,
-        seed: i,
-      });
+      gateLights = [];
+      for (const sx of [-1, 1]) {
+        const lp = LANTERN_POS(sx);
+        gateLights.push(lp);
+        glows.push({
+          pos: toWorld(p, lp[0], lp[1], lp[2]),
+          color: "#ff9a40",
+          size: 2.6,
+          base: 0.45,
+          seed: i + sx,
+        });
+      }
+      for (const sx of [-1, 1]) {
+        const tp = torchPos(p, sx);
+        gateLights.push(tp);
+        glows.push({
+          pos: toWorld(p, tp[0], tp[1] + 0.3, tp[2]),
+          color: "#ff9a40",
+          size: 2.8,
+          base: 0.5,
+          seed: i + sx * 3,
+        });
+      }
     }
   });
 
   return {
     solid: solid.length ? mergeGeometries(solid, false) : null,
+    stone: stone.length ? mergeGeometries(stone, false) : null,
+    gateLights,
     lit: lit.length ? mergeGeometries(lit, false) : null,
     glows,
     mills,
     crystals,
   };
+}
+
+// Material batu gerbang: pola susunan bata, variasi nada, lumut di bawah,
+// gelap di dasar, dan cahaya hangat obor/lentera (posisi lokal, 3 sumber).
+function makeStoneMat(lights: [number, number, number][]) {
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const L = [0, 1, 2, 3].map((i) => {
+    const l = lights[i] ?? [0, -99, 0];
+    return new THREE.Vector3(l[0], l[1], l[2]);
+  });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uL = { value: L };
+    sh.uniforms.uLamp = { value: 1 };
+    mat.userData.sh = sh;
+    sh.vertexShader = sh.vertexShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nattribute vec3 aLoc;\nattribute vec3 aLn;\nvarying vec3 vLoc;\nvarying vec3 vLn;",
+      )
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvLoc=aLoc;vLn=aLn;",
+      );
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+varying vec3 vLoc;
+varying vec3 vLn;
+uniform vec3 uL[4];
+uniform float uLamp;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}`,
+      )
+      .replace(
+        "#include <color_fragment>",
+        `#include <color_fragment>
+{
+  vec3 an=abs(vLn);
+  vec2 uv=(an.z>=an.x&&an.z>=an.y)?vLoc.xy:(an.x>=an.y?vLoc.zy:vLoc.xz);
+  float rowH=0.6; float bw=1.3;
+  float row=floor(uv.y/rowH);
+  float x=uv.x/bw+0.5*mod(row,2.0);
+  vec2 id=vec2(floor(x),row);
+  vec2 f=vec2(fract(x),fract(uv.y/rowH));
+  float edge=min(min(f.x,1.0-f.x)*bw,min(f.y,1.0-f.y)*rowH);
+  float mortar=1.0-smoothstep(0.02,0.07,edge);
+  float tone=0.78+0.40*h21(id);
+  float grain=0.92+0.16*h21(floor(uv*14.0));
+  diffuseColor.rgb*=tone*grain;
+  diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*0.45,mortar);
+  float moss=smoothstep(2.2,-1.0,vLoc.y)*(0.5+0.5*h21(floor(uv*5.0)+7.0));
+  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.22,0.30,0.12),moss*0.55*(1.0-mortar*0.5));
+  diffuseColor.rgb*=0.72+0.28*smoothstep(-1.5,3.5,vLoc.y);
+}`,
+      )
+      .replace(
+        "#include <emissivemap_fragment>",
+        `#include <emissivemap_fragment>
+for(int i=0;i<4;i++){
+  vec3 d=uL[i]-vLoc; float dist=length(d);
+  float fac=clamp(dot(normalize(d),normalize(vLn)),0.0,1.0);
+  float att=1.0/(1.0+0.35*dist*dist);
+  totalEmissiveRadiance+=vec3(1.0,0.62,0.28)*diffuseColor.rgb*fac*att*(i<2?0.9:1.3)*uLamp;
+}`,
+      );
+  };
+  return mat;
 }
 
 // Empat bilah kincir + layar kain, berputar di sekitar sumbu z lokalnya.
@@ -369,13 +635,18 @@ function Crystal({ p, reduceMotion }: { p: Placed; reduceMotion: boolean }) {
 function GlowSprite({ g, reduceMotion }: { g: Glow; reduceMotion: boolean }) {
   const map = useMemo(getGlow, []);
   const mat = useRef<THREE.SpriteMaterial>(null);
+  const sp = useRef<THREE.Sprite>(null);
   useFrame((st) => {
-    if (reduceMotion || !mat.current) return;
-    mat.current.opacity =
-      g.base * (0.8 + 0.2 * Math.sin(st.clock.elapsedTime * 1.3 + g.seed * 2));
+    if (!mat.current) return;
+    const flick = reduceMotion
+      ? 1
+      : 0.8 + 0.2 * Math.sin(st.clock.elapsedTime * 1.3 + g.seed * 2);
+    const o = g.base * flick * dayState.lamps;
+    mat.current.opacity = o;
+    if (sp.current) sp.current.visible = o > 0.01;
   });
   return (
-    <sprite position={g.pos} scale={[g.size, g.size, 1]}>
+    <sprite ref={sp} position={g.pos} scale={[g.size, g.size, 1]}>
       <spriteMaterial
         ref={mat}
         map={map}
@@ -391,8 +662,17 @@ function GlowSprite({ g, reduceMotion }: { g: Glow; reduceMotion: boolean }) {
 
 export default function Landmarks({ reduceMotion }: { reduceMotion: boolean }) {
   const a = useMemo(assemble, []);
+  const stoneMat = useMemo(() => makeStoneMat(a.gateLights), [a]);
+  useFrame(() => {
+    const sh = stoneMat.userData.sh as
+      | THREE.WebGLProgramParametersWithUniforms
+      | undefined;
+    if (sh) sh.uniforms.uLamp.value = dayState.lamps;
+  });
   useEffect(
     () => () => {
+      a.stone?.dispose();
+      stoneMat.dispose();
       a.solid?.dispose();
       a.lit?.dispose();
     },
@@ -402,15 +682,20 @@ export default function Landmarks({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <group>
       {a.solid && (
-        <mesh geometry={a.solid} frustumCulled={false}>
+        <mesh geometry={a.solid} frustumCulled={false} castShadow receiveShadow>
           <meshLambertMaterial vertexColors />
         </mesh>
       )}
-      {a.lit && (
-        <mesh geometry={a.lit} frustumCulled={false}>
-          <meshBasicMaterial vertexColors side={THREE.DoubleSide} />
-        </mesh>
+      {a.stone && (
+        <mesh
+          geometry={a.stone}
+          material={stoneMat}
+          frustumCulled={false}
+          castShadow
+          receiveShadow
+        />
       )}
+      {a.lit && <LitMesh geometry={a.lit} />}
       {a.mills.map((p, i) => (
         <Blades key={`m${i}`} p={p} reduceMotion={reduceMotion} />
       ))}

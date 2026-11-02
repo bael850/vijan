@@ -1,6 +1,8 @@
 // Teks komentar, pesan error komentar/login, email login, dan "Bagikan sebagai Story".
 export const commentUi = {
   empty: "Belum ada komentar. Jadi yang pertama?",
+  hide: "Sembunyikan",
+  hideConfirm: "Sembunyikan komentar ini?",
   displayNameLabel: "Nama tampilan",
   displayNamePlaceholder: "Nama kamu",
   displayNameHint:
@@ -29,6 +31,9 @@ export const commentErrors = {
   nameReserved: "Nama itu dicadangkan. Pakai nama lain ya.",
   commentEmpty: "Komentar tidak boleh kosong.",
   commentTooLong: "Komentar terlalu panjang (maks 2000 karakter).",
+  tooManyComments:
+    "Kamu mengirim terlalu cepat. Tunggu beberapa menit lagi ya.",
+  duplicateComment: "Komentar yang sama sudah pernah kamu kirim.",
   saveFailed: "Gagal menyimpan komentar. Coba lagi sebentar lagi.",
 } as const;
 

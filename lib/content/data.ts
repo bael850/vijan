@@ -7,7 +7,9 @@ import { Post, FotoKage, PostType, PostStatus } from "./types";
 // Konfigurasi
 // ─────────────────────────────────────────────────────────────
 
-const SPREADSHEET_ID = "1bn1KAxvgvB37_l9k6Odbi32YLf-ztagrokhWEWPR59Y";
+// Boleh di-override lewat env (mis. beda sheet untuk staging).
+const SPREADSHEET_ID =
+  process.env.GOOGLE_SHEET_ID ?? "1bn1KAxvgvB37_l9k6Odbi32YLf-ztagrokhWEWPR59Y";
 const KEY_FILE = "./service-account.json";
 
 // Ubah angka ini kalau mau data lebih/kurang real-time (detik).
@@ -73,6 +75,28 @@ function tanggalTs(tanggal: string): number {
   return Number.isFinite(t) ? t : 0; // tanggal kosong/rusak -> dianggap paling lama
 }
 
+const POST_TYPES: readonly PostType[] = [
+  "cerpen",
+  "cerbung",
+  "kukulutus",
+  "potret",
+  "sajak",
+  "rekomendasi",
+];
+
+// Salah ketik di Sheets ("Published ", "Cerpen") jangan diam-diam
+// menyembunyikan tulisan: dinormalisasi, dan yang benar-benar tidak valid
+// dicatat di log server supaya ketahuan.
+function parseStatus(value: string | undefined, ctx: string): PostStatus {
+  const v = value?.trim().toLowerCase();
+  if (v === "published" || v === "draft") return v;
+  if (v)
+    console.warn(
+      `[sheets] status tidak dikenal "${value}" di ${ctx}; dianggap draft`,
+    );
+  return "draft";
+}
+
 function rowToPost(row: string[]): Post | null {
   const [
     judul,
@@ -91,13 +115,21 @@ function rowToPost(row: string[]): Post | null {
 
   if (!judul || !slug) return null; // skip baris kosong
 
+  const tipeNorm = tipe?.trim().toLowerCase() as PostType;
+  if (!POST_TYPES.includes(tipeNorm)) {
+    console.warn(
+      `[sheets] tipe tidak valid "${tipe}" di tulisan "${slug}"; baris dilewati`,
+    );
+    return null;
+  }
+
   return {
     judul,
-    slug,
-    tipe: tipe as PostType,
+    slug: slug.trim(),
+    tipe: tipeNorm,
     ringkasan: ringkasan ?? "",
     isi: isi ?? "",
-    status: (status as PostStatus) ?? "draft",
+    status: parseStatus(status, `tulisan "${slug}"`),
     tanggal: tanggal ?? "",
     series: series || undefined,
     urutan: parseUrutan(urutan),
@@ -107,19 +139,20 @@ function rowToPost(row: string[]): Post | null {
   };
 }
 
-// Tab "Foto" kolom: judul, slug, gambar, cerita, status, tanggal
+// Tab "Foto" kolom: judul, slug, gambar, cerita, status, tanggal, alt (opsional)
 function rowToFoto(row: string[]): FotoKage | null {
-  const [judul, slug, gambar, cerita, status, tanggal] = row;
+  const [judul, slug, gambar, cerita, status, tanggal, alt] = row;
 
   if (!judul || !slug) return null;
 
   return {
     judul,
-    slug,
+    slug: slug.trim(),
     gambar: gambar ?? "",
     cerita: cerita ?? "",
-    status: (status as PostStatus) ?? "draft",
+    status: parseStatus(status, `foto "${slug}"`),
     tanggal: tanggal ?? "",
+    alt: alt?.trim() || undefined,
   };
 }
 
@@ -140,7 +173,7 @@ const fetchAllPostsRaw = unstable_cache(
 
 const fetchAllFotoRaw = unstable_cache(
   async (): Promise<FotoKage[]> => {
-    const rows = await fetchRange("Foto!A2:F");
+    const rows = await fetchRange("Foto!A2:G");
     return rows.map(rowToFoto).filter((f): f is FotoKage => f !== null);
   },
   ["sheets-foto"],

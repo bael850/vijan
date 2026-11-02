@@ -5,7 +5,12 @@ import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
-import { CAT, CAT_VARIANTS, STRAY_COUNT, type CatVariant } from "../../config/cat";
+import {
+  CAT,
+  CAT_VARIANTS,
+  STRAY_COUNT,
+  type CatVariant,
+} from "../../config/cat";
 import { getBlob } from "../../core/glow";
 import { clamp, smoothstep } from "../../core/math";
 import { roadX } from "../../path/road";
@@ -15,7 +20,14 @@ import { gazeTo } from "./catGaze";
 import { smoothNormals } from "./catGeometry";
 import { newMotion } from "./catMotion";
 import { approachPose, newPose, writePose, type PoseVel } from "./catPose";
-import { FRAG, FRAG_DECL, VERT, VERT_DECL, makeUni } from "./CatShader";
+import {
+  FRAG,
+  FRAG_DECL,
+  VERT,
+  VERT_DECL,
+  makeUni,
+  tickCatLight,
+} from "./CatShader";
 
 // Kucing-kucing lain yang tinggal di dunia: abu, hitam, calico, tuxedo, dan seterusnya.
 // Model, gerak kaki, dan ekspresi sama dengan kucing oranye (satu model, dicat ulang lewat shader).
@@ -99,16 +111,16 @@ function buildModel(scene: THREE.Object3D, uni: ReturnType<typeof makeUni>) {
         .replace(
           "#include <map_fragment>",
           // cahaya dasar + sedikit biru bulan, supaya kucing hitam tetap terbaca di malam hari
-          `#include <map_fragment>\n${FRAG}\n  totalEmissiveRadiance = diffuseColor.rgb * ${CAT.ambient.toFixed(3)} + vec3(0.045, 0.05, 0.07);`,
+          `#include <map_fragment>\n${FRAG}\n  totalEmissiveRadiance = diffuseColor.rgb * mix(${CAT.ambientDay.toFixed(3)}, ${CAT.ambient.toFixed(3)}, uNight) + vec3(0.045, 0.05, 0.07) * uNight;`,
         )
         .replace(
           "#include <opaque_fragment>",
           `float rim = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
-  outgoingLight += vec3(0.62, 0.7, 0.95) * rim * 0.28;
+  outgoingLight += vec3(0.62, 0.7, 0.95) * rim * mix(0.06, 0.28, uNight);
   #include <opaque_fragment>`,
         );
     };
-    mat.customProgramCacheKey = () => "kucing-vijan-stray-1";
+    mat.customProgramCacheKey = () => "kucing-vijan-stray-2";
     m.material = mat;
     m.castShadow = false;
     m.frustumCulled = false;
@@ -182,6 +194,7 @@ function StrayCat({
     const s = (st.current ??= init());
     const dt = Math.min(delta, 0.05);
     const t = state.clock.elapsedTime;
+    tickCatLight();
     const cam = state.camera.position;
     const toCam = Math.hypot(cam.x - s.x, cam.z - s.z);
 

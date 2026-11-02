@@ -3,10 +3,18 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { auth, signIn } from "@/auth";
-import { addComment, rememberDisplayName } from "@/lib/comments/queries";
+import {
+  addComment,
+  getCommentActivity,
+  hideComment,
+  rememberDisplayName,
+} from "@/lib/comments/queries";
+import { isAuthorEmail } from "@/lib/comments/author";
 import { getPostBySlug } from "@/lib/content/data";
 import { allowLoginAttempt } from "@/lib/comments/rate-limit";
 import { commentErrors } from "@/content/comments";
+
+const COMMENT_LIMIT_PER_10_MIN = 5;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -23,13 +31,45 @@ const RESERVED_NAMES = new Set([
   "iqbal malik",
 ]);
 
+// Huruf Kiril/Yunani yang tampak seperti huruf Latin — pola klasik meniru nama.
+const CONFUSABLES: Record<string, string> = {
+  а: "a",
+  е: "e",
+  о: "o",
+  р: "p",
+  с: "c",
+  х: "x",
+  у: "y",
+  і: "i",
+  ј: "j",
+  ӏ: "l",
+  к: "k",
+  м: "m",
+  н: "h",
+  т: "t",
+  ι: "i",
+  ο: "o",
+  α: "a",
+  ν: "v",
+  κ: "k",
+  μ: "m",
+};
+
 function normalizeName(nama: string) {
   return nama
+    .normalize("NFKC") // huruf lebar penuh, ligatur, dll. -> bentuk biasa
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // buang aksen: "Vijån" -> "Vijan"
     .toLowerCase()
+    .replace(/./gu, (ch) => CONFUSABLES[ch] ?? ch)
     .replace(/[^a-z0-9\s]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Dibandingkan tanpa spasi juga, supaya "v i j a n" ikut tertolak.
+const squash = (s: string) => s.replace(/\s/g, "");
+const RESERVED_SQUASHED = new Set([...RESERVED_NAMES].map(squash));
 
 async function getClientIp(): Promise<string | null> {
   const h = await headers();
@@ -130,11 +170,8 @@ export async function postComment(
   }
 
   // Pemilik situs (AUTHOR_EMAIL) boleh memakai nama penulis.
-  const isAuthor =
-    !!process.env.AUTHOR_EMAIL &&
-    session.user.email?.toLowerCase() ===
-      process.env.AUTHOR_EMAIL.toLowerCase();
-  if (!isAuthor && RESERVED_NAMES.has(normalizeName(nama))) {
+  const isAuthor = isAuthorEmail(session.user.email);
+  if (!isAuthor && RESERVED_SQUASHED.has(squash(normalizeName(nama)))) {
     return {
       status: "error",
       message: commentErrors.nameReserved,
@@ -151,6 +188,26 @@ export async function postComment(
     };
   }
 
+  // Batas kirim per akun (penulis dikecualikan) + tolak komentar kembar.
+  if (!isAuthor) {
+    try {
+      const { recent, duplicate } = await getCommentActivity(
+        session.user.id,
+        post.slug,
+        isi,
+      );
+      if (recent >= COMMENT_LIMIT_PER_10_MIN) {
+        return { status: "error", message: commentErrors.tooManyComments };
+      }
+      if (duplicate) {
+        return { status: "error", message: commentErrors.duplicateComment };
+      }
+    } catch (err) {
+      console.error(err);
+      return { status: "error", message: commentErrors.saveFailed };
+    }
+  }
+
   try {
     await addComment({ slug: post.slug, userId: session.user.id, nama, isi });
     // Best-effort: gagal simpan nama tidak boleh menggagalkan komentar.
@@ -165,4 +222,17 @@ export async function postComment(
 
   revalidatePath(`/vers/${post.slug}`);
   return { status: "success" };
+}
+
+// Hanya penulis. Dicek ulang di server — tombol di UI bukan pengaman.
+export async function hideCommentAction(
+  slug: string,
+  commentId: number,
+): Promise<void> {
+  const session = await auth();
+  if (!isAuthorEmail(session?.user?.email)) return;
+  if (!Number.isInteger(commentId)) return;
+
+  await hideComment(commentId, slug);
+  revalidatePath(`/vers/${slug}`);
 }

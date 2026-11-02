@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { HOUSE } from "../config/world";
 import { hash } from "../core/math";
+import { LitMesh } from "../core/nightLights";
 import { roadX } from "../path/road";
 import { groundHeight, lakeDist } from "../terrain/heightmap";
 import { BUILDINGS, type BuildingType } from "./villageLayout";
@@ -274,11 +275,7 @@ export default function Village() {
           <meshLambertMaterial vertexColors />
         </mesh>
       )}
-      {geo.lit && (
-        <mesh geometry={geo.lit} frustumCulled={false}>
-          <meshBasicMaterial vertexColors side={THREE.DoubleSide} />
-        </mesh>
-      )}
+      {geo.lit && <LitMesh geometry={geo.lit} />}
     </group>
   );
 }

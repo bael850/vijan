@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
@@ -106,44 +107,80 @@ export default function Forest({ quality }: { quality: GraphicsQuality }) {
     return list;
   }, [scene]);
 
+  // Pohon dipecah per petak supaya kamera bisa membuang petak di luar layar,
+  // dan petak yang sudah melewati batas kabut (sudah sewarna kabut) tidak digambar.
+  const CELL = 60;
+  const chunks = useMemo(() => {
+    const m = new Map<string, Item[]>();
+    items.forEach((it) => {
+      const key = `${Math.floor(it.x / CELL)}|${Math.floor(it.z / CELL)}`;
+      const l = m.get(key);
+      if (l) l.push(it);
+      else m.set(key, [it]);
+    });
+    return [...m.entries()].map(([key, list]) => {
+      const [gx, gz] = key.split("|").map(Number);
+      return { key, list, cx: (gx + 0.5) * CELL, cz: (gz + 0.5) * CELL };
+    });
+  }, [items]);
+
   useLayoutEffect(() => {
     const o = new THREE.Object3D();
     o.rotation.order = "YXZ";
     const c = new THREE.Color();
-    parts.forEach((p, pi) => {
-      const mesh = refs.current[pi];
-      if (!mesh) return;
-      items.forEach((it, i) => {
-        o.position.set(it.x, it.y, it.z);
-        o.rotation.set(it.lx, it.r, it.lz);
-        o.scale.set(it.w, it.h, it.w);
-        o.updateMatrix();
-        mesh.setMatrixAt(i, o.matrix);
-        c.set(p.leaf ? pick(TREES.leafTints, it.k) : "#ffffff");
-        if (p.leaf) c.multiplyScalar(it.dim);
-        mesh.setColorAt(i, c);
+    chunks.forEach((ch, ci) => {
+      parts.forEach((p, pi) => {
+        const mesh = refs.current[ci * parts.length + pi];
+        if (!mesh) return;
+        ch.list.forEach((it, i) => {
+          o.position.set(it.x, it.y, it.z);
+          o.rotation.set(it.lx, it.r, it.lz);
+          o.scale.set(it.w, it.h, it.w);
+          o.updateMatrix();
+          mesh.setMatrixAt(i, o.matrix);
+          c.set(p.leaf ? pick(TREES.leafTints, it.k) : "#ffffff");
+          if (p.leaf) c.multiplyScalar(it.dim);
+          mesh.setColorAt(i, c);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.computeBoundingSphere();
       });
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     });
-  }, [items, parts]);
+  }, [chunks, parts]);
+
+  useFrame(({ camera, scene }) => {
+    const far = ((scene.fog as THREE.Fog | null)?.far ?? 320) + CELL * 0.8;
+    const f2 = far * far;
+    const cp = camera.position;
+    chunks.forEach((ch, ci) => {
+      const dx = ch.cx - cp.x;
+      const dz = ch.cz - cp.z;
+      const vis = dx * dx + dz * dz < f2;
+      for (let pi = 0; pi < parts.length; pi++) {
+        const m = refs.current[ci * parts.length + pi];
+        if (m && m.visible !== vis) m.visible = vis;
+      }
+    });
+  });
 
   const cast = TREES.castShadow[quality];
 
   return (
     <group>
-      {parts.map((p, pi) => (
-        <instancedMesh
-          key={`${pi}-${items.length}`}
-          ref={(el) => {
-            refs.current[pi] = el;
-          }}
-          args={[p.geo, p.mat, items.length]}
-          frustumCulled={false}
-          castShadow={cast}
-          receiveShadow={cast}
-        />
-      ))}
+      {chunks.map((ch, ci) =>
+        parts.map((p, pi) => (
+          <instancedMesh
+            key={`${ch.key}-${pi}-${ch.list.length}`}
+            ref={(el) => {
+              refs.current[ci * parts.length + pi] = el;
+            }}
+            args={[p.geo, p.mat, ch.list.length]}
+            castShadow={cast}
+            receiveShadow={cast}
+          />
+        )),
+      )}
     </group>
   );
 }

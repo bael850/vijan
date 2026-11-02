@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import * as THREE from "three";
-import { getBlob, getGlow } from "../core/glow";
+import { getBlob } from "../core/glow";
+import {
+  GlowPlane,
+  GlowSprite as NightGlow,
+  NightBasic,
+  NightLight,
+  NightPlane,
+} from "../core/nightLights";
 import { grainMat, type GrainKind } from "../core/grain";
 import {
   DOORWAY,
@@ -98,39 +105,67 @@ function getNight() {
   return nightTex;
 }
 
-// Jendela menyala hangat: bingkai kayu, kaca bercahaya, dua kayu silang.
+let dayTex: THREE.CanvasTexture | null = null;
+function getDay() {
+  if (dayTex) return dayTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  const grd = g.createLinearGradient(0, 0, 0, 128);
+  grd.addColorStop(0, "#3f86d6");
+  grd.addColorStop(0.65, "#8cc2ea");
+  grd.addColorStop(1, "#cfe6e4");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 128, 128);
+  g.fillStyle = "rgba(255,250,236,0.85)";
+  for (const [x, y, r] of [
+    [34, 36, 12],
+    [50, 34, 16],
+    [70, 38, 11],
+    [96, 62, 10],
+    [110, 60, 7],
+  ]) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.fillStyle = "rgba(60,90,70,0.65)";
+  g.beginPath();
+  g.moveTo(0, 128);
+  g.lineTo(0, 108);
+  for (let x = 0; x <= 128; x += 16) g.lineTo(x, 104 + Math.sin(x * 0.2) * 6);
+  g.lineTo(128, 128);
+  g.fill();
+  dayTex = new THREE.CanvasTexture(c);
+  dayTex.colorSpace = THREE.SRGBColorSpace;
+  return dayTex;
+}
+
+// Jendela menyala hangat di malam hari: bingkai kayu, kaca bercahaya, dua kayu silang.
+// Siang: kaca memantulkan langit dan tidak ada pendar.
 function Window({ spec }: { spec: WindowSpec }) {
   const p = windowPose(spec);
   const { w, h } = spec;
   const [on, setOn] = useState(true);
-  const glow = useMemo(getGlow, []);
   const night = useMemo(getNight, []);
+  const day = useMemo(getDay, []);
   return (
     <group position={[p.x, p.y, p.z]} rotation-y={p.ry}>
-      <sprite position={[0, 0, 0.35]} scale={[w * 3.4, h * 3.4, 1]}>
-        <spriteMaterial
-          map={glow}
-          color="#ffb866"
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          opacity={on ? 0.5 : 0}
-        />
-      </sprite>
+      <NightGlow
+        position={[0, 0, 0.35]}
+        scale={[w * 3.4, h * 3.4, 1]}
+        color="#ffb866"
+        base={0.5}
+        on={on}
+      />
       {/* kolam cahaya hangat di tanah di bawah jendela lantai bawah */}
       {p.y < H.floor2Y && (
-        <mesh position={[0, H.padY + 0.07 - p.y, 1.7]} rotation-x={-Math.PI / 2}>
-          <planeGeometry args={[w * 3.2, 3.2]} />
-          <meshBasicMaterial
-            map={glow}
-            color="#ffb866"
-            transparent
-            opacity={on ? 0.32 : 0}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            toneMapped={false}
-          />
-        </mesh>
+        <GlowPlane
+          position={[0, H.padY + 0.07 - p.y, 1.7]}
+          size={[w * 3.2, 3.2]}
+          base={0.32}
+          on={on}
+        />
       )}
       {/* daun jendela kayu biru di kiri-kanan */}
       {spec.face !== "back" &&
@@ -150,7 +185,11 @@ function Window({ spec }: { spec: WindowSpec }) {
           {[-0.5, -0.25, 0, 0.25, 0.5].map((k, i) => (
             <mesh key={i} position={[k * w, 0.15, 0]}>
               <sphereGeometry args={[0.09, 8, 6]} />
-              <meshLambertMaterial color={["#c0453a", "#f2d36b", "#e8dcc0", "#b86aa0", "#f2d36b"][i]} />
+              <meshLambertMaterial
+                color={
+                  ["#c0453a", "#f2d36b", "#e8dcc0", "#b86aa0", "#f2d36b"][i]
+                }
+              />
             </mesh>
           ))}
         </group>
@@ -159,8 +198,11 @@ function Window({ spec }: { spec: WindowSpec }) {
         <boxGeometry args={[w + 0.24, h + 0.24, 0.06]} />
         <meshLambertMaterial color={BEAM} />
       </mesh>
-      <mesh
+      <NightBasic
         position={[0, 0, 0.035]}
+        night={GLOW}
+        day="#8fb6cc"
+        on={on}
         onClick={(e) => {
           e.stopPropagation();
           setOn((v) => !v);
@@ -169,8 +211,7 @@ function Window({ spec }: { spec: WindowSpec }) {
         onPointerOut={() => (document.body.style.cursor = "")}
       >
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial color={on ? GLOW : "#3a3350"} />
-      </mesh>
+      </NightBasic>
       <mesh position={[0, 0, 0.05]}>
         <boxGeometry args={[0.05, h, 0.03]} />
         <meshLambertMaterial color={BEAM} />
@@ -189,10 +230,11 @@ function Window({ spec }: { spec: WindowSpec }) {
           <boxGeometry args={[w + 0.24, h + 0.24, 0.06]} />
           <meshLambertMaterial color={BEAM} />
         </mesh>
-        <mesh position={[0, 0, 0.035]}>
+        <mesh position={[0, 0, 0.034]}>
           <planeGeometry args={[w, h]} />
-          <meshBasicMaterial map={night} toneMapped={false} />
+          <meshBasicMaterial map={day} toneMapped={false} />
         </mesh>
+        <NightPlane args={[w, h]} map={night} position={[0, 0, 0.035]} />
         <mesh position={[0, -h / 2 - 0.12, 0.1]}>
           <boxGeometry args={[w + 0.4, 0.05, 0.2]} />
           <meshLambertMaterial color={BEAM} />
@@ -452,7 +494,11 @@ export default function Exterior() {
           {[-1, 1].map((s) => (
             <Box
               key={s}
-              pos={[cx + s * (halfW + 0.12), (H.floorY + eaveY) / 2, cz + t * (halfD + 0.14)]}
+              pos={[
+                cx + s * (halfW + 0.12),
+                (H.floorY + eaveY) / 2,
+                cz + t * (halfD + 0.14),
+              ]}
               size={[0.08, eaveY - H.floorY, 0.08]}
               color="#3a3f44"
             />
@@ -482,10 +528,9 @@ export default function Exterior() {
           position={[cx + s * (halfW + 0.04), H.wallTop + 1.0, cz]}
           rotation-y={s * (Math.PI / 2)}
         >
-          <mesh>
+          <NightBasic night={GLOW} day="#8fb6cc">
             <circleGeometry args={[0.42, 20]} />
-            <meshBasicMaterial color={GLOW} />
-          </mesh>
+          </NightBasic>
           <mesh position={[0, 0, 0.01]}>
             <torusGeometry args={[0.45, 0.05, 6, 20]} />
             <meshLambertMaterial color={BEAM} />
@@ -498,16 +543,12 @@ export default function Exterior() {
             <boxGeometry args={[0.9, 0.04, 0.03]} />
             <meshLambertMaterial color={BEAM} />
           </mesh>
-          <sprite position={[0, 0, 0.4]} scale={[2.2, 2.2, 1]}>
-            <spriteMaterial
-              map={getGlow()}
-              color="#ffb866"
-              transparent
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-              opacity={0.4}
-            />
-          </sprite>
+          <NightGlow
+            position={[0, 0, 0.4]}
+            scale={[2.2, 2.2, 1]}
+            color="#ffb866"
+            base={0.4}
+          />
         </group>
       ))}
 
@@ -529,62 +570,54 @@ export default function Exterior() {
         />
       ))}
       {/* lampu teras kedua di kiri pintu (cahaya dari sprite) */}
-      <mesh position={[cx - 1.7, H.floorY + 2.3, H.frontZ + 0.35]}>
+      <NightBasic
+        position={[cx - 1.7, H.floorY + 2.3, H.frontZ + 0.35]}
+        night="#ffe3a0"
+        day="#d8d0bc"
+      >
         <sphereGeometry args={[0.13, 10, 8]} />
-        <meshBasicMaterial color="#ffe3a0" />
-      </mesh>
+      </NightBasic>
       <Box
         pos={[cx - 1.7, H.floorY + 2.1, H.frontZ + 0.2]}
         size={[0.05, 0.4, 0.3]}
         color={BEAM}
       />
-      <sprite
+      <NightGlow
         position={[cx - 1.7, H.floorY + 2.3, H.frontZ + 0.5]}
         scale={[2.6, 2.6, 1]}
-      >
-        <spriteMaterial
-          map={getGlow()}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          opacity={0.6}
-        />
-      </sprite>
+        base={0.6}
+      />
 
       {WINDOWS.map((spec, i) => (
         <Window key={i} spec={spec} />
       ))}
 
       {/* lampu teras di sisi pintu */}
-      <mesh position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.35]}>
+      <NightBasic
+        position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.35]}
+        night="#ffe3a0"
+        day="#d8d0bc"
+      >
         <sphereGeometry args={[0.13, 10, 8]} />
-        <meshBasicMaterial color="#ffe3a0" />
-      </mesh>
+      </NightBasic>
       <Box
         pos={[cx + 1.7, H.floorY + 2.1, H.frontZ + 0.2]}
         size={[0.05, 0.4, 0.3]}
         color={BEAM}
       />
-      <sprite
+      <NightGlow
         position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.5]}
         scale={[2.6, 2.6, 1]}
-      >
-        <spriteMaterial
-          map={getGlow()}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          opacity={0.7}
-        />
-      </sprite>
-      <pointLight
+        base={0.7}
+      />
+      <NightLight
         color="#ffcf8a"
         intensity={6}
         distance={14}
         position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.8]}
       />
       {/* cahaya dari dalam rumah, jatuh ke pintu yang terbuka */}
-      <pointLight
+      <NightLight
         color="#ffb86b"
         intensity={8}
         distance={13}

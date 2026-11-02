@@ -5,16 +5,10 @@ import { getAllFoto, getAllPosts } from "@/lib/content/data";
 export const revalidate = 300;
 
 export default async function Home() {
-  const [posts, fotos] = await Promise.all([
-    getAllPosts().catch((e) => {
-      console.error("Gagal ambil tulisan:", e);
-      return [];
-    }),
-    getAllFoto().catch((e) => {
-      console.error("Gagal ambil foto:", e);
-      return [];
-    }),
-  ]);
+  // Sengaja TANPA .catch(() => []): kalau Sheets sedang gagal saat halaman
+  // dibangun ulang, Next tetap menyajikan versi lama yang sehat, bukan
+  // beranda kosong yang ter-cache 5 menit. Konsisten dengan /kage.
+  const [posts, fotos] = await Promise.all([getAllPosts(), getAllFoto()]);
 
   const seen = new Set<string>();
   const writings: ContentItem[] = [];
@@ -44,6 +38,22 @@ export default async function Home() {
   return (
     <main>
       <WorldJourney writings={writings} photos={photos} />
+      {/* Daftar teks biasa: untuk mesin pencari, pembaca layar, dan yang
+          mematikan JavaScript. Dunia 3D-nya sendiri dirender di browser. */}
+      <nav aria-label="Daftar tulisan dan foto" className="sr-only">
+        <ul>
+          {writings.map((w) => (
+            <li key={w.id}>
+              <a href={w.href}>{w.title}</a>
+            </li>
+          ))}
+          {photos.map((f) => (
+            <li key={f.id}>
+              <a href={f.href}>{f.title}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </main>
   );
 }

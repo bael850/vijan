@@ -6,29 +6,52 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { hash } from "../core/math";
+import { styleFolk, tickFolkLight } from "../core/folkLight";
+import {
+  angDiff,
+  collectBones,
+  damp,
+  makeJoint,
+  setJoint,
+  wander,
+  type Joint,
+} from "../core/folkMotion";
+import ContactShadow from "../core/ContactShadow";
 import { roadX } from "../path/road";
 import { groundHeight, lakeDist } from "../terrain/heightmap";
 import { BUILDINGS, doorOf } from "../village/villageLayout";
 
 // Prajurit bertombak. Modelnya berkerangka (public/models/prajurit.glb, ±8 ribu segitiga, 52 tulang,
-// tinggi 1,82 m, kaki di y=0, hadap +z). Animasi bawaannya tidak dipakai; langkahnya dibuat dari kode:
-// dua paha berayun berlawanan, lutut menekuk saat kaki terangkat, tangan kiri (yang bebas) ikut berayun.
-// Tangan kanan memegang tombak, jadi tidak digerakkan. Jumlahnya sedikit karena tiap orang punya kerangka sendiri.
+// tinggi 1,82 m, kaki di y=0, hadap +z). Animasi bawaannya tidak dipakai; semua gerak dibuat dari kode:
+// - jalan: paha berayun berlawanan, lutut menekuk, telapak tetap datar, pinggul dan bahu berputar
+//   berlawanan, tangan bebas (kiri-kanan tubuh = -x) berayun dan siku menekuk, tangan tombak nyaris diam
+// - diam: napas, berat badan pindah dari satu kaki ke kaki lain, kepala menoleh dan menunduk
+//   bergantian (badan ikut sedikit), tangan bebas bergoyang pelan
+// - berbalik di ujung rute: kepala menoleh duluan, kaki melangkah di tempat
+// Tangan yang memegang tombak (+x) hampir tidak digerakkan supaya tombak tidak goyang.
 const MODEL = "/models/prajurit.glb";
 const SCALE_MIN = 0.96;
 const SCALE_MAX = 1.06;
 const SWING = 0.42; // ayunan paha (radian)
 const KNEE = 0.6; // tekukan lutut maksimum (radian)
-const ARM = 0.22; // ayunan tangan bebas
-const STRIDE = 2.6; // putaran langkah per meter
+const ARM = 0.3; // ayunan tangan bebas
+const STRIDE = 4.2; // putaran langkah per meter (dulu 2.6: kaki terlihat meluncur)
 
 // nama tulang di file (titik dihilangkan oleh three)
 const BONES = {
-  hipA: "Bone010_027",
+  hips: "Bone_01",
+  spine: "Bone001_02",
+  chest: "Bone002_03",
+  neck: "Bone003_04", // induk semua tulang kepala
+  hipA: "Bone010_027", // kaki kanan tokoh (-x)
   kneeA: "Bone011_028",
-  hipB: "Bone014_031",
+  ankA: "Bone012_029",
+  hipB: "Bone014_031", // kaki kiri tokoh (+x)
   kneeB: "Bone015_032",
-  arm: "Bone009_018",
+  ankB: "Bone016_033",
+  arm: "Bone009_018", // tangan bebas (-x): lengan atas
+  fore: "Bone022_019", // lengan bawah
+  spearArm: "Bone008_010", // tangan tombak (+x)
 } as const;
 type BoneKey = keyof typeof BONES;
 
@@ -128,47 +151,102 @@ function sample(p: Soldier, d: number) {
   };
 }
 
-// Satu tulang yang diputar mengelilingi sumbu X dunia (sumbu kiri-kanan badan, sebelum badan diputar ke arah jalan).
-type Joint = {
-  b: THREE.Bone;
-  q0: THREE.Quaternion;
-  pw: THREE.Quaternion;
-  pwi: THREE.Quaternion;
-};
-type Rig = Record<BoneKey, Joint>;
+type Rig = Partial<Record<BoneKey, Joint>>;
 
 function makeRig(root: THREE.Object3D): Rig | null {
-  root.updateMatrixWorld(true);
-  const bones: THREE.Bone[] = [];
-  root.traverse((o) => {
-    if ((o as THREE.Bone).isBone) bones.push(o as THREE.Bone);
-  });
-  const rig = {} as Rig;
+  const bones = collectBones(root);
+  const rig: Rig = {};
+  let found = 0;
   for (const key of Object.keys(BONES) as BoneKey[]) {
-    const b = bones.find((x) => x.name.replace(/\./g, "") === BONES[key]);
-    if (!b || !b.parent) return null; // nama tulang tidak cocok: tidak dianimasikan, tapi tetap tampil
-    const pw = new THREE.Quaternion();
-    b.parent.getWorldQuaternion(pw);
-    rig[key] = { b, q0: b.quaternion.clone(), pw, pwi: pw.clone().invert() };
+    const b = bones[BONES[key]];
+    const j = b ? makeJoint(b) : null;
+    if (j) {
+      rig[key] = j;
+      found++;
+    } else if (process.env.NODE_ENV !== "production") {
+      console.warn(`[prajurit] tulang tidak ditemukan: ${BONES[key]}`);
+    }
   }
-  return rig;
+  // kurang dari separuh cocok = nama tulang di file berbeda: tidak dianimasikan, tapi tetap tampil
+  return found >= 7 ? rig : null;
 }
 
-const AXIS_X = new THREE.Vector3(1, 0, 0);
-const tmpQ = new THREE.Quaternion();
-function rot(j: Joint, ang: number) {
-  tmpQ.setFromAxisAngle(AXIS_X, ang);
-  j.b.quaternion.copy(j.pwi).multiply(tmpQ).multiply(j.pw).multiply(j.q0);
+type Drive = {
+  t: number; // waktu (detik, sudah ditambah fase unit)
+  gait: number; // fase langkah (radian)
+  amp: number; // 0 = diam, 1 = berjalan
+  seed: number;
+  lead: number; // kepala mendahului badan saat berbelok (radian)
+  breathe: number; // napas -1..1
+};
+
+// Satu pose utuh: gabungan langkah, napas, geser berat badan, dan tengok.
+// Mengembalikan arah tengok (dipakai untuk ikut memutar badan saat diam).
+function pose(rig: Rig, d: Drive) {
+  const { t, gait, amp, seed } = d;
+  const idle = 1 - amp;
+  const s = Math.sin(gait);
+  const k = Math.sin(gait + 1.0); // lutut menekuk saat kaki diayun ke depan
+
+  // tengok: sering saat diam, jarang saat jalan
+  const lenA = 4.4 * (0.8 + 0.4 * hash(seed, 91));
+  const lenB = 5.6 * (0.8 + 0.4 * hash(seed, 92));
+  const look = 1 - 0.6 * amp;
+  const lookYaw = wander(t, seed, lenA, 0.95, 0.28) * look;
+  const lookPitch = wander(t + 2, seed + 1, lenB, 0.17, 0.4) * look;
+
+  // geser berat badan (hanya saat diam): >0 bertumpu di kaki kanan tokoh (-x)
+  const sh = wander(t, seed + 2, 9, 1, 0.15, 1.8) * idle;
+  const loadA = Math.max(0, sh);
+  const loadB = Math.max(0, -sh);
+
+  // kaki
+  const hipA = -SWING * s * amp - 0.05 * loadB;
+  const hipB = SWING * s * amp - 0.05 * loadA;
+  const kneeA = Math.max(0, k) * KNEE * amp + 0.12 * loadB;
+  const kneeB = Math.max(0, -k) * KNEE * amp + 0.12 * loadA;
+  setJoint(rig.hipA, hipA);
+  setJoint(rig.hipB, hipB);
+  setJoint(rig.kneeA, kneeA);
+  setJoint(rig.kneeB, kneeB);
+  // telapak tetap menapak: lawan putaran paha + lutut
+  setJoint(rig.ankA, -(hipA + kneeA) * 0.8);
+  setJoint(rig.ankB, -(hipB + kneeB) * 0.8);
+
+  // badan: pinggul dan bahu berputar berlawanan, miring ke kaki tumpu
+  const hipsY = 0.07 * s * amp;
+  const spineY = -0.13 * s * amp + 0.22 * lookYaw;
+  const chestY = 0.14 * lookYaw;
+  const hipsZ = -0.04 * sh + 0.02 * Math.cos(gait) * amp;
+  setJoint(rig.hips, 0, hipsY, hipsZ);
+  setJoint(rig.spine, 0.04 * amp + 0.008 * d.breathe, spineY, -0.6 * hipsZ);
+  setJoint(rig.chest, 0.014 * d.breathe, chestY, 0);
+
+  // kepala: dikoreksi supaya tidak ikut berputar bersama badan, lalu ditambah arah tengok
+  const torsoYaw = hipsY + spineY + chestY;
+  setJoint(
+    rig.neck,
+    lookPitch + 0.02 * Math.sin(gait * 2) * amp - 0.01 * d.breathe,
+    lookYaw + d.lead - 0.6 * (torsoYaw - 0.36 * lookYaw),
+    0.06 * lookYaw - 0.3 * hipsZ,
+  );
+
+  // tangan bebas (-x): ayun berlawanan kaki kanan, siku menekuk saat ke depan, goyang pelan saat diam
+  const sway = Math.sin(t * 0.9 + seed) * 0.03 * idle;
+  setJoint(rig.arm, ARM * s * amp + 0.01 * d.breathe + sway, 0, 0.02 * idle);
+  setJoint(rig.fore, -(0.1 + 0.3 * Math.max(0, -s)) * amp - sway * 1.5);
+  // tangan tombak (+x): hampir diam, ikut sedikit ayunan badan
+  setJoint(rig.spearArm, 0.04 * s * amp, 0, 0.01 * d.breathe);
+
+  return { lookYaw };
 }
 
-function pose(rig: Rig, ph: number, amp: number) {
-  const s = Math.sin(ph);
-  rot(rig.hipA, -SWING * s * amp);
-  rot(rig.hipB, SWING * s * amp);
-  rot(rig.kneeA, Math.max(0, Math.sin(ph + 1.0)) * KNEE * amp);
-  rot(rig.kneeB, Math.max(0, -Math.sin(ph + 1.0)) * KNEE * amp);
-  rot(rig.arm, ARM * s * amp);
-}
+type UnitState = {
+  amp: number;
+  gait: number;
+  lastD: number;
+  init: boolean;
+};
 
 export default function Spearmen({
   amount,
@@ -190,6 +268,7 @@ export default function Spearmen({
             m.frustumCulled = false; // batas kulit mengikuti pose awal, bukan pose jalan
           }
         });
+        styleFolk(g);
         return { g, rig: makeRig(g) };
       }),
     [scene, soldiers],
@@ -197,30 +276,41 @@ export default function Spearmen({
 
   const refs = useRef<(THREE.Group | null)[]>([]);
   const yaws = useRef<number[]>([]);
-  const amps = useRef<number[]>([]);
+  const states = useRef<UnitState[]>([]);
   const clock = useRef(0);
 
-  const place = (t: number) => {
+  useFrame(() => tickFolkLight());
+
+  const place = (t: number, dt: number) => {
     soldiers.forEach((p, i) => {
       const g = refs.current[i];
       if (!g) return;
       const tt = t + p.phase;
-      const rig = units[i]?.rig;
+      const rig = units[i]?.rig ?? null;
+      const seed = 31 + i * 7;
+      const st = (states.current[i] ??= {
+        amp: 0,
+        gait: p.phase * 3,
+        lastD: 0,
+        init: false,
+      });
+      const breathe = Math.sin(tt * 1.5 + seed);
 
       if (!p.patrol) {
-        g.position.set(
-          p.x,
-          groundHeight(p.x, p.z) + Math.sin(tt * 1.1) * 0.004,
-          p.z,
-        );
-        g.rotation.set(0, p.yaw + Math.sin(tt * 0.13) * 0.08, 0, "YXZ");
+        // berjaga: napas, geser berat badan, menengok ke kiri-kanan; badan ikut sedikit
+        const o = rig
+          ? pose(rig, { t: tt, gait: st.gait, amp: 0, seed, lead: 0, breathe })
+          : { lookYaw: 0 };
+        g.position.set(p.x, groundHeight(p.x, p.z) + breathe * 0.003, p.z);
+        g.rotation.set(0, p.yaw + 0.3 * o.lookYaw, 0, "YXZ");
         g.scale.setScalar(p.scale);
         return;
       }
 
       const run = p.len! / p.speed!;
       const pause = p.pause!;
-      const c = tt % (2 * (run + pause));
+      const cycle = 2 * (run + pause);
+      const c = tt % cycle;
       let d: number;
       let sign = 1;
       let moving = true;
@@ -240,38 +330,47 @@ export default function Spearmen({
       const s = sample(p, d);
       const want = Math.atan2(s.dx * sign, s.dz * sign);
       const prev = yaws.current[i] ?? want;
-      const diff = Math.atan2(Math.sin(want - prev), Math.cos(want - prev));
-      const yaw = prev + diff * 0.1;
+      const diff = angDiff(want, prev);
+      const yaw = prev + diff * (1 - Math.exp(-6 * dt));
       yaws.current[i] = yaw;
 
-      // amplitudenya dihaluskan, supaya berhenti dan mulai jalan tidak patah
-      const amp =
-        (amps.current[i] ?? 0) +
-        ((moving ? 1 : 0) - (amps.current[i] ?? 0)) * 0.12;
-      amps.current[i] = amp;
-      const ph = d * STRIDE;
-      if (rig) pose(rig, ph, amp);
+      // langkah: bertambah menurut jarak tempuh; saat berbalik di tempat, kaki melangkah pelan
+      if (!st.init) {
+        st.lastD = d;
+        st.init = true;
+      }
+      const travelled = Math.abs(d - st.lastD);
+      st.lastD = d;
+      const turning = moving ? 0 : Math.min(1, Math.abs(diff) / 0.7);
+      st.gait += travelled * STRIDE + turning * dt * 4.5;
+      st.amp = damp(st.amp, moving ? 1 : 0.5 * turning, 5, dt);
+      const lead = Math.max(-0.9, Math.min(0.9, diff * 0.8));
+      if (rig)
+        pose(rig, { t: tt, gait: st.gait, amp: st.amp, seed, lead, breathe });
 
       g.position.set(
         s.x,
-        groundHeight(s.x, s.z) + Math.abs(Math.sin(ph)) * 0.025 * amp,
+        groundHeight(s.x, s.z) +
+          Math.abs(Math.sin(st.gait)) * 0.025 * st.amp +
+          breathe * 0.003 * (1 - st.amp),
         s.z,
       );
-      g.rotation.set(0, yaw, Math.sin(ph) * 0.02 * amp, "YXZ");
+      g.rotation.set(0, yaw, Math.sin(st.gait) * 0.02 * st.amp, "YXZ");
       g.scale.setScalar(p.scale);
     });
   };
 
   useFrame((_, dt) => {
     if (reduceMotion) return;
-    clock.current += Math.min(dt, 0.1);
-    place(clock.current);
+    const step = Math.min(dt, 0.1);
+    clock.current += step;
+    place(clock.current, step);
   });
 
   useLayoutEffect(() => {
     yaws.current = [];
-    amps.current = [];
-    place(0);
+    states.current = [];
+    place(0, 1 / 60);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soldiers, units]);
 
@@ -286,6 +385,7 @@ export default function Spearmen({
           }}
         >
           <primitive object={u.g} />
+          <ContactShadow />
         </group>
       ))}
     </group>

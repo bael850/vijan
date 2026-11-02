@@ -29,6 +29,7 @@ export interface FotoKage {
   slug: string;
   gambar: string; // path/URL ke file gambar
   cerita: string; // ruang bercerita di samping/bawah foto, Markdown
+  alt?: string; // teks alternatif untuk pembaca layar; kalau kosong pakai judul
   status: PostStatus;
   tanggal: string;
 }

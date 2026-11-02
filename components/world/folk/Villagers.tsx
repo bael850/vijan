@@ -1,10 +1,13 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { hash } from "../core/math";
+import { styleFolk, tickFolkLight } from "../core/folkLight";
+import ContactShadow from "../core/ContactShadow";
+import { dayState } from "../core/dayCycle";
 import { roadX } from "../path/road";
 import { groundHeight, lakeDist } from "../terrain/heightmap";
 import { BUILDINGS, doorOf } from "../village/villageLayout";
@@ -21,6 +24,8 @@ const ROAD_END = -114; // jangan sampai ke depan pintu rumah utama
 const FIRST_NEIGHBOR = 13; // nomor bangunan tetangga baru di BUILDINGS
 const GROUP_HOUSE = 14; // perkumpulan di antara pondok ini dan jalan
 const STAND_HOUSES = [13, 15, 16, 17]; // yang berdiri di depan pintu rumah-rumah ini
+const CANDLE =
+  /lilin|candle|flame|\bapi\b|wick|sumbu|lantern|lentera|torch|obor|fire/i;
 const SCALE_MIN = 0.86; // tinggi divariasikan: 1,46 m sampai 1,92 m
 const SCALE_MAX = 1.13;
 
@@ -193,17 +198,61 @@ export default function Villagers({
     () =>
       people.map(() => {
         const g = scene.clone(true);
-        g.traverse((o) => {
-          if ((o as THREE.Mesh).isMesh) o.castShadow = true;
-        });
+        styleFolk(g);
         return g;
       }),
     [scene, people],
   );
 
+  // lilin/api yang dibawa biarawan: hanya terlihat di malam hari
+  const candles = useMemo(
+    () =>
+      clones.map((g) => {
+        const arr: THREE.Object3D[] = [];
+        g.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh) return;
+          const mats = Array.isArray(m.material) ? m.material : [m.material];
+          const hit =
+            CANDLE.test(o.name) ||
+            mats.some(
+              (x) =>
+                x &&
+                (CANDLE.test(x.name) ||
+                  (x as THREE.MeshStandardMaterial).emissive?.getHex() > 0),
+            );
+          if (hit) arr.push(o);
+        });
+        return arr;
+      }),
+    [clones],
+  );
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const names: string[] = [];
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+      names.push(`${o.name}/${mat?.name ?? ""}`);
+    });
+    console.info(
+      "[biarawan] mesh:",
+      names.join(" | "),
+      "| lilin terdeteksi:",
+      candles[0]?.length ?? 0,
+    );
+  }, [scene, candles]);
+  useFrame(() => {
+    const show = dayState.lamps > 0.35;
+    for (const arr of candles) for (const o of arr) o.visible = show;
+  });
+
   const refs = useRef<(THREE.Group | null)[]>([]);
   const yaws = useRef<number[]>([]);
   const clock = useRef(0);
+
+  useFrame(() => tickFolkLight());
 
   const place = (t: number) => {
     people.forEach((p, i) => {
@@ -295,6 +344,7 @@ export default function Villagers({
           }}
         >
           <primitive object={g} />
+          <ContactShadow />
         </group>
       ))}
     </group>

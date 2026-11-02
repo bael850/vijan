@@ -3,8 +3,13 @@ export const CAT = {
   modelUrl: "/models/kucing.glb", // file di public/models/kucing.glb
   scale: 0.95, // tinggi kucing (m)
   tint: "#e6d2c8",
-  ambient: 0.3, // cahaya dasar bulu (0 = hitam total di tempat gelap, 1 = tanpa bayangan)
-  rim: 0.35, // kilau hangat di tepi bulu
+  ambient: 0.3, // cahaya dasar bulu di MALAM hari (0 = hitam total di tempat gelap, 1 = tanpa bayangan)
+  rim: 0.35, // kilau hangat di tepi bulu di MALAM hari
+  ambientDay: 0.06, // cahaya dasar bulu di SIANG hari (matahari sudah cukup, jadi nyaris 0)
+  rimDay: 0.08, // kilau tepi bulu di SIANG hari
+  // lentera kucing: hanya menyala saat lampu-lampu desa menyala (malam), mati total di siang hari
+  lanternLight: 2.2, // kuat lampu titik di malam hari (dulu 3.5 dan menyala terus)
+  lanternGlow: 0.16, // kuat lingkaran cahaya di malam hari (dulu 0.3 dan menyala terus)
 
   lead: 6, // jarak kucing di depan kamera sepanjang jalan (m)
   leadMin: 2, // kucing tidak boleh tersusul kamera lebih dekat dari ini (m)

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   requestLoginLink,
   postComment,
+  hideCommentAction,
   type RequestLoginState,
   type PostCommentState,
 } from "@/app/actions/comments";
@@ -23,11 +24,13 @@ export default function Comments({
   comments,
   isLoggedIn,
   displayName,
+  isAuthor = false,
 }: {
   slug: string;
   comments: CommentRow[];
   isLoggedIn: boolean;
   displayName?: string | null;
+  isAuthor?: boolean;
 }) {
   const router = useRouter();
   const postCommentWithSlug = postComment.bind(null, slug);
@@ -78,6 +81,23 @@ export default function Comments({
             <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap break-words">
               {c.isi}
             </p>
+            {isAuthor && (
+              <form
+                action={hideCommentAction.bind(null, slug, c.id)}
+                className="mt-3"
+              >
+                <button
+                  type="submit"
+                  onClick={(e) => {
+                    if (!window.confirm(commentUi.hideConfirm))
+                      e.preventDefault();
+                  }}
+                  className="text-xs text-neutral-500 underline-offset-4 hover:text-red-400 hover:underline"
+                >
+                  {commentUi.hide}
+                </button>
+              </form>
+            )}
           </div>
         ))}
       </div>

@@ -11,6 +11,7 @@ import {
 import { auth } from "@/auth";
 import { getCommentsBySlug } from "@/lib/comments/queries";
 import Comments from "@/components/vers/Comments";
+import { isAuthorEmail } from "@/lib/comments/author";
 import Reveal from "@/components/ui/Reveal";
 import ScrollProgress from "@/components/layout/ScrollProgress";
 import SocialLinks from "@/components/vers/SocialLinks";
@@ -333,6 +334,7 @@ export default async function PostView({
               slug={post.slug}
               comments={comments}
               isLoggedIn={!!session?.user}
+              isAuthor={isAuthorEmail(session?.user?.email)}
               displayName={session?.user?.name}
             />
           </Reveal>

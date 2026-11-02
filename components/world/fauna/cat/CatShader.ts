@@ -5,9 +5,17 @@
 // Model space: the cat faces +x, y is up, z is sideways.
 
 import * as THREE from "three";
+import { dayState } from "../../core/dayCycle";
 
 // Satu set uniform per kucing, supaya tiap kucing bisa punya pose dan warna sendiri.
+// 0 = siang, 1 = malam. Satu nilai dipakai bersama semua kucing (diisi lewat tickCatLight).
+export const CAT_NIGHT = { value: 1 };
+export function tickCatLight() {
+  CAT_NIGHT.value = dayState.lamps;
+}
+
 export const makeUni = () => ({
+  uNight: CAT_NIGHT,
   uPhase: { value: 0 },
   uWalk: { value: 0 },
   uAmp: { value: 0.4 },
@@ -55,7 +63,7 @@ uniform float uSit, uLoaf, uBow, uPawL, uPawR, uPuff, uMouth, uRun, uBend, uSqua
 varying vec3 vLocal;`;
 
 export const FRAG_DECL = `
-uniform float uBlink, uMouth, uTongue, uHappy, uAngry;
+uniform float uBlink, uMouth, uTongue, uHappy, uAngry, uNight;
 uniform float uRecolor, uStyle, uWhiteAmt, uSeed;
 uniform vec3 uCoat, uPatch, uLid;
 varying vec3 vLocal;

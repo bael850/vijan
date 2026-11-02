@@ -6,6 +6,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { CAT } from "../../config/cat";
 import { getGlow } from "../../core/glow";
+import { dayState } from "../../core/dayCycle";
 import { CAMERA } from "../../config/scroll";
 import { ROAD_LENGTH, roadPointAt } from "../../path/roadDistance";
 import {
@@ -35,7 +36,14 @@ import { smoothstep } from "../../core/math";
 import { STAIR_SLOPE } from "./catStairs";
 import { smoothNormals } from "./catGeometry";
 import { approachPose, newPose, writePose, type PoseVel } from "./catPose";
-import { FRAG, FRAG_DECL, UNI, VERT, VERT_DECL } from "./CatShader";
+import {
+  FRAG,
+  FRAG_DECL,
+  UNI,
+  VERT,
+  VERT_DECL,
+  tickCatLight,
+} from "./CatShader";
 
 // selisih sudut a - b dalam -PI..PI
 const angleDiff = (a: number, b: number) => {
@@ -126,17 +134,17 @@ export default function Cat({
           .replace("#include <common>", `#include <common>\n${FRAG_DECL}`)
           .replace(
             "#include <map_fragment>",
-            `#include <map_fragment>\n${FRAG}\n  totalEmissiveRadiance = diffuseColor.rgb * ${CAT.ambient.toFixed(3)};`,
+            `#include <map_fragment>\n${FRAG}\n  totalEmissiveRadiance = diffuseColor.rgb * mix(${CAT.ambientDay.toFixed(3)}, ${CAT.ambient.toFixed(3)}, uNight);`,
           )
           // tepi bulu sedikit bersinar hangat (rim), memberi kesan berbulu
           .replace(
             "#include <opaque_fragment>",
             `float rim = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
-  outgoingLight += diffuseColor.rgb * vec3(1.0, 0.78, 0.55) * rim * ${CAT.rim.toFixed(3)};
+  outgoingLight += diffuseColor.rgb * vec3(1.0, 0.78, 0.55) * rim * mix(${CAT.rimDay.toFixed(3)}, ${CAT.rim.toFixed(3)}, uNight);
   #include <opaque_fragment>`,
           );
       };
-      mat.customProgramCacheKey = () => "kucing-vijan-3";
+      mat.customProgramCacheKey = () => "kucing-vijan-4";
       m.material = mat;
       // bayangan cahaya bulan memakai gerak kaki/kepala yang sama
       const depth = new THREE.MeshDepthMaterial({
@@ -171,6 +179,8 @@ export default function Cat({
     const { clock, camera, pointer, raycaster } = state;
     const dt = Math.min(delta, 0.05);
     const t = clock.elapsedTime;
+    tickCatLight();
+    const night = dayState.lamps; // 0 siang, 1 malam
     const m = motion.current;
     const it = inter.current;
 
@@ -295,11 +305,15 @@ export default function Cat({
 
     // lentera kucing terang di luar; di dalam rumah diredupkan supaya cahaya lampu rumah yang berperan
     homeK.current += ((hm ? 1 : 0) - homeK.current) * (1 - Math.exp(-2.5 * dt));
+    // dan hanya menyala di malam hari: siang hari intensitasnya 0 (lampu tetap ada supaya shader tidak dikompilasi ulang)
     if (selfLight.current) {
-      selfLight.current.intensity = 3.5 - 2.8 * homeK.current;
+      selfLight.current.intensity =
+        CAT.lanternLight * (1 - 0.8 * homeK.current) * night;
       selfLight.current.distance = 7 - 3.5 * homeK.current;
     }
-    if (selfGlow.current) selfGlow.current.opacity = 0.3 - 0.22 * homeK.current;
+    if (selfGlow.current)
+      selfGlow.current.opacity =
+        CAT.lanternGlow * (1 - 0.73 * homeK.current) * night;
 
     // kursor bergerak -> kucing melihat ke arah kursor; kalau tidak, ke kamera
     if (lastPointer.current.distanceTo(pointer) > 0.002) {

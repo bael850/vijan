@@ -8,6 +8,12 @@ import { LIGHT } from "../config/light";
 import { HOUSE } from "../config/world";
 import { SCROLL } from "../config/scroll";
 import { lerp, smoothstep } from "../core/math";
+import { DAY_LIGHT, dayState, tickDay } from "../core/dayCycle";
+import { groundHeight } from "../terrain/heightmap";
+
+// Bayangan mengikuti kamera: kotak bayangan selebar 2 x SHADOW_HALF, digeser ke depan SHADOW_LEAD
+const SHADOW_HALF = 60;
+const SHADOW_LEAD = 20;
 
 // Cahaya, kabut, dan warna latar. Makin dekat rumah, suasana makin teduh dan hangat.
 // progress = posisi scroll 0..1 (ref, bukan state, supaya tidak render ulang).
@@ -26,6 +32,31 @@ export default function TimeOfDay({
   const from = useMemo(() => new THREE.Color(LIGHT.fog.colorStart), []);
   const to = useMemo(() => new THREE.Color(LIGHT.fog.colorEnd), []);
   const col = useMemo(() => new THREE.Color(), []);
+  const dayFog = useMemo(() => new THREE.Color(DAY_LIGHT.fog), []);
+  const dusk = useMemo(() => new THREE.Color("#c98a6a"), []);
+  const hemiNightSky = useMemo(() => new THREE.Color(LIGHT.hemi.sky), []);
+  const hemiNightGround = useMemo(() => new THREE.Color(LIGHT.hemi.ground), []);
+  const hemiDaySky = useMemo(() => new THREE.Color(DAY_LIGHT.hemiSky), []);
+  const hemiDayGround = useMemo(
+    () => new THREE.Color(DAY_LIGHT.hemiGround),
+    [],
+  );
+  const moonCol = useMemo(() => new THREE.Color(LIGHT.moon.color), []);
+  const sunCol = useMemo(() => new THREE.Color(DAY_LIGHT.sun), []);
+  const sunWarm = useMemo(() => new THREE.Color(DAY_LIGHT.sunWarm), []);
+  const tmp = useMemo(
+    () => ({
+      fwd: new THREE.Vector3(),
+      p: new THREE.Vector3(),
+      dir: new THREE.Vector3(),
+      right: new THREE.Vector3(),
+      up: new THREE.Vector3(),
+      last: new THREE.Vector3(1e9, 0, 0),
+      lastDir: new THREE.Vector3(),
+      n: 0,
+    }),
+    [],
+  );
 
   // bayangan fokus di rumah + pekarangan + ujung jalan; low = mati
   const shadowOn = quality !== "low";
@@ -55,7 +86,10 @@ export default function TimeOfDay({
     return () => void sc.remove(m.target);
   }, [sc, quality]);
 
-  useFrame(({ scene }) => {
+  useFrame(({ scene, clock, camera }) => {
+    tickDay(clock.elapsedTime);
+    const dl = dayState.daylight;
+    const twi = dayState.twilight;
     const k = smoothstep(
       SCROLL.roadShare * 0.5,
       SCROLL.roadShare,
@@ -66,6 +100,8 @@ export default function TimeOfDay({
     gl.toneMappingExposure = LIGHT.exposure;
 
     col.copy(from).lerp(to, k);
+    col.lerp(dayFog, dl);
+    col.lerp(dusk, twi * 0.3);
     scene.background = col;
     const fog = scene.fog as THREE.Fog | null;
     if (fog) {
@@ -74,14 +110,70 @@ export default function TimeOfDay({
       fog.far = lerp(LIGHT.fog.farStart, LIGHT.fog.farEnd, k);
     }
     if (hemi.current) {
-      hemi.current.intensity =
-        lerp(LIGHT.hemi.startIntensity, LIGHT.hemi.endIntensity, k) * dim;
+      const hn = lerp(LIGHT.hemi.startIntensity, LIGHT.hemi.endIntensity, k);
+      hemi.current.intensity = lerp(hn, DAY_LIGHT.hemi, dl) * dim;
+      hemi.current.color.copy(hemiNightSky).lerp(hemiDaySky, dl);
+      hemi.current.groundColor.copy(hemiNightGround).lerp(hemiDayGround, dl);
     }
-    if (moon.current) {
-      moon.current.intensity =
-        lerp(LIGHT.moon.startIntensity, LIGHT.moon.endIntensity, k) * dim;
+    // satu cahaya terarah: matahari kalau lebih tinggi dari bulan, kalau tidak bulan
+    const m = moon.current;
+    if (m) {
+      const useSun = dayState.sun.y > dayState.moon.y;
+      const d = useSun ? dayState.sun : dayState.moon;
+      const sunI =
+        DAY_LIGHT.sunIntensity * smoothstep(-0.02, 0.22, dayState.sun.y);
+      const moonI =
+        lerp(LIGHT.moon.startIntensity, LIGHT.moon.endIntensity, k) *
+        smoothstep(-0.02, 0.22, dayState.moon.y) *
+        (1 - dl);
+      m.intensity = (useSun ? sunI : moonI) * dim;
+      if (useSun) {
+        m.color
+          .copy(sunWarm)
+          .lerp(sunCol, smoothstep(0.1, 0.5, dayState.sun.y));
+      } else {
+        m.color.copy(moonCol);
+      }
+      // dijaga agar tidak terlalu rendah, supaya bayangan tidak memanjang jauh
+      const dy = Math.max(d.y, 0.22);
+      const dir = tmp.dir.set(d.x, dy, d.z).normalize();
+
+      // pusat bayangan = titik di depan kamera (bukan terkunci di rumah)
+      camera.getWorldDirection(tmp.fwd);
+      tmp.fwd.y = 0;
+      if (tmp.fwd.lengthSq() > 1e-6) tmp.fwd.normalize();
+      const fx = camera.position.x + tmp.fwd.x * SHADOW_LEAD;
+      const fz = camera.position.z + tmp.fwd.z * SHADOW_LEAD;
+      tmp.p.set(fx, groundHeight(fx, fz), fz);
+
+      // tempel ke grid texel di ruang cahaya supaya bayangan tidak bergetar saat kamera bergerak
+      tmp.right.set(dir.z, 0, -dir.x).normalize();
+      tmp.up.crossVectors(dir, tmp.right);
+      const texel = (SHADOW_HALF * 2) / (quality === "high" ? 2048 : 1024);
+      const pa = tmp.p.dot(tmp.right);
+      const pb = tmp.p.dot(tmp.up);
+      tmp.p
+        .addScaledVector(tmp.right, Math.round(pa / texel) * texel - pa)
+        .addScaledVector(tmp.up, Math.round(pb / texel) * texel - pb);
+
+      m.target.position.copy(tmp.p);
+      m.target.updateMatrixWorld();
+      m.position.copy(tmp.p).addScaledVector(dir, 180);
+
+      // gambar ulang peta bayangan kalau pusat/arah cahaya bergeser, plus berkala
+      // untuk penduduk dan penjaga yang bergerak
+      tmp.n += 1;
+      const moved =
+        tmp.p.distanceToSquared(tmp.last) > 1e-6 ||
+        tmp.dir.distanceToSquared(tmp.lastDir) > 1e-8;
+      if (moved || tmp.n % (quality === "high" ? 2 : 3) === 0) {
+        gl.shadowMap.needsUpdate = true;
+      }
+      tmp.last.copy(tmp.p);
+      tmp.lastDir.copy(tmp.dir);
     }
-    if (fill.current) fill.current.intensity = LIGHT.fill.intensity * dim;
+    if (fill.current)
+      fill.current.intensity = LIGHT.fill.intensity * dim * (1 - 0.75 * dl);
   });
 
   return (
@@ -103,10 +195,10 @@ export default function TimeOfDay({
         castShadow={shadowOn}
         shadow-mapSize={[mapSize, mapSize]}
         // sebelumnya ±30 terlalu sempit: pohon & jalan di luar rumah tanpa bayangan
-        shadow-camera-left={-55}
-        shadow-camera-right={55}
-        shadow-camera-top={55}
-        shadow-camera-bottom={-55}
+        shadow-camera-left={-SHADOW_HALF}
+        shadow-camera-right={SHADOW_HALF}
+        shadow-camera-top={SHADOW_HALF}
+        shadow-camera-bottom={-SHADOW_HALF}
         shadow-camera-near={20}
         shadow-camera-far={380}
         // bias terlalu agresif = shadow acne di atap miring; normalBias tinggi = bayangan melayang

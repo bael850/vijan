@@ -1,6 +1,6 @@
-// Shader langit malam ala "The Starry Night" (Van Gogh):
-// pusaran besar yang berputar pelan, goresan biru yang mengalir, bintang besar dengan cincin
-// cahaya yang berdenyut, bulan sabit oranye dengan lingkaran cahaya, dan cakrawala teal di bawah.
+// Shader langit malam ala "The Starry Night" (Van Gogh), versi tenang:
+// satu pusaran lebar yang diam, goresan kuas biru yang lebar, bintang emas bercincin lembut,
+// bulan sabit, dan cakrawala teal gelap. Hampir tidak ada gerakan supaya tidak memusingkan.
 // Semua pola dihitung dari arah pandang 3D (bukan sudut), jadi tidak ada sambungan yang kelihatan.
 // Hanya teks GLSL. Gambarnya ada di Sky.tsx. Uniform-nya sama seperti sebelumnya.
 
@@ -9,6 +9,7 @@ export const SKY_VERT = /* glsl */ `
   void main() {
     vDir = normalize(position);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_Position.z = gl_Position.w; // selalu di bidang terjauh: hanya piksel yang tidak tertutup benda yang menjalankan shader langit
   }
 `;
 
@@ -24,6 +25,10 @@ export const SKY_FRAG = /* glsl */ `
   uniform float uAuroraK;
   uniform float uStars;
   uniform float uEncode;
+  uniform vec3 uSun;
+  uniform vec3 uMoon;
+  uniform float uDay;
+  uniform float uTwi;
   varying vec3 vDir;
 
   float h31(vec3 p) {
@@ -67,23 +72,36 @@ export const SKY_FRAG = /* glsl */ `
     vec3 off = (vec3(h31(id + 1.7), h31(id + 4.3), h31(id + 8.9)) - 0.5) * 0.45;
     float d = length(f - off);
     float sz = 0.4 + 0.6 * h31(id + 2.2);
-    float tw = 0.82 + 0.18 * sin(uTime * (0.5 + 1.5 * h31(id + 5.5)) + r * 60.0);
+    float tw = 0.9 + 0.1 * sin(uTime * (0.25 + 0.5 * h31(id + 5.5)) + r * 60.0);
     float core = exp(-d * d * 90.0 / (size * size * sz));
     float glow = exp(-d * 9.0 / size) * halo * sz;
     return (core + glow) * sz * tw;
   }
 
-  // Cahaya hijau lembut di cakrawala utara. Hanya bergantung pada dir.x dan tinggi, tidak ada sambungan.
+  // Aurora tipis hijau -> biru di langit utara: dua tirai berlapis, tepi bawah terang,
+  // memudar ke atas, sinar vertikal halus. Gerakannya sangat lambat.
   vec3 aurora(vec3 dir) {
-    float e = dir.y;
-    float north = smoothstep(0.0, 0.7, -dir.z);
-    float n = fbm(vec3(dir.x * 2.2, 3.0, uTime * 0.02));
-    float base = 0.08 + 0.07 * n;
-    float above = e - base;
-    float body = smoothstep(0.0, 0.08, above) * exp(-above * 4.2);
-    float soft = 0.78 + 0.22 * sin(dir.x * 14.0 + n * 5.0 + uTime * 0.12);
-    vec3 tint = mix(uAurora, uTeal, clamp(above * 2.5 + 0.25 * n, 0.0, 1.0));
-    return tint * body * soft * north * uAuroraK;
+    float az = atan(dir.x, -dir.z); // 0 = lurus ke utara
+    float north = smoothstep(-0.25, 0.55, -dir.z);
+    float t = uTime * 0.03;
+    vec3 acc = vec3(0.0);
+    for (int k = 0; k < 2; k++) {
+      float fk = float(k);
+      float sway = 0.07 * sin(az * 2.3 + t * 2.0 + fk * 2.1)
+                 + 0.05 * (vnoise(vec3(az * 1.6, fk * 7.0, t)) - 0.5);
+      float base = 0.20 + 0.11 * fk + sway;
+      float h = dir.y - base;
+      float edge = smoothstep(-0.015, 0.02, h);
+      float fall = exp(-max(h, 0.0) * (7.0 - 2.0 * fk));
+      float rays = 0.55 + 0.45 * vnoise(vec3(az * 22.0 + fk * 5.0, fk * 3.0, t * 1.5));
+      float fold = 0.6 + 0.4 * sin(az * 5.0 + t * 3.0 + fk * 1.3 + 2.0 * vnoise(vec3(az * 3.0, 1.0, t)));
+      float inten = edge * fall * rays * fold * (1.0 - 0.35 * fk);
+      vec3 green = vec3(0.22, 0.95, 0.55);
+      vec3 blue = vec3(0.20, 0.50, 1.0);
+      vec3 c = mix(green, blue, clamp(h * 3.5 + fk * 0.35, 0.0, 1.0));
+      acc += c * inten;
+    }
+    return acc * north * uAuroraK * 1.2;
   }
 
   // Putar vektor v mengelilingi sumbu axis (rumus Rodrigues).
@@ -114,79 +132,111 @@ export const SKY_FRAG = /* glsl */ `
     return normalize(vec3(-0.90, 0.30, 0.30));
   }
 
+  // Langit siang: biru kobalt cerah, cakrawala krem-toska, sapuan awan krem searah goresan.
+  vec3 daySky(vec3 dir, float m) {
+    float e = max(dir.y, 0.0);
+    vec3 hor = vec3(0.74, 0.86, 0.86);
+    vec3 mid = vec3(0.30, 0.60, 0.88);
+    vec3 top = vec3(0.12, 0.33, 0.70);
+    vec3 c = mix(hor, mid, smoothstep(0.0, 0.35, e));
+    c = mix(c, top, smoothstep(0.25, 0.9, e));
+    float cl = smoothstep(0.55, 0.95, m) * smoothstep(0.05, 0.35, dir.y) * 0.55;
+    return mix(c, vec3(1.0, 0.96, 0.86), cl);
+  }
+
   void main() {
     vec3 dir = normalize(vDir);
     float e = dir.y;
+    float night = 1.0 - uDay;
 
-    // gradasi dasar: teal di cakrawala -> biru -> biru malam pekat
-    vec3 col = mix(uTeal * 0.95 + uGlow * 0.04, uBlue, smoothstep(0.0, 0.3, e));
-    col = mix(col, uDeep, smoothstep(0.12, 0.65, e));
+    // gradasi dasar: teal gelap di cakrawala -> biru kobalt -> biru malam pekat di puncak
+    vec3 col = mix(uTeal * 0.95 + uGlow * 0.04, uBlue * 0.85, smoothstep(0.0, 0.3, e));
+    col = mix(col, uDeep * 0.8, smoothstep(0.12, 0.7, e));
 
-    // langit hidup: tidak ada di bawah cakrawala, memudar halus ke arah teal
     float sky = smoothstep(0.03, 0.28, e);
 
-    // tiga pusaran besar, berdenyut pelan (putarannya membesar-mengecil bergantian)
+    // dua pusaran lebar, diam (tanpa denyut), cukup untuk melengkungkan goresan
     vec3 sd = dir;
-    sd = swirl(sd, normalize(vec3(0.30, 0.52, -0.80)), 0.60, 7.0 + 1.0 * sin(uTime * 0.07));
-    sd = swirl(sd, normalize(vec3(0.80, 0.42, -0.42)), 0.45, -6.0 + 0.9 * sin(uTime * 0.055 + 1.7));
-    sd = swirl(sd, normalize(vec3(-0.35, 0.85, -0.40)), 0.40, 5.0 + 0.8 * sin(uTime * 0.06 + 3.1));
+    sd = swirl(sd, normalize(vec3(0.20, 0.50, -0.84)), 0.75, 3.2);
+    sd = swirl(sd, normalize(vec3(0.85, 0.40, -0.35)), 0.55, -2.4);
 
-    // goresan aliran: garis-garis kontur dari noise yang dilengkungkan
-    vec3 p = sd * 2.6 + vec3(0.0, uTime * 0.015, 0.0);
-    vec3 wp = p + 1.2 * vec3(fbm(p), fbm(p + vec3(5.2, 1.3, 2.8)), fbm(p + vec3(9.1, 4.7, 1.1)));
-    float f = fbm(wp * 1.3);
-    float band = sin(f * 24.0);
-    float hatch = sin(f * 70.0 + wp.x * 6.0);
-    float m = 0.5 + 0.5 * (band * 0.8 + hatch * 0.2);
+    // goresan kuas: garis kontur lebar dari noise yang dilengkungkan, sangat lambat hanyutnya
+    vec3 p = sd * 2.2 + vec3(0.0, uTime * 0.004, 0.0);
+    vec3 wp = p + 0.6 * vec3(fbm(p), fbm(p + vec3(5.2, 1.3, 2.8)), fbm(p + vec3(9.1, 4.7, 1.1)));
+    float f = fbm(wp * 1.1);
+    float m = 0.5 + 0.5 * sin(f * 13.0);
+    m = smoothstep(0.15, 0.85, m);
 
-    vec3 pale = uBlue * 1.9 + uGlow * 0.10 + vec3(0.02, 0.05, 0.08);
-    vec3 stroke = mix(uDeep * 0.75, uBlue, smoothstep(0.12, 0.65, m));
-    stroke = mix(stroke, pale, smoothstep(0.70, 0.98, m) * 0.75);
-    stroke = mix(stroke, uDeep * 0.7, smoothstep(0.0, 1.0, e) * 0.35);
-    col = mix(col, stroke, sky * 0.92);
+    vec3 cobalt = uBlue * 1.15;
+    vec3 crest = mix(uBlue, vec3(0.62, 0.80, 0.95), 0.55);   // biru pucat, bukan putih
+    vec3 stroke = mix(uDeep * 0.7, cobalt, smoothstep(0.1, 0.7, m));
+    stroke = mix(stroke, crest, smoothstep(0.78, 1.0, m) * 0.45);
+    // makin ke puncak makin gelap dan pekat, memberi kedalaman
+    stroke *= mix(1.0, 0.62, smoothstep(0.25, 1.0, e));
+    col = mix(col, stroke, sky * 0.9);
 
-    // bintang kecil, dibuat lebih redup supaya pusarannya tetap yang utama
-    float fade = smoothstep(0.08, 0.4, e);
-    vec3 starCol = mix(vec3(1.0, 0.96, 0.88), uGlow, 0.45);
-    float st = starLayer(dir, 60.0, 0.16, 1.0, 0.0) * 0.5
-             + starLayer(dir + 3.7, 17.0, 0.12, 1.0, 0.16) * 0.8;
-    col += starCol * st * fade * uStars;
+    // bintang kecil: sedikit dan halus
+    float fade = smoothstep(0.1, 0.42, e);
+    vec3 starCol = mix(vec3(1.0, 0.93, 0.78), uGlow, 0.5);
+    float st = starLayer(dir, 55.0, 0.07, 1.0, 0.0) * 0.6
+             + starLayer(dir + 3.7, 17.0, 0.06, 1.0, 0.2) * 0.8;
+    col += starCol * st * fade * uStars * night * night;
 
-    // bintang besar bercincin: inti terang + lingkaran cahaya yang merambat keluar
+    // bintang besar: inti emas + cincin cahaya lembut yang diam, napasnya sangat pelan
     for (int i = 0; i < 9; i++) {
       vec3 P = bigStarPos(i);
       float fi = float(i);
-      float rad = 0.05 + 0.035 * h21(vec2(fi, 3.0));
+      float rad = 0.045 + 0.03 * h21(vec2(fi, 3.0));
       float ph = fi * 1.9;
       float s = length(dir - P);
       float core = exp(-s * s / (rad * rad * 0.03));
-      float rings = 0.5 + 0.5 * cos(s / rad * 14.0 - uTime * 1.2 + ph);
-      float env = exp(-(s * s) / (rad * rad) * 1.4);
-      float pulse = 0.85 + 0.15 * sin(uTime * (0.7 + 0.4 * h21(vec2(fi, 8.0))) + ph);
-      col += (vec3(1.0, 0.95, 0.80) * core * 1.3 + uGlow * rings * env * 0.45) * pulse * fade * uStars;
+      float halo = exp(-s * s / (rad * rad) * 1.2);
+      float rings = 0.55 + 0.45 * cos(s / rad * 9.0 + ph);
+      float breathe = 0.94 + 0.06 * sin(uTime * 0.35 + ph);
+      vec3 gold = vec3(1.0, 0.86, 0.50);
+      col += (gold * core * 1.2 + mix(uGlow, vec3(0.75, 0.88, 1.0), 0.35) * rings * halo * 0.30) * breathe * fade * uStars * night * night;
     }
 
-    // bulan sabit oranye + lingkaran cahaya di sekitarnya
-    vec3 M = normalize(vec3(-0.38, 0.42, -0.82));
+    // bulan sabit emas + lingkaran cahaya yang diam
+    vec3 M = normalize(uMoon);
+    vec3 moonAcc = vec3(0.0);
     vec3 M2 = normalize(M + vec3(0.03, 0.018, 0.0));
     float disc = smoothstep(0.9980, 0.9988, dot(dir, M));
     float cut = smoothstep(0.9980, 0.9988, dot(dir, M2));
-    col += uGlow * 1.3 * clamp(disc - cut, 0.0, 1.0);
-    col += uGlow * pow(max(dot(dir, M), 0.0), 60.0) * 0.14;
+    moonAcc += uGlow * 1.25 * clamp(disc - cut, 0.0, 1.0);
+    moonAcc += uGlow * pow(max(dot(dir, M), 0.0), 60.0) * 0.12;
     float md = length(dir - M);
-    float mrings = 0.5 + 0.5 * cos(md * 60.0 - uTime * 0.8);
+    float mrings = 0.55 + 0.45 * cos(md * 55.0);
     float menv = exp(-md * md * 40.0);
-    col += uGlow * vec3(1.0, 0.75, 0.35) * mrings * menv * 0.30;
+    moonAcc += uGlow * vec3(1.0, 0.78, 0.40) * mrings * menv * 0.22;
+    col += moonAcc * night;
 
-    col += aurora(dir);
+    col += aurora(dir) * night * night;
 
-    // cakrawala bercahaya hangat, di bawah cakrawala jadi gelap
-    col += uGlow * 0.09 * exp(-abs(e) * 9.0);
-    col = mix(col, uDeep * 0.6 + uTeal * 0.15, smoothstep(0.0, -0.15, e));
+    // cakrawala bercahaya hangat tipis, di bawah cakrawala jadi gelap
+    col += uGlow * 0.07 * exp(-abs(e) * 9.0);
 
-    // kalemkan warna
+    // siang: campur ke langit siang, lalu matahari + cahaya senja/fajar
+    col = mix(col, daySky(dir, m), smoothstep(0.0, 1.0, uDay));
+    float sdot = dot(dir, uSun);
+    float sa = acos(clamp(sdot, -1.0, 1.0));
+    vec3 sunAcc = vec3(1.0, 0.93, 0.65) * smoothstep(0.9990, 0.9995, sdot) * 2.5
+                + vec3(1.0, 0.80, 0.40) * pow(max(sdot, 0.0), 30.0) * 0.55
+                + vec3(1.0, 0.85, 0.50) * pow(max(sdot, 0.0), 6.0) * 0.12
+                + vec3(1.0, 0.85, 0.50) * (0.5 + 0.5 * cos(sa * 45.0)) * exp(-sa * sa * 30.0) * 0.16;
+    col += sunAcc * smoothstep(-0.05, 0.1, uSun.y);
+    vec2 hd = normalize(dir.xz + 1e-4);
+    vec2 sh = normalize(uSun.xz + 1e-4);
+    float toward = pow(max(dot(hd, sh), 0.0), 2.0);
+    col += vec3(1.0, 0.55, 0.25) * uTwi * toward * exp(-max(e, 0.0) * 4.0) * 0.55;
+
+    vec3 below = mix(uDeep * 0.6 + uTeal * 0.15, vec3(0.28, 0.42, 0.42), uDay);
+    col = mix(col, below, smoothstep(0.0, -0.15, e));
+
+    // kalemkan warna, lalu kontras lembut: bayangan sedikit dingin, sorotan sedikit hangat
     float l = dot(col, vec3(0.299, 0.587, 0.114));
     col = max(mix(vec3(l), col, uSat), 0.0);
+    col = mix(col * vec3(0.94, 0.99, 1.08), col * vec3(1.06, 1.0, 0.92), smoothstep(0.1, 0.6, l));
 
     vec4 outc = vec4(col, 1.0);
     if (uEncode > 0.5) outc = linearToOutputTexel(outc);

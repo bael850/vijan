@@ -76,9 +76,10 @@ export function GraphicsProvider({ children }: { children: ReactNode }) {
   // localStorage/matchMedia tidak boleh diakses saat SSR.
   useEffect(() => {
     try {
-      const savedQuality = localStorage.getItem(
-        QUALITY_KEY,
-      ) as GraphicsQuality | null;
+      // ?kualitas=low|medium|high di URL menang atas semuanya (menu Options sudah tidak ada)
+      const urlQ = new URLSearchParams(window.location.search).get("kualitas");
+      const savedQuality = (urlQ ??
+        localStorage.getItem(QUALITY_KEY)) as GraphicsQuality | null;
       const initialQuality =
         savedQuality === "low" ||
         savedQuality === "medium" ||

@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { getGlow } from "../core/glow";
+import { dayState } from "../core/dayCycle";
+import { NightBasic } from "../core/nightLights";
 import { groundHeight } from "../terrain/heightmap";
 import { roadX } from "../path/road";
 
@@ -50,7 +52,7 @@ export default function Streetlamps({
     lamps.forEach((l, i) => {
       const s = halos.current[i];
       if (!s) return;
-      const target = offRef.current[i] ? 0 : 1;
+      const target = offRef.current[i] ? 0 : dayState.lamps;
       const flick = reduceMotion
         ? 0.9
         : 0.85 +
@@ -82,10 +84,15 @@ export default function Streetlamps({
             <cylinderGeometry args={[0.06, 0.09, POST_H, 8]} />
             <meshLambertMaterial color={IRON} />
           </mesh>
-          <mesh position={[0, POST_H + 0.22, 0]}>
+          <NightBasic
+            position={[0, POST_H + 0.22, 0]}
+            night={GLASS}
+            day="#cfc8b4"
+            off="#4a4658"
+            on={!off[i]}
+          >
             <boxGeometry args={[0.34, 0.44, 0.34]} />
-            <meshBasicMaterial color={off[i] ? "#4a4658" : GLASS} />
-          </mesh>
+          </NightBasic>
           <mesh position={[0, POST_H + 0.5, 0]} castShadow>
             <coneGeometry args={[0.3, 0.22, 4]} />
             <meshLambertMaterial color={IRON} />

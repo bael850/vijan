@@ -68,7 +68,7 @@ function Print({ foto, i }: { foto: FotoKage; i: number }) {
         >
           <Image
             src={foto.gambar}
-            alt={foto.judul}
+            alt={foto.alt || foto.judul}
             fill
             sizes="(min-width: 768px) 33vw, 90vw"
             className="object-cover transition-[filter,transform] duration-[1600ms] ease-out"

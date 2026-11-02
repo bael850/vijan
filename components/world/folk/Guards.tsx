@@ -5,6 +5,8 @@ import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { hash } from "../core/math";
+import { styleFolk, tickFolkLight } from "../core/folkLight";
+import ContactShadow from "../core/ContactShadow";
 import { roadX } from "../path/road";
 import { groundHeight } from "../terrain/heightmap";
 import { LANDMARKS } from "../village/villageLayout";
@@ -115,9 +117,7 @@ export default function Guards({
     () =>
       guards.map(() => {
         const g = scene.clone(true);
-        g.traverse((o) => {
-          if ((o as THREE.Mesh).isMesh) o.castShadow = true;
-        });
+        styleFolk(g);
         return g;
       }),
     [scene, guards],
@@ -126,6 +126,8 @@ export default function Guards({
   const refs = useRef<(THREE.Group | null)[]>([]);
   const yaws = useRef<number[]>([]);
   const clock = useRef(0);
+
+  useFrame(() => tickFolkLight());
 
   const place = (t: number) => {
     guards.forEach((p, i) => {
@@ -207,6 +209,7 @@ export default function Guards({
           }}
         >
           <primitive object={g} />
+          <ContactShadow />
         </group>
       ))}
     </group>

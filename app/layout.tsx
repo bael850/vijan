@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import SoundToggle from "@/components/sound/SoundToggle";
 import { GraphicsProvider } from "@/components/providers/GraphicsProvider";
 import { site } from "@/content/site";
+import { siteUrl } from "@/lib/site-url";
 
 // Satu font untuk semuanya: IM Fell English, serif bergaya cetakan Inggris
 // lama. Cuma punya satu bobot (reguler) dan italic, jadi hierarki dibuat
@@ -18,17 +19,12 @@ const fell = IM_Fell_English({
   display: "swap",
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000");
-
 // Teks deskripsi ini sementara — tulis ulang dengan suaramu sendiri.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: site.title, template: `%s — ${site.name}` },
   description: site.description,
+  alternates: { types: { "application/rss+xml": "/feed.xml" } },
   openGraph: { siteName: site.name, locale: "id_ID", type: "website" },
   twitter: { card: "summary_large_image" },
 };

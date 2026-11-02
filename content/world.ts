@@ -8,6 +8,7 @@ export const journey = {
     "Coba tengok sebentar.",
     "Sebenarnya, kamu selalu punya tempat pulang",
   ],
+  loading: "Menyiapkan jalan pulang",
   hint: "Scroll untuk berjalan · seret untuk melihat sekeliling",
   backToPath: "Kembali ke jalan",
   houseNavLabel: "Isi rumah",

@@ -1,9 +1,16 @@
 "use client";
 
-import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   motion,
   useMotionValueEvent,
@@ -65,7 +72,9 @@ function Line({
   const opacity = useScrollTransform(p, [...r], [0, 1, 1, 0]);
   const y = useScrollTransform(p, [...r], [40, 0, 0, -40]);
   const blur = useScrollTransform(p, [...r], [10, 0, 0, 10]);
-  const filter = useTransform(blur, (b) => `blur(${b}px)`);
+  const filter = useTransform(blur, (b) =>
+    b < 0.4 ? "none" : `blur(${b.toFixed(1)}px)`,
+  );
   return (
     <motion.div
       style={{ opacity, y, filter }}
@@ -91,7 +100,9 @@ export default function WorldJourney({
   photos: ContentItem[];
 }) {
   const router = useRouter();
-  const { reduceMotion, quality } = useGraphics();
+  const { reduceMotion, quality, ready: gfxReady } = useGraphics();
+  // lapisan baca terbuka (alamat bukan "/"): dunia berhenti merender, tidak ada gunanya hidup di balik kertas
+  const covered = usePathname() !== "/";
   const entered = useEntered();
   const ref = useRef<HTMLDivElement>(null);
   const isActive = useInViewport(ref, "100px 0px");
@@ -100,6 +111,14 @@ export default function WorldJourney({
   // adegan tepi danau: state untuk tampilan HTML, ref untuk dibaca kamera 3D
   const [shore, setShore] = useState(false);
   const shoreRef = useRef(false);
+  // layar loading: tampil sampai dunia siap (model termuat, frame pertama tergambar)
+  const [pct, setPct] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [gone, setGone] = useState(false);
+  const onStatus = useCallback((p: number, r: boolean) => {
+    setPct(p);
+    if (r) setReady(true);
+  }, []);
   const [run, setRun] = useState(0); // naik tiap masuk tepi danau, supaya kata pembuka dan kotak tulis mulai dari awal
 
   function enterShore() {
@@ -111,6 +130,29 @@ export default function WorldJourney({
     shoreRef.current = false;
     setShore(false);
   }
+
+  // batas waktu: kalau ada yang macet (atau WebGL gagal), jangan tahan pengunjung selamanya
+  useEffect(() => {
+    const t = window.setTimeout(() => setReady(true), 12000);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const t = window.setTimeout(() => setGone(true), reduceMotion ? 250 : 1500);
+    return () => window.clearTimeout(t);
+  }, [ready, reduceMotion]);
+
+  // selama loading, scroll dikunci supaya perjalanan tidak mulai di balik layar
+  useEffect(() => {
+    if (ready) return;
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prev;
+    };
+  }, [ready]);
 
   // di tepi danau scroll dikunci supaya pengunjung tidak tergeser tanpa sengaja; Esc untuk kembali
   useEffect(() => {
@@ -161,18 +203,22 @@ export default function WorldJourney({
       <div className="sticky top-0 h-dvh overflow-hidden bg-[#3a7470]">
         <div className="absolute inset-0">
           <SceneBoundary>
-            <WorldScene
-              progress={progress}
-              quality={quality}
-              reduceMotion={reduceMotion}
-              active={isActive}
-              writings={writings}
-              photos={photos}
-              onOpen={(href) => router.push(href)}
-              wish={wish}
-              shore={shoreRef}
-              onEnterShore={enterShore}
-            />
+            {/* tunggu pengaturan grafis terbaca, supaya dunia tidak dibangun dua kali */}
+            {gfxReady && (
+              <WorldScene
+                progress={progress}
+                quality={quality}
+                reduceMotion={reduceMotion}
+                active={isActive && !covered}
+                writings={writings}
+                photos={photos}
+                onOpen={(href) => router.push(href)}
+                wish={wish}
+                shore={shoreRef}
+                onEnterShore={enterShore}
+                onStatus={onStatus}
+              />
+            )}
           </SceneBoundary>
         </div>
 
@@ -194,7 +240,7 @@ export default function WorldJourney({
         >
           <motion.h1
             initial={{ opacity: 0, y: 14 }}
-            animate={entered ? { opacity: 1, y: 0 } : undefined}
+            animate={entered && ready ? { opacity: 1, y: 0 } : undefined}
             transition={{ duration: 1.6, ease: "easeOut" }}
             className="font-display text-6xl font-medium italic text-[#fff3e0] sm:text-8xl md:text-9xl"
             style={{ textShadow: TEXT_SHADOW }}
@@ -290,6 +336,33 @@ export default function WorldJourney({
           Skip
         </button>
       </div>
+
+      {!gone && (
+        <motion.div
+          role="status"
+          aria-live="polite"
+          initial={false}
+          animate={{ opacity: ready ? 0 : 1 }}
+          transition={{ duration: reduceMotion ? 0.2 : 1.3, ease: "easeInOut" }}
+          className={`fixed inset-0 z-[90] flex flex-col items-center justify-center ${
+            ready ? "pointer-events-none" : ""
+          }`}
+          style={{
+            background:
+              "radial-gradient(60% 45% at 50% 72%, rgba(255,184,102,0.14), transparent 70%), #17121a",
+          }}
+        >
+          <p className="font-display text-xl italic text-[#efe3cf]/80 sm:text-2xl">
+            {journey.loading}
+          </p>
+          <div className="mt-7 h-px w-40 overflow-hidden bg-[#3a2e36]">
+            <div
+              className="h-full origin-left bg-[#ffb866] transition-transform duration-500 ease-out"
+              style={{ transform: `scaleX(${Math.max(pct, 4) / 100})` }}
+            />
+          </div>
+        </motion.div>
+      )}
     </section>
   );
 }

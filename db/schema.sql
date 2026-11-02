@@ -53,12 +53,14 @@ CREATE TABLE IF NOT EXISTS comments
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   nama VARCHAR(255) NOT NULL,
   isi TEXT NOT NULL,
+  hidden BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS comments_post_slug_idx ON comments (post_slug);
+CREATE INDEX IF NOT EXISTS comments_user_created_idx ON comments (user_id, created_at);
 
--- Rate limit kirim link login (lihat lib/rate-limit.ts).
+-- Rate limit kirim link login (lihat lib/comments/rate-limit.ts).
 -- Kalau database sudah jalan, cukup jalankan bagian ini saja.
 CREATE TABLE IF NOT EXISTS login_attempts
 (

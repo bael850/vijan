@@ -3,10 +3,17 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { LAKE, WATER_Y, WORLD } from "../config/world";
+import { LAKE, WATER_Y } from "../config/world";
 import { LIGHT } from "../config/light";
 import { PALETTE } from "../core/palette";
+import { dayState, tickDay } from "../core/dayCycle";
 import { groundHeight } from "./heightmap";
+
+// warna pantulan langit siang (dipadukan dengan malam lewat dayState.daylight)
+const DAY_SKY = new THREE.Color("#5aa0e0");
+const DAY_SKY_DEEP = new THREE.Color("#2a62b8");
+const DAY_HORIZON = new THREE.Color("#c0dcdc");
+const SUN_GLOW = new THREE.Color("#ffe3a0");
 
 // Angka air. Ubah di sini kalau terlalu tenang / terlalu ganas / terlalu terang.
 const WATER = {
@@ -71,6 +78,7 @@ const FRAG = /* glsl */ `
     float k = 6.2831853 / lam;
     float w = sqrt(9.8 * k);
     float fade = 1.0 - smoothstep(lam * 4.0, lam * 14.0, dist);
+    if (fade <= 0.0) return vec2(0.0);
     return d * (slope * fade) * cos(dot(d, p) * k - uTime * w);
   }
 
@@ -84,14 +92,18 @@ const FRAG = /* glsl */ `
     g *= uChop;
     // riak halus yang bergeser pelan ke dua arah
     float e = 0.35;
-    vec2 q = p * 1.7 + vec2(uTime * 0.15, -uTime * 0.10);
-    float n0 = vnoise(q);
-    g += vec2(vnoise(q + vec2(e, 0.0)) - n0, vnoise(q + vec2(0.0, e)) - n0) / e
-         * 0.055 * uChop * (1.0 - smoothstep(10.0, 70.0, dist));
-    vec2 q2 = p * 4.6 + vec2(-uTime * 0.09, uTime * 0.13);
-    float m0 = vnoise(q2);
-    g += vec2(vnoise(q2 + vec2(e, 0.0)) - m0, vnoise(q2 + vec2(0.0, e)) - m0) / e
-         * 0.03 * uChop * (1.0 - smoothstep(6.0, 36.0, dist));
+    if (dist < 70.0) {
+      vec2 q = p * 1.7 + vec2(uTime * 0.15, -uTime * 0.10);
+      float n0 = vnoise(q);
+      g += vec2(vnoise(q + vec2(e, 0.0)) - n0, vnoise(q + vec2(0.0, e)) - n0) / e
+           * 0.055 * uChop * (1.0 - smoothstep(10.0, 70.0, dist));
+    }
+    if (dist < 36.0) {
+      vec2 q2 = p * 4.6 + vec2(-uTime * 0.09, uTime * 0.13);
+      float m0 = vnoise(q2);
+      g += vec2(vnoise(q2 + vec2(e, 0.0)) - m0, vnoise(q2 + vec2(0.0, e)) - m0) / e
+           * 0.03 * uChop * (1.0 - smoothstep(6.0, 36.0, dist));
+    }
     return normalize(vec3(-g.x, 1.0, -g.y));
   }
 
@@ -142,7 +154,7 @@ const FRAG = /* glsl */ `
     refl += uGlow * uGlitter * (pow(mo, 700.0) * 3.0 + pow(mo, 70.0) * 0.45 + pow(mo, 9.0) * 0.07);
     for (int i = 0; i < 6; i++) {
       float s = max(dot(R, bigStar(i)), 0.0);
-      refl += uGlow * uGlitter * pow(s, 1500.0) * 1.6;
+      if (s > 0.994) refl += uGlow * uGlitter * pow(s, 1500.0) * 1.6;
     }
 
     float cosT = max(dot(N, V), 0.0);
@@ -150,11 +162,14 @@ const FRAG = /* glsl */ `
     vec3 col = mix(body, refl, clamp(F + 0.06, 0.0, 1.0));
 
     // busa di tepian: garis tipis di garis air + pita yang maju-mundur seperti ombak kecil
-    float nz = vnoise(vWorld.xz * 0.9 + uTime * 0.05);
-    float edge = 1.0 - smoothstep(0.0, 0.55, depth);
-    float lap = 0.5 + 0.5 * sin(depth * 16.0 - uTime * 0.9 + nz * 5.0);
-    float foam = edge * smoothstep(0.35, 0.95, lap) * (0.35 + 0.65 * nz);
-    foam += (1.0 - smoothstep(0.0, 0.14, depth)) * (0.55 + 0.45 * nz);
+    float foam = 0.0;
+    if (depth < 0.56) { // di luar tepian busa pasti 0, jadi noise-nya tidak perlu dihitung
+      float nz = vnoise(vWorld.xz * 0.9 + uTime * 0.05);
+      float edge = 1.0 - smoothstep(0.0, 0.55, depth);
+      float lap = 0.5 + 0.5 * sin(depth * 16.0 - uTime * 0.9 + nz * 5.0);
+      foam = edge * smoothstep(0.35, 0.95, lap) * (0.35 + 0.65 * nz);
+      foam += (1.0 - smoothstep(0.0, 0.14, depth)) * (0.55 + 0.45 * nz);
+    }
     foam = clamp(foam * uFoam, 0.0, 1.0);
     col = mix(col, vec3(0.80, 0.90, 0.88), foam * 0.55);
 
@@ -241,6 +256,18 @@ export default function Water() {
     const m = mat.current;
     if (!m) return;
     m.uniforms.uTime.value += dt;
+    // langit yang dipantulkan ikut siang/malam
+    tickDay(state.clock.elapsedTime);
+    const u = m.uniforms;
+    const dl = dayState.daylight;
+    u.uSky.value.set(PALETTE.skyBlue).lerp(DAY_SKY, dl);
+    u.uSkyDeep.value.set(PALETTE.skyDeep).lerp(DAY_SKY_DEEP, dl);
+    u.uTeal.value.set(PALETTE.teal).lerp(DAY_HORIZON, dl);
+    u.uAurora.value.set(PALETTE.aurora).multiplyScalar(1 - dl);
+    u.uGlow.value.set(PALETTE.skyGlow).lerp(SUN_GLOW, dl);
+    u.uMoon.value.copy(
+      dayState.sun.y > dayState.moon.y ? dayState.sun : dayState.moon,
+    );
     // kabut air ikut kabut adegan (berubah sepanjang perjalanan)
     const fog = state.scene.fog as THREE.Fog | null;
     if (fog) {
@@ -252,10 +279,10 @@ export default function Water() {
   return (
     <mesh
       rotation-x={-Math.PI / 2}
-      position={[0, WATER_Y, WORLD.centerZ]}
+      position={[(box.x + box.z) / 2, WATER_Y, (box.y + box.w) / 2]}
       renderOrder={1}
     >
-      <planeGeometry args={[WORLD.width, WORLD.length]} />
+      <planeGeometry args={[box.z - box.x, box.w - box.y]} />
       <shaderMaterial
         ref={mat}
         vertexShader={VERT}
