@@ -7,6 +7,9 @@ import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { DRAGON, type DragonModel } from "../../config/dragon";
 import { clamp, smoothstep } from "../../core/math";
+import { getBlob } from "../../core/glow";
+import { dayState } from "../../core/dayCycle";
+import { groundHeight } from "../../terrain/heightmap";
 import { newBrain, stepBrain, type Brain, type Cam } from "./dragonBehavior";
 
 // Nama tulang di GLB: "Bip002 Xtra16_068" (spasi jadi "_" saat dimuat). Kuncinya = tanpa angka urut di ujung.
@@ -196,6 +199,15 @@ export default function Dragon({
   }, [scene]);
   const lookS = useRef(0);
 
+  // bayangan palsu di tanah: bulatan lembut, jatuh menjauhi cahaya, rebah mengikuti lereng
+  const shadowTilt = useRef<THREE.Group>(null);
+  const shadowYaw = useRef<THREE.Group>(null);
+  const shadowMesh = useRef<THREE.Mesh>(null);
+  const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
+  const blob = useMemo(getBlob, []);
+  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+  const nrm = useMemo(() => new THREE.Vector3(), []);
+
   useFrame((state, delta) => {
     const g = group.current;
     if (!g) return;
@@ -242,12 +254,79 @@ export default function Dragon({
     g.rotation.order = "YXZ";
     g.rotation.set(b.pitch + 0.03 * air * Math.cos(b.phase), b.yaw, b.bank);
     g.scale.setScalar(size);
+
+    // ---- bayangan di tanah ----
+    const sg = shadowTilt.current;
+    const sy = shadowYaw.current;
+    const sm = shadowMesh.current;
+    const mt = shadowMat.current;
+    if (sg && sy && sm && mt) {
+      const ld =
+        dayState.sun.y > dayState.moon.y ? dayState.sun : dayState.moon;
+      const ly = Math.max(ld.y, 0.3);
+      const h = Math.max(b.agl, 0);
+      // geser menjauhi cahaya sejauh tinggi / elevasi, dibatasi supaya tidak terlalu jauh
+      let ox = (-ld.x * h) / ly;
+      let oz = (-ld.z * h) / ly;
+      const ol = Math.hypot(ox, oz);
+      if (ol > 45) {
+        ox *= 45 / ol;
+        oz *= 45 / ol;
+      }
+      const sx = b.x + ox;
+      const sz = b.z + oz;
+      const gy = groundHeight(sx, sz);
+      const e = 2;
+      nrm
+        .set(
+          groundHeight(sx - e, sz) - groundHeight(sx + e, sz),
+          2 * e,
+          groundHeight(sx, sz - e) - groundHeight(sx, sz + e),
+        )
+        .normalize();
+      sg.position.set(sx, gy + 0.3, sz);
+      sg.quaternion.setFromUnitVectors(up, nrm);
+      sy.rotation.y = b.yaw;
+      // sayap terentang saat terbang, terlipat saat tidur; makin tinggi makin lebar dan pudar
+      const spread = 1 - 0.65 * b.coil;
+      const soft = 1 + 0.5 * clamp(h / 60, 0, 1);
+      sm.scale.set(8 * size * spread * soft, 5 * size * soft, 1);
+      const lightK = clamp((ld.y + 0.02) / 0.24, 0, 1);
+      const strength = 0.14 + 0.4 * dayState.daylight;
+      mt.opacity = strength * lightK * (1 - 0.6 * smoothstep(10, 80, h));
+      sm.visible = mt.opacity > 0.01;
+    }
   });
 
   return (
-    <group ref={group}>
-      <primitive object={model} />
-    </group>
+    <>
+      <group ref={group}>
+        <primitive object={model} />
+      </group>
+      <group ref={shadowTilt}>
+        <group ref={shadowYaw}>
+          <mesh
+            ref={shadowMesh}
+            rotation-x={-Math.PI / 2}
+            renderOrder={2}
+            frustumCulled={false}
+            visible={false}
+          >
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial
+              ref={shadowMat}
+              map={blob}
+              transparent
+              opacity={0}
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      </group>
+    </>
   );
 }
 

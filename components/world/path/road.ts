@@ -9,12 +9,15 @@ const CTRL: [number, number][] = [
   [-6, 42],
   [-10, 22],
   [-4, 2],
-  [6, -16],
-  [8, -36],
-  [4, -58],
-  [-8, -76],
-  [-14, -96],
-  [-10, -112],
+  [-10, -8],
+  [-17, -14],
+  [-20, -20], // gerbang utama kastil (tembok utara z = -18), lewat jembatan parit
+  [-19, -32],
+  [-14, -48], // alun-alun kota
+  [-10, -66],
+  [-12, -84], // kaki bukit istana
+  [-11, -102],
+  [-8, -114],
   [DOOR.x, DOOR.z],
 ];
 

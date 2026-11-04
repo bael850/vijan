@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { smoothstep } from "../core/math";
 import { PALETTE } from "../core/palette";
+import { applyGrain } from "../core/grain";
 import { groundHeight } from "../terrain/heightmap";
 import { ROAD_PTS } from "./road";
 import {
@@ -28,7 +29,11 @@ export function buildPathGeometry() {
   const pos: number[] = [];
   const col: number[] = [];
   const idx: number[] = [];
-  const base = new THREE.Color(PALETTE.path);
+  // tanah jalan sedikit lebih gelap dan hangat dari pasir pantai (Ground.tsx), supaya tidak sewarna
+  const base = new THREE.Color(PALETTE.path).lerp(
+    new THREE.Color(PALETTE.pathEdge),
+    0.18,
+  );
   const edge = new THREE.Color(PALETTE.pathEdge);
   const c = new THREE.Color();
 
@@ -46,7 +51,9 @@ export function buildPathGeometry() {
       const x = p.x + nx * w * sec.u;
       const z = p.z + nz * w * sec.u;
       pos.push(x, groundHeight(x, z) + LIFT, z);
-      c.copy(base).lerp(edge, sec.edge).multiplyScalar(v);
+      c.copy(base)
+        .lerp(edge, sec.edge)
+        .multiplyScalar(v * sec.tone);
       col.push(c.r, c.g, c.b, sec.alpha * fade);
     }
   }
@@ -65,16 +72,28 @@ export default function PathMesh() {
 
   useEffect(() => () => geo.dispose(), [geo]);
 
+  // tekstur tanah yang sama dengan rumput (berbasis posisi dunia), jadi jalan tidak seperti karpet polos
+  const mat = useMemo(() => {
+    const m = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    applyGrain(m, "ground");
+    return m;
+  }, []);
+  useEffect(() => () => mat.dispose(), [mat]);
+
   return (
-    <mesh geometry={geo} receiveShadow renderOrder={1} frustumCulled={false}>
-      <meshLambertMaterial
-        vertexColors
-        transparent
-        depthWrite={false}
-        polygonOffset
-        polygonOffsetFactor={-2}
-        polygonOffsetUnits={-2}
-      />
-    </mesh>
+    <mesh
+      geometry={geo}
+      material={mat}
+      receiveShadow
+      renderOrder={1}
+      frustumCulled={false}
+    />
   );
 }

@@ -12,7 +12,8 @@ import { DAY_LIGHT, dayState, tickDay } from "../core/dayCycle";
 import { groundHeight } from "../terrain/heightmap";
 
 // Bayangan mengikuti kamera: kotak bayangan selebar 2 x SHADOW_HALF, digeser ke depan SHADOW_LEAD
-const SHADOW_HALF = 60;
+const SHADOW_HALF_BASE = 60; // medium/low/mobile
+const SHADOW_HALF_HIGH = 80; // high desktop: peta 2048 jadi tetap tajam walau area lebih luas
 const SHADOW_LEAD = 20;
 
 // Cahaya, kabut, dan warna latar. Makin dekat rumah, suasana makin teduh dan hangat.
@@ -63,6 +64,8 @@ export default function TimeOfDay({
   // bayangan fokus di rumah + pekarangan + ujung jalan; low = mati
   const shadowOn = quality !== "low";
   const mapSize = quality === "high" && !mobile ? 2048 : 1024;
+  const SHADOW_HALF =
+    quality === "high" && !mobile ? SHADOW_HALF_HIGH : SHADOW_HALF_BASE;
   // arah bulan match skyShader; jarak 180 cukup untuk ortho frustum besar
   const moonPos = useMemo(() => {
     const v = new THREE.Vector3(...LIGHT.moon.position)
@@ -136,8 +139,8 @@ export default function TimeOfDay({
       } else {
         m.color.copy(moonCol);
       }
-      // dijaga agar tidak terlalu rendah, supaya bayangan tidak memanjang jauh
-      const dy = Math.max(d.y, 0.22);
+      // dijaga agar tidak terlalu rendah (0.13): sore tetap punya bayangan panjang, tapi tidak lewat dari kotak bayangan
+      const dy = Math.max(d.y, 0.13);
       const dir = tmp.dir.set(d.x, dy, d.z).normalize();
 
       // pusat bayangan = titik di depan kamera (bukan terkunci di rumah)

@@ -33,6 +33,9 @@ import Fireflies from "../effects/Fireflies";
 import LakeMist from "../effects/LakeMist";
 import Forest from "../flora/Forest";
 import Landmarks from "../village/Landmarks";
+import Castle from "../village/Castle";
+import Palace from "../village/Palace";
+import CityProps from "../village/CityProps";
 import Pier from "../village/Pier";
 import Sheep from "../fauna/Sheep";
 import Guards from "../folk/Guards";
@@ -291,6 +294,9 @@ export default function WorldScene({
       <Pier />
       <Village />
       <Landmarks reduceMotion={reduceMotion} />
+      <Castle />
+      <Palace />
+      <CityProps />
       <Sheep reduceMotion={reduceMotion} />
       <SafeBoundary>
         <Suspense fallback={null}>

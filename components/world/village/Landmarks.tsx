@@ -212,6 +212,7 @@ const GATE = {
   wallH: 6.5, // tinggi tembok di atas titik tanah tertinggi segmen
 };
 const GATE_WALL_START = GATE.half + GATE.towerW;
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 // lentera dinding di muka menara, mengapit pintu (tidak lagi menggantung di depan pintu)
 const LANTERN_POS = (sx: number): [number, number, number] => [
   sx * 3.7,
@@ -305,35 +306,45 @@ function gate(_s: number, p: Placed): Part[] {
       (_, j) => GATE_WALL_START + j * GATE.seg,
     );
     const dy = xs.map((x) => gateDy(p, sx * x));
-    const base: number[] = [];
-    const top: number[] = [];
+    // Tinggi tembok menyusut di 3 segmen terakhir (jadi tembok rendah di ujung), supaya
+    // ujungnya tidak berhenti mendadak di udara. Puncak tembok mengikuti tanah dan
+    // kemiringannya (segmen dimiringkan), bukan berundak-undak.
+    const hAt = (j: number) => {
+      const t = clamp01((j - (GATE.nSeg - 3)) / 3);
+      return GATE.wallH * (1 - 0.65 * t * t * (3 - 2 * t));
+    };
+    const top = dy.map((d, j) => d + hAt(j));
     for (let i = 0; i < GATE.nSeg; i++) {
-      base.push(Math.min(dy[i], dy[i + 1]) - 3);
-      top.push(Math.max(dy[i], dy[i + 1]) + GATE.wallH);
-    }
-    for (let i = 0; i < GATE.nSeg; i++) {
-      const cx = sx * (xs[i] + GATE.seg / 2);
-      const len = GATE.seg + 0.05;
+      const lx0 = sx * xs[i];
+      const lx1 = sx * xs[i + 1];
+      const dTop = top[i + 1] - top[i];
+      const rz = Math.atan(dTop / (lx1 - lx0));
+      const len = Math.hypot(GATE.seg, dTop) + 0.05;
+      const midTop = (top[i] + top[i + 1]) / 2;
+      const hBox = (hAt(i) + hAt(i + 1)) / 2 + 3.5;
+      const cx = (lx0 + lx1) / 2;
       parts.push(
-        st(put(box(len, top[i] - base[i], 1.8), cx, (top[i] + base[i]) / 2, 0)),
-        st(put(box(len, 0.4, 2.1), cx, top[i], 0), STONE_D),
-        {
-          g: put(box(0.2, 1.1, 0.06), cx, top[i] - 2.6, -0.92),
-          c: SLIT,
-        },
+        st(put(box(len, hBox, 1.8), cx, midTop - hBox / 2, 0, 0, rz)),
+        st(put(box(len, 0.4, 2.1), cx, midTop, 0, 0, rz), STONE_D),
       );
+      if (hAt(i) > 4.5) {
+        parts.push({
+          g: put(box(0.2, 1.1, 0.06), cx, midTop - 2.6, -0.92, 0, rz),
+          c: SLIT,
+        });
+      }
       // gerigi
       for (const k of [1, 3, 5]) {
+        const topK = top[i] + (dTop * k) / GATE.seg;
         parts.push(
-          st(put(box(1.0, 1.1, 1.8), sx * (xs[i] + k), top[i] + 0.75, 0)),
+          st(put(box(1.0, 1.1, 1.8), sx * (xs[i] + k), topK + 0.75, 0)),
         );
       }
     }
     // penguat di tiap sambungan segmen
     for (let j = 1; j <= GATE.nSeg; j++) {
-      const lo = Math.min(base[j - 1], j < GATE.nSeg ? base[j] : base[j - 1]);
-      const hi =
-        Math.max(top[j - 1], j < GATE.nSeg ? top[j] : top[j - 1]) - 0.8;
+      const lo = dy[j] - 3.5;
+      const hi = top[j] - 0.8;
       parts.push(
         st(put(box(1.6, hi - lo, 2.8), sx * xs[j], (hi + lo) / 2, 0), STONE_D),
       );

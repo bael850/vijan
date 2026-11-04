@@ -8,6 +8,7 @@
 import { HOUSE } from "../config/world";
 import { catmullRom, noise, smoothstep, type Pt } from "../core/math";
 import { roadX } from "../path/road";
+import { inCastle } from "./castleLayout";
 
 export type BuildingType = "cottage" | "mushroom" | "hut";
 
@@ -48,7 +49,7 @@ export const BUILDINGS: Building[] = [
   // Ditaruh di ujung daftar supaya nomor bangunan di atas (dipakai TRAILS) tidak bergeser.
   { t: "cottage", x: 15, z: 57, fx: 2, fz: 57, s: 1.0 }, // tepat setelah gerbang
   { t: "cottage", x: -23, z: 28, fx: -8, fz: 28, s: 0.95 },
-  { t: "cottage", x: -9, z: -30, fx: 8, fz: -30, s: 1.05 },
+  { t: "cottage", x: -6, z: -32, fx: -19, fz: -32, s: 1.05 }, // rumah kota, menghadap jalan utama
   { t: "hut", x: -32, z: -86, fx: -11, fz: -86, s: 1.0 },
 
   // tetangga rumah utama (rumah di -4, -132): tiga rumah di barat dan selatan, menghadap jalan
@@ -103,7 +104,7 @@ export const CLEARINGS: { x: number; z: number; r: number }[] = [
 ];
 
 export const inClearing = (x: number, z: number) =>
-  CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r);
+  CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r) || inCastle(x, z);
 
 // Tempat lapang untuk benda besar (misalnya naga tidur): jauh dari bangunan dan rumah,
 // dan bukan hutan lebat. Kerapatan hutan memakai rumus yang sama dengan scatter.ts.
@@ -192,6 +193,8 @@ export const TRAILS: [number, number][][] = [
   bend(onRoad(-108), doorOf(17)),
   bend(onRoad(-138 + 14), doorOf(18)), // jalan di belakang rumah utama sudah ada; ambil titik jalan terdekat
   bend(onRoad(-152 + 40), doorOf(19)),
+  // tangga dari jalan utama ke istana di bukit
+  [onRoad(-98), [-34, -98], [-60, -98], [-84, -98], [-98, -98]],
 ];
 
 export const TRAIL_PTS: Pt[][] = TRAILS.map((t) => catmullRom(t, 8));

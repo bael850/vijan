@@ -1,6 +1,7 @@
 import { fbm, lerp, noise, smoothstep } from "../core/math";
 import { HOUSE, LAKE } from "../config/world";
 import { roadX } from "../path/road";
+import { castleTerrain } from "../village/castleLayout";
 
 // Jarak ke danau dalam satuan elips: <1 = di dalam danau, 1 = garis pantai.
 export function lakeDist(x: number, z: number) {
@@ -32,6 +33,9 @@ export function groundHeight(x: number, z: number) {
   const dHouse = Math.hypot(x - HOUSE.x, z - HOUSE.z);
   const pad = 1 - smoothstep(HOUSE.padRadius, HOUSE.padRadius + 10, dHouse);
   h = lerp(h, HOUSE.padY, pad);
+
+  // Kastil: tanah di dalam tembok rata, dengan bukit istana.
+  h = castleTerrain(h, x, z);
 
   // Cekungan danau: dasar di tengah, menyatu mulus ke pantai.
   const basin = -4.5 * (1 - smoothstep(0, 1.06, lakeD));

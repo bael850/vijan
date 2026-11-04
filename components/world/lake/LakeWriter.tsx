@@ -24,6 +24,14 @@ export default function LakeWriter({
   const area = useRef<HTMLTextAreaElement>(null);
   const interactive = open && !folded;
 
+  // kolom tulis tumbuh ke atas mengikuti isi (maks 5 baris), jadi bar tetap tipis saat kosong
+  useEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [text]);
+
   // setelah kotak tampil, fokus ke kolom tulis
   useEffect(() => {
     if (!open) return;
@@ -55,7 +63,7 @@ export default function LakeWriter({
       initial={false}
       animate={{ opacity: open ? 1 : 0 }}
       transition={{ duration: 1.4, ease: "easeOut", delay: open ? delay : 0 }}
-      className="pointer-events-none absolute inset-x-0 bottom-[7%] z-20 flex justify-center px-5"
+      className="pointer-events-none absolute inset-x-0 bottom-[3%] z-20 flex justify-center px-4"
     >
       <motion.div
         initial={false}
@@ -66,7 +74,7 @@ export default function LakeWriter({
           filter: folded ? "blur(8px)" : "blur(0px)",
         }}
         transition={{ duration: folded ? 0.9 : 0.6, ease: "easeOut" }}
-        className={`group relative w-full max-w-lg overflow-hidden rounded-[28px] bg-gradient-to-b from-[#16213f]/85 to-[#070c1c]/90 md:from-[#16213f]/60 md:to-[#070c1c]/75 px-6 pb-4 pt-5 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85)] ring-1 ring-inset ring-[#ffe9a8]/15 md:backdrop-blur-xl transition-[box-shadow,--tw-ring-color] duration-700 focus-within:shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85),0_0_60px_-12px_rgba(255,196,120,0.35)] focus-within:ring-[#ffe9a8]/45 ${
+        className={`group relative w-full max-w-xl overflow-hidden rounded-[26px] bg-[#0a1226]/35 px-5 py-2.5 opacity-85 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-[#ffe9a8]/15 md:backdrop-blur-sm transition-[box-shadow,opacity,background-color,--tw-ring-color] duration-500 hover:opacity-100 focus-within:bg-[#0a1226]/60 focus-within:opacity-100 focus-within:ring-[#ffe9a8]/40 ${
           interactive ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -74,37 +82,28 @@ export default function LakeWriter({
           aria-hidden
           className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#ffe9a8]/60 to-transparent"
         />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -top-16 left-1/2 h-32 w-3/4 -translate-x-1/2 rounded-full bg-[#ffd9a0]/10 blur-3xl transition-opacity duration-700 group-focus-within:opacity-100 opacity-60"
-        />
-
-        <div className="relative mb-2 flex items-center gap-3 text-[10px] uppercase tracking-[0.35em] text-[#ffe9a8]/55">
+        <div className="relative flex max-h-0 items-center gap-3 overflow-hidden text-[10px] uppercase tracking-[0.35em] text-[#ffe9a8]/55 opacity-0 transition-all duration-500 group-focus-within:mb-1 group-focus-within:max-h-5 group-focus-within:opacity-100">
           <span>{lake.eyebrow}</span>
           <span className="h-px flex-1 bg-gradient-to-r from-[#ffe9a8]/25 to-transparent" />
         </div>
 
-        <textarea
-          ref={area}
-          value={text}
-          maxLength={MAX}
-          rows={4}
-          tabIndex={interactive ? 0 : -1}
-          aria-label={lake.textareaLabel}
-          placeholder={lake.placeholder}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) release();
-          }}
-          style={{ outline: "none" }}
-          className="relative block w-full resize-none bg-transparent text-[1.15rem] leading-relaxed text-[#fff3e0] caret-[#ffe9a8] placeholder:italic placeholder:text-[#fff3e0]/30"
-        />
-
-        <div className="relative mt-3 flex items-center justify-between gap-3">
-          <span className="text-[12px] italic text-[#fff3e0]/40">
-            {lake.freeNote}
-          </span>
-          <div className="flex shrink-0 items-center gap-3">
+        <div className="relative flex items-end gap-3">
+          <textarea
+            ref={area}
+            value={text}
+            maxLength={MAX}
+            rows={1}
+            tabIndex={interactive ? 0 : -1}
+            aria-label={lake.textareaLabel}
+            placeholder={lake.placeholder}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) release();
+            }}
+            style={{ outline: "none" }}
+            className="relative block min-h-[1.9rem] flex-1 resize-none bg-transparent py-1 text-[1.05rem] leading-snug text-[#fff3e0] caret-[#ffe9a8] placeholder:italic placeholder:text-[#fff3e0]/35"
+          />
+          <div className="flex shrink-0 items-center gap-3 pb-0.5">
             {near && (
               <span className="text-[11px] tabular-nums text-[#ffb866]/80">
                 {text.length}/{MAX}
@@ -115,9 +114,10 @@ export default function LakeWriter({
               tabIndex={interactive ? 0 : -1}
               onClick={release}
               disabled={empty}
-              className="flex items-center gap-2 rounded-full bg-gradient-to-b from-[#ffeab0] to-[#f0b062] px-5 py-2 text-[11px] uppercase tracking-[0.22em] text-[#1b1226] shadow-[0_6px_20px_-6px_rgba(255,190,110,0.6)] transition-all hover:brightness-110 active:scale-95 disabled:bg-none disabled:bg-[#fff3e0]/5 disabled:text-[#fff3e0]/30 disabled:shadow-none"
+              aria-label={lake.release}
+              className="flex items-center gap-2 rounded-full bg-gradient-to-b from-[#ffeab0] to-[#f0b062] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[#1b1226] shadow-[0_6px_20px_-6px_rgba(255,190,110,0.6)] transition-all hover:brightness-110 active:scale-95 disabled:bg-none disabled:bg-[#fff3e0]/5 disabled:text-[#fff3e0]/30 disabled:shadow-none sm:px-4"
             >
-              {lake.release}
+              <span className="hidden sm:inline">{lake.release}</span>
               <svg
                 aria-hidden
                 viewBox="0 0 24 24"
@@ -132,6 +132,10 @@ export default function LakeWriter({
               </svg>
             </button>
           </div>
+        </div>
+
+        <div className="relative max-h-0 overflow-hidden text-[12px] italic text-[#fff3e0]/45 opacity-0 transition-all duration-500 group-focus-within:mt-1 group-focus-within:max-h-5 group-focus-within:opacity-100">
+          {lake.freeNote}
         </div>
       </motion.div>
 

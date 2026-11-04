@@ -5,12 +5,17 @@ import { noise } from "../core/math";
 
 // Penampang jalan: posisi melintang (kelipatan setengah lebar) dan keburaman tiap titik.
 // Titik terluar transparan penuh supaya tepi jalan menyatu dengan rumput.
+// tone = pengali terang titik itu: jalan utama memakainya untuk jejak roda (lajur sedikit gelap
+// di u = +-0.55, punggung jalan di tengah sedikit terang). Jalan cabang tidak memakainya.
 export const SECTION = [
-  { u: -1.4, alpha: 0, edge: 0.55 },
-  { u: -1.0, alpha: 1, edge: 0.3 },
-  { u: 0, alpha: 1, edge: 0 },
-  { u: 1.0, alpha: 1, edge: 0.3 },
-  { u: 1.4, alpha: 0, edge: 0.55 },
+  { u: -1.4, alpha: 0, edge: 0.55, tone: 1 },
+  { u: -1.0, alpha: 1, edge: 0.3, tone: 1 },
+  { u: -0.55, alpha: 1, edge: 0.05, tone: 0.86 },
+  { u: -0.2, alpha: 1, edge: 0, tone: 1.04 },
+  { u: 0.2, alpha: 1, edge: 0, tone: 1.04 },
+  { u: 0.55, alpha: 1, edge: 0.05, tone: 0.86 },
+  { u: 1.0, alpha: 1, edge: 0.3, tone: 1 },
+  { u: 1.4, alpha: 0, edge: 0.55, tone: 1 },
 ] as const;
 
 export const SECTION_N = SECTION.length;

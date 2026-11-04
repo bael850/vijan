@@ -6,8 +6,8 @@ export const LIGHT = {
   exposure: 1.0,
 
   fog: {
-    colorStart: "#4f9080",
-    colorEnd: "#3a7470",
+    colorStart: "#2b6f64",
+    colorEnd: "#245e5c",
     nearStart: 48,
     nearEnd: 32,
     farStart: 320,
@@ -18,8 +18,8 @@ export const LIGHT = {
     sky: "#7fa6e0",
     ground: "#2a5a3a",
     // hemi terlalu kuat = bayangan jadi abu-abu, tidak gelap
-    startIntensity: 0.45,
-    endIntensity: 0.35,
+    startIntensity: 0.34,
+    endIntensity: 0.27,
   },
 
   // cahaya bulan: arah harus match skyShader (normalize ~ -0.39, 0.43, -0.84)
@@ -34,7 +34,7 @@ export const LIGHT = {
   // fill dari belakang hanya untuk buka sedikit detail, jangan hancurkan kontras
   fill: {
     color: "#6aa0ff",
-    intensity: 0.12,
+    intensity: 0.07,
     position: [30, 50, 120] as [number, number, number],
   },
 };

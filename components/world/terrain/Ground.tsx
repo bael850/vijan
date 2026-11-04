@@ -31,6 +31,8 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
     const teal = new THREE.Color(PALETTE.teal);
     const rock = new THREE.Color(PALETTE.rock);
     const sand = new THREE.Color(PALETTE.path);
+    // pasir pantai lebih terang daripada tanah jalan
+    const beach = sand.clone().lerp(new THREE.Color("#f2e6c0"), 0.3);
     const c = new THREE.Color();
 
     for (let i = 0; i < pos.count; i++) {
@@ -54,7 +56,7 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
       );
       c.lerp(teal, smoothstep(0.2, 0.0, n) * 0.35);
       c.lerp(rock, smoothstep(16, 34, y) * 0.5);
-      c.lerp(sand, (1 - smoothstep(0.98, 1.1, lakeDist(x, z))) * 0.8); // pasir pantai
+      c.lerp(beach, (1 - smoothstep(0.98, 1.1, lakeDist(x, z))) * 0.8); // pasir pantai
       c.lerp(sand, (1 - smoothstep(2.0, 5, Math.abs(x - roadX(z)))) * 0.25);
 
       col[i * 3] = c.r;

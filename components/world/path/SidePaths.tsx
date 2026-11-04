@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { hash, smoothstep } from "../core/math";
 import { PALETTE } from "../core/palette";
+import { applyGrain } from "../core/grain";
 import { TRAIL_PTS } from "../village/villageLayout";
 import { groundHeight } from "../terrain/heightmap";
 import { roadX } from "./road";
@@ -141,16 +142,21 @@ export default function SidePaths() {
 
   useEffect(() => () => geo.dispose(), [geo]);
 
+  const mat = useMemo(() => {
+    const m = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    });
+    applyGrain(m, "ground");
+    return m;
+  }, []);
+  useEffect(() => () => mat.dispose(), [mat]);
+
   return (
-    <mesh geometry={geo} frustumCulled={false} renderOrder={2}>
-      <meshLambertMaterial
-        vertexColors
-        transparent
-        depthWrite={false}
-        polygonOffset
-        polygonOffsetFactor={-3}
-        polygonOffsetUnits={-3}
-      />
-    </mesh>
+    <mesh geometry={geo} material={mat} frustumCulled={false} renderOrder={2} />
   );
 }

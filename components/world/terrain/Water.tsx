@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { LAKE, WATER_Y } from "../config/world";
+import { HOUSE, LAKE, WATER_Y } from "../config/world";
 import { LIGHT } from "../config/light";
 import { PALETTE } from "../core/palette";
 import { dayState, tickDay } from "../core/dayCycle";
@@ -25,6 +25,28 @@ const WATER = {
   maxDepth: 8, // kedalaman (m) yang dikodekan di tekstur
   texW: 256, // resolusi peta kedalaman
 };
+
+// Titik di garis pantai terdekat dari sebuah sumber cahaya di darat. Pantulannya mulai dari sini
+// dan memanjang ke arah kamera.
+function shoreAnchor(lx: number, lz: number): [number, number] {
+  const vx = (lx - LAKE.x) / LAKE.rx;
+  const vz = (lz - LAKE.z) / LAKE.rz;
+  const l = Math.hypot(vx, vz) || 1;
+  return [LAKE.x + (vx / l) * LAKE.rx, LAKE.z + (vz / l) * LAKE.rz];
+}
+
+// Pantulan lampu di air: [x, z di tepi danau, panjang (m), kekuatan, warna].
+// Ubah angka di sini kalau pantulan terlalu kuat atau terlalu pendek.
+const REFLECTIONS: {
+  at: [number, number];
+  len: number;
+  k: number;
+  color: string;
+}[] = [
+  { at: shoreAnchor(192, -124), len: 40, k: 0.9, color: "#ffe9b0" }, // mercusuar
+  { at: shoreAnchor(187, -81), len: 28, k: 0.6, color: "#ffb85a" }, // gubuk seberang danau
+  { at: shoreAnchor(HOUSE.x, HOUSE.z), len: 26, k: 0.5, color: "#e9eefa" }, // rumah utama
+];
 
 const VERT = /* glsl */ `
   varying vec3 vWorld;
@@ -58,6 +80,11 @@ const FRAG = /* glsl */ `
   uniform float uGlitter;
   uniform float uFoam;
   uniform float uBright;
+  uniform float uTwi;
+  uniform vec2 uSunXZ;
+  uniform float uLampK;
+  uniform vec4 uRefl[3];
+  uniform vec3 uReflCol[3];
   varying vec3 vWorld;
 
   float h21(vec2 p) {
@@ -150,6 +177,10 @@ const FRAG = /* glsl */ `
 
     // pantulan: langit + bulan + bintang besar (pecah oleh gelombang jadi serpihan)
     vec3 refl = skyColor(R);
+    // semburat jingga senja, sama seperti di langit, supaya danau ikut berwarna saat matahari turun
+    vec2 hd = normalize(R.xz + 1e-4);
+    float toward = pow(max(dot(hd, uSunXZ), 0.0), 2.0);
+    refl += vec3(1.0, 0.55, 0.25) * uTwi * toward * exp(-max(R.y, 0.0) * 4.0) * 0.55;
     float mo = max(dot(R, uMoon), 0.0);
     refl += uGlow * uGlitter * (pow(mo, 700.0) * 3.0 + pow(mo, 70.0) * 0.45 + pow(mo, 9.0) * 0.07);
     for (int i = 0; i < 6; i++) {
@@ -160,6 +191,25 @@ const FRAG = /* glsl */ `
     float cosT = max(dot(N, V), 0.0);
     float F = 0.03 + 0.97 * pow(1.0 - cosT, 5.0);
     vec3 col = mix(body, refl, clamp(F + 0.06, 0.0, 1.0));
+
+    // pantulan lampu di darat: pita cahaya dari tepi danau ke arah kamera, pecah oleh riak
+    vec3 streak = vec3(0.0);
+    for (int i = 0; i < 3; i++) {
+      vec2 a = uRefl[i].xy;
+      vec2 tc = cameraPosition.xz - a;
+      float dc = length(tc);
+      vec2 dir = tc / max(dc, 1e-3);
+      vec2 d = vWorld.xz - a;
+      float along = dot(d, dir);
+      float across = dot(d, vec2(-dir.y, dir.x));
+      across += sin(along * 1.7 + uTime * 0.8) * 0.25 + (N.x + N.z) * 6.0;
+      float w = 0.8 + dc * 0.012 + max(along, 0.0) * 0.05;
+      float len = uRefl[i].z;
+      float s = smoothstep(-1.0, 0.5, along) * (1.0 - smoothstep(0.0, len, along)) * exp(-across * across / (w * w));
+      s *= 0.5 + 0.5 * vnoise(vec2(along * 1.3 - uTime * 0.4, across * 0.7));
+      streak += uReflCol[i] * uRefl[i].w * s;
+    }
+    col += streak * uLampK;
 
     // busa di tepian: garis tipis di garis air + pita yang maju-mundur seperti ombak kecil
     float foam = 0.0;
@@ -249,6 +299,15 @@ export default function Water() {
       uGlitter: { value: WATER.glitter },
       uFoam: { value: WATER.foam },
       uBright: { value: WATER.bright },
+      uTwi: { value: 0 },
+      uSunXZ: { value: new THREE.Vector2(0, -1) },
+      uLampK: { value: 0 },
+      uRefl: {
+        value: REFLECTIONS.map(
+          (r) => new THREE.Vector4(r.at[0], r.at[1], r.len, r.k),
+        ),
+      },
+      uReflCol: { value: REFLECTIONS.map((r) => new THREE.Color(r.color)) },
     };
   }, [tex, box]);
 
@@ -265,6 +324,11 @@ export default function Water() {
     u.uTeal.value.set(PALETTE.teal).lerp(DAY_HORIZON, dl);
     u.uAurora.value.set(PALETTE.aurora).multiplyScalar(1 - dl);
     u.uGlow.value.set(PALETTE.skyGlow).lerp(SUN_GLOW, dl);
+    u.uTwi.value = dayState.twilight;
+    u.uSunXZ.value.set(dayState.sun.x, dayState.sun.z).normalize();
+    u.uLampK.value = dayState.lamps;
+    // kilau matahari di siang jauh lebih kuat daripada kilau bulan
+    u.uGlitter.value = WATER.glitter * (1 + 1.2 * dl);
     u.uMoon.value.copy(
       dayState.sun.y > dayState.moon.y ? dayState.sun : dayState.moon,
     );

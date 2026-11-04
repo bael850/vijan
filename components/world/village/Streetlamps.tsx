@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { getGlow } from "../core/glow";
 import { dayState } from "../core/dayCycle";
-import { NightBasic } from "../core/nightLights";
+import { GlowPlane, NightBasic } from "../core/nightLights";
 import { groundHeight } from "../terrain/heightmap";
 import { roadX } from "../path/road";
 
@@ -97,6 +97,14 @@ export default function Streetlamps({
             <coneGeometry args={[0.3, 0.22, 4]} />
             <meshLambertMaterial color={IRON} />
           </mesh>
+          {/* kolam cahaya di jalan di bawah lampu */}
+          <GlowPlane
+            position={[0, 0.25, 0]}
+            size={[8, 8]}
+            color="#ffb866"
+            base={0.55}
+            on={!off[i]}
+          />
           <sprite
             ref={(el) => {
               halos.current[i] = el;

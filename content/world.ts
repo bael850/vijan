@@ -25,10 +25,10 @@ export const record = {
 } as const;
 
 export const lake = {
-  introLine: "Tulis apa saja.",
-  introSub: "Danau akan membacanya",
+  introLine: "",
+  introSub: "",
   eyebrow: "Menulislah",
-  textareaLabel: "Tulis sesuatu untuk danau",
+  textareaLabel: "Tulis sesuatu",
   placeholder: "Tulis apa saja…",
   freeNote: "Kamu bebas!",
   release: "Lepaskan",
