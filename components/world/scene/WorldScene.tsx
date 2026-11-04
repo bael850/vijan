@@ -20,6 +20,7 @@ import { AMBIENT } from "../config/ambient";
 import { CAMERA } from "../config/scroll";
 import { HOUSE } from "../config/world";
 import type { ContentItem } from "../house/content/contentLayout";
+import type { DeskState } from "../house/content/deskLayout";
 import LakeWords from "../lake/LakeWords";
 import ShoreMarker from "../lake/ShoreMarker";
 import { newFocus, type Wish } from "../lake/wish";
@@ -30,6 +31,7 @@ import Exterior from "../house/Exterior";
 import Smoke from "../house/Smoke";
 import Birds from "../fauna/Birds";
 import Fireflies from "../effects/Fireflies";
+import LakeMist from "../effects/LakeMist";
 import Forest from "../flora/Forest";
 import Landmarks from "../village/Landmarks";
 import Pier from "../village/Pier";
@@ -152,6 +154,7 @@ export default function WorldScene({
   writings,
   photos,
   onOpen,
+  desk,
   wish,
   shore,
   onEnterShore,
@@ -164,6 +167,7 @@ export default function WorldScene({
   writings: ContentItem[];
   photos: ContentItem[];
   onOpen: (href: string) => void;
+  desk: MutableRefObject<DeskState>;
   wish: MutableRefObject<Wish>;
   shore: MutableRefObject<boolean>;
   onEnterShore: () => void;
@@ -237,6 +241,7 @@ export default function WorldScene({
         indoor={indoor}
         shore={shore}
         focus={focus}
+        desk={desk}
         reduceMotion={reduceMotion}
       />
 
@@ -245,6 +250,7 @@ export default function WorldScene({
       <Ground quality={quality} />
       <Water />
       <Splash />
+      <LakeMist quality={quality} reduceMotion={reduceMotion} />
       <LakeWords wish={wish} focus={focus} reduceMotion={reduceMotion} />
       <ShoreMarker progress={progress} shore={shore} onEnter={onEnterShore} />
       <PathMesh />
@@ -305,6 +311,7 @@ export default function WorldScene({
               writings={writings}
               photos={photos}
               onOpen={onOpen}
+              desk={desk}
               reduceMotion={reduceMotion}
             />
             <Interior

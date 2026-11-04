@@ -3,10 +3,14 @@
 import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { H } from "./houseLayout";
+import { CHIMNEY_POS } from "./houseLayout";
 
 // Asap tipis dari cerobong, naik pelan lalu terbawa angin ke kanan.
-const TOP = new THREE.Vector3(H.cx + H.w / 2 - 1.6, H.ridgeY + 1.8, H.cz - 2);
+const TOP = new THREE.Vector3(
+  CHIMNEY_POS.x,
+  CHIMNEY_POS.topY + 0.3,
+  CHIMNEY_POS.z,
+);
 
 const VERT = /* glsl */ `
   uniform float uTime;

@@ -30,7 +30,7 @@ function hashStr(t: string) {
 // Dua baris di meja, tiga benda per baris. Baris depan (dekat kamera) diisi dulu.
 export function deskSlots(items: ContentItem[]): DeskSlot[] {
   const cols = [-7.3, -6.7, -6.1];
-  const rows = [INNER.zBack + 0.65, INNER.zBack + 0.28];
+  const rows = [INNER.zBack + 0.66, INNER.zBack + 0.31];
   return items.slice(0, MAX_WRITINGS).map((it, i) => ({
     x: cols[i % 3],
     y: DESK_TOP_Y,

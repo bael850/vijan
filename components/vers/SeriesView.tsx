@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Post } from "@/lib/content/types";
 import Reveal from "@/components/ui/Reveal";
+import ContinueReading from "@/components/vers/ContinueReading";
 import { ReaderCloseLink } from "@/components/reader/ReaderOverlay";
 import { vers } from "@/content/vers";
 
@@ -48,6 +49,12 @@ export default function SeriesView({
           {seriesTitle(series)}
         </h1>
       </Reveal>
+
+      <ContinueReading
+        series={series}
+        chapters={chapters.map((c) => ({ slug: c.slug, judul: c.judul }))}
+        replace={overlay}
+      />
 
       <div className="flex flex-col divide-y divide-neutral-800 border-y border-neutral-800">
         {chapters.map((post, i) => (

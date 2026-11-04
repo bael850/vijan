@@ -267,9 +267,14 @@ export default function Bedroom() {
         color={GLOW}
         glow
       />
-      <Halo pos={[BED_LAMP.x, BED_LAMP.y, BED_LAMP.z]} size={1.6} o={0.5} />
+      <Halo
+        pos={[BED_LAMP.x, BED_LAMP.y, BED_LAMP.z]}
+        size={1.6}
+        o={0.5}
+        lamp
+      />
       {/* bola lampu kaca menggantung di atas ranjang */}
-      <Halo pos={[bedX, FY + 2.3, bedZ]} size={1.2} o={0.35} />
+      <Halo pos={[bedX, FY + 2.3, bedZ]} size={1.2} o={0.35} lamp />
 
       {/* buku di meja malam — y = nsTop + setengah tebal */}
       <Box
@@ -591,7 +596,7 @@ export default function Bedroom() {
         color={GLOW}
         glow
       />
-      <Halo pos={[0.55, FY + 1.7, -124.85]} size={2.0} o={0.45} />
+      <Halo pos={[0.55, FY + 1.7, -124.85]} size={2.0} o={0.45} lamp />
       <Plant pos={[1.4, FY, -124.8]} s={1.2} seed={12} leaves={8} />
 
       {/* ── rak buku di dinding kanan ── */}

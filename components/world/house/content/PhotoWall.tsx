@@ -9,10 +9,11 @@ import {
   type ContentItem,
   type PhotoSlot,
 } from "./contentLayout";
+import { Hotspot } from "./Switches";
 import { Tip, useHover } from "./Tip";
 
 // Memuat gambar tanpa membuat adegan menunggu. Kalau gagal, bingkai tetap tampil kosong.
-function usePhoto(url?: string) {
+export function usePhoto(url?: string) {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
     if (!url) return;
@@ -83,6 +84,12 @@ function Frame({
           map={tex ?? undefined}
         />
       </mesh>
+      <Hotspot
+        pos={[w / 2 - 0.05, hgt / 2 - 0.05, 0.12]}
+        level={1}
+        size={0.3}
+        near={8}
+      />
       {hover && <Tip position={[0, hgt / 2 + 0.3, 0.2]}>{item.title}</Tip>}
     </group>
   );

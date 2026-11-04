@@ -7,6 +7,7 @@ import { SONGS, SONG_VOLUME } from "../../config/content";
 import { H } from "../houseLayout";
 import { Box, Cyl, WOOD, WOOD_DARK } from "../rooms/parts";
 import { RECORD } from "./contentLayout";
+import { Hotspot } from "./Switches";
 import { Tip, useHover } from "./Tip";
 import { record } from "@/content/world";
 
@@ -188,6 +189,7 @@ export default function RecordPlayer({
         </group>
       )}
 
+      <Hotspot pos={[x, FY + 1.05, z]} level={0} size={0.4} near={8} />
       {playing && !hoverBody && !upstairs && (
         <Tip position={[x, FY + 1.35, z]}>{label}</Tip>
       )}

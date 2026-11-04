@@ -7,6 +7,13 @@ import { CAMERA, FREELOOK, SCROLL } from "../config/scroll";
 import { SHORE } from "../config/shore";
 import { LAKE } from "../config/world";
 import { clamp, lerp, smoothstep } from "../core/math";
+import {
+  DESK_MOVE,
+  DESK_RAMP,
+  deskView,
+  effectiveStation,
+  type DeskState,
+} from "../house/content/deskLayout";
 import { tourAt, type Key } from "../house/tour";
 import type { Focus } from "../lake/wish";
 import { PIER } from "../village/pierLayout";
@@ -18,6 +25,9 @@ const D_END = () => Math.max(0, ROAD_LENGTH - CAMERA.stopBeforeDoor);
 const LOOK = 9; // titik tatap di depan kamera (m)
 const WEAVE = 0.35; // kamera meliuk kiri-kanan jalan (m), halus saja
 const UP = new THREE.Vector3(0, 1, 0);
+
+// Percepatan lalu perlambatan yang sangat lembut (0..1 -> 0..1), dipakai saat kamera pindah zona meja.
+const ease = (t: number) => t * t * t * (t * (6 * t - 15) + 10);
 
 const bump = (s: number, a: number, b: number, c: number, d: number) =>
   smoothstep(a, b, s) * (1 - smoothstep(c, d, s));
@@ -78,6 +88,7 @@ export default function CameraRig({
   indoor,
   shore,
   focus,
+  desk,
   reduceMotion,
 }: {
   progress: MutableRefObject<number>;
@@ -85,6 +96,7 @@ export default function CameraRig({
   indoor: MutableRefObject<number>;
   shore: MutableRefObject<boolean>;
   focus: MutableRefObject<Focus>;
+  desk: MutableRefObject<DeskState>;
   reduceMotion: boolean;
 }) {
   const gl = useThree((s) => s.gl);
@@ -115,6 +127,14 @@ export default function CameraRig({
     () => ({ x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0 }),
     [],
   );
+  // perpindahan antarzona meja: dari pose sekarang ke pose zona tujuan, dengan kurva lembut
+  const deskAnim = useRef({
+    key: "",
+    t: 1,
+    from: { x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0 } as Key,
+    to: { x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0 } as Key,
+    cur: { x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0 } as Key,
+  });
 
   // Seret di kanvas = menoleh. Seretan kecil tetap dianggap klik (kucing, lampu, benda di rumah).
   useEffect(() => {
@@ -234,6 +254,42 @@ export default function CameraRig({
       look.set(out.lx, out.ly, out.lz);
     }
 
+    // meja kerja: di bagian akhir tur kamera dipegang meja, dan bisa pindah antarzona
+    const w = smoothstep(DESK_RAMP[0], DESK_RAMP[1], s);
+    desk.current.w = w;
+    if (w > 0 && !shore.current) {
+      const aspect = size.width / Math.max(1, size.height);
+      const vfov =
+        (aspect < 0.8 ? CAMERA.fovPortrait : CAMERA.fov) +
+        CAMERA.fovIndoorBoost;
+      const st = effectiveStation(desk.current.station, aspect);
+      const want = deskView(st, aspect, vfov);
+      const da = deskAnim.current;
+      const key = `${st}|${aspect.toFixed(2)}`;
+      if (da.key !== key) {
+        // pertama kali: langsung di pose tujuan (kamera tur sudah di sana); sesudahnya: meluncur
+        Object.assign(da.from, da.key === "" ? want : da.cur);
+        Object.assign(da.to, want);
+        da.t = da.key === "" ? 1 : 0;
+        da.key = key;
+      }
+      da.t = Math.min(1, da.t + dt / (reduceMotion ? 0.3 : DESK_MOVE));
+      const m = ease(da.t);
+      const c = da.cur;
+      c.x = lerp(da.from.x, da.to.x, m);
+      c.y = lerp(da.from.y, da.to.y, m);
+      c.z = lerp(da.from.z, da.to.z, m);
+      c.lx = lerp(da.from.lx, da.to.lx, m);
+      c.ly = lerp(da.from.ly, da.to.ly, m);
+      c.lz = lerp(da.from.lz, da.to.lz, m);
+      pos.set(lerp(pos.x, c.x, w), lerp(pos.y, c.y, w), lerp(pos.z, c.z, w));
+      look.set(
+        lerp(look.x, c.lx, w),
+        lerp(look.y, c.ly, w),
+        lerp(look.z, c.lz, w),
+      );
+    }
+
     // pindah ke tepi danau: kamera naik sedikit di tengah jalan, lalu mendarat di ujung dermaga
     const goal = shore.current ? 1 : 0;
     if (shore.current !== shorePrev.current) {
@@ -274,7 +330,7 @@ export default function CameraRig({
       pos.y += 0.35 * fe;
     }
 
-    indoor.current = smoothstep(-122, -126, pos.z);
+    indoor.current = smoothstep(-124.2, -126.6, pos.z);
 
     if (!reduceMotion) {
       const k = 1 - Math.exp(-3 * dt);
@@ -314,9 +370,13 @@ export default function CameraRig({
 
     cam.position.copy(pos);
     cam.lookAt(look);
-    if (Math.abs(f.yaw) > 1e-4 || Math.abs(f.pitch) > 1e-4) {
-      cam.rotateOnWorldAxis(UP, f.yaw);
-      cam.rotateX(f.pitch);
+    // di meja, seretan hanya menggeser pandangan sedikit supaya meja tidak lepas dari layar
+    const lim = 1 - 0.88 * w;
+    const yaw = f.yaw * lim;
+    const pitch = f.pitch * lim;
+    if (Math.abs(yaw) > 1e-4 || Math.abs(pitch) > 1e-4) {
+      cam.rotateOnWorldAxis(UP, yaw);
+      cam.rotateX(pitch);
     }
     if (!reduceMotion) cam.rotateZ(-sway.current.x * 0.02);
 

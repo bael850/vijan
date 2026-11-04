@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { sound } from "@/components/sound";
 import { DOOR, LAKE } from "../config/world";
+import { dayState } from "../core/dayCycle";
 import { clamp, smoothstep } from "../core/math";
 import { roadX } from "../path/road";
 import { lakeDist } from "../terrain/heightmap";
@@ -47,6 +48,7 @@ export default function SoundDriver({
       forest,
       house,
       housePan: pan(DOOR.x, DOOR.z),
+      day: dayState.daylight,
     });
   });
 

@@ -44,9 +44,23 @@ export default function VerseListClient({
   const [active, setActive] = useState<(typeof TYPES)[number]>(initial);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Pencarian teks bebas, berlaku di SEMUA rubrik: cocokkan ke judul,
+  // ringkasan, dan nama seri. Query kosong = tidak menyaring apa-apa.
+  const [query, setQuery] = useState("");
+  const matchesQuery = (p: Post) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      p.judul.toLowerCase().includes(q) ||
+      p.ringkasan.toLowerCase().includes(q) ||
+      (p.series?.replace(/-/g, " ").toLowerCase().includes(q) ?? false)
+    );
+  };
+
   const filtered =
     active === "semua" ? posts : posts.filter((p) => p.tipe === active);
-  const [featured, ...rest] = filtered;
+  const shown = filtered.filter(matchesQuery);
+  const [featured, ...rest] = shown;
   const isRek = active === "rekomendasi";
 
   // Segmen di dalam rubrik Rekomendasi — dibaca dari kolom `kategori`,
@@ -59,20 +73,10 @@ export default function VerseListClient({
     return Array.from(set);
   }, [posts]);
 
-  // Pencarian teks bebas di dalam rekomendasi — cocokin ke judul & ringkasan,
-  // jalan bareng filter kategori (bukan gantiin). Query kosong = nggak
-  // nyaring apa-apa, jadi nggak mengubah tampilan kalau nggak dipakai.
-  const [query, setQuery] = useState("");
-  const rekList = filtered
-    .filter((p) => segmen === "semua" || p.kategori === segmen)
-    .filter((p) => {
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        p.judul.toLowerCase().includes(q) ||
-        p.ringkasan.toLowerCase().includes(q)
-      );
-    });
+  // Di rubrik rekomendasi, pencarian jalan bareng filter kategori.
+  const rekList = shown.filter(
+    (p) => segmen === "semua" || p.kategori === segmen,
+  );
 
   // Daftar isi dihitung dari data asli.
   const items: TocItem[] = useMemo(() => {
@@ -133,25 +137,26 @@ export default function VerseListClient({
       <TableOfContents items={items} active={active} onSelect={select} />
 
       <div ref={contentRef} className="scroll-mt-24 border-t border-line pt-16">
+        <div className="mb-12 max-w-sm">
+          <label htmlFor="cari-tulisan" className="sr-only">
+            {vers.search.label}
+          </label>
+          <input
+            id="cari-tulisan"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={vers.search.placeholder}
+            autoComplete="off"
+            className="w-full border-b border-line bg-transparent py-2 text-sm text-ink placeholder:text-muted focus:border-lantern focus:outline-none"
+          />
+        </div>
+
         {isRek ? (
           <div>
             <p className="font-display italic text-xl md:text-2xl text-muted max-w-xl">
               {vers.rekomendasi.intro}
             </p>
-
-            <div className="mt-10 max-w-sm">
-              <label htmlFor="cari-rekomendasi" className="sr-only">
-                {vers.rekomendasi.searchLabel}
-              </label>
-              <input
-                id="cari-rekomendasi"
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={vers.rekomendasi.searchPlaceholder}
-                className="w-full border-b border-line bg-transparent py-2 text-sm text-ink placeholder:text-muted focus:border-lantern focus:outline-none"
-              />
-            </div>
 
             {segmenList.length > 0 && (
               <div
@@ -255,8 +260,10 @@ export default function VerseListClient({
           </AnimatePresence>
         )}
 
-        {filtered.length === 0 && !isRek && (
-          <p className="text-muted text-center py-20">{vers.emptyRubrik}</p>
+        {shown.length === 0 && !isRek && (
+          <p className="text-muted text-center py-20">
+            {query.trim() ? vers.search.noMatch : vers.emptyRubrik}
+          </p>
         )}
       </div>
     </div>

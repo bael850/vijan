@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { dayState } from "../core/dayCycle";
+import { smoothstep } from "../core/math";
 
 // Burung-burung kecil berputar pelan di langit di atas rumah dan danau.
 // Gerakannya dihitung di GPU, jadi hampir tidak membebani.
@@ -30,8 +32,9 @@ const VERT = /* glsl */ `
 `;
 
 const FRAG = /* glsl */ `
+  uniform float uShow;
   void main() {
-    gl_FragColor = vec4(0.05, 0.1, 0.13, 0.9);
+    gl_FragColor = vec4(0.05, 0.1, 0.13, 0.9 * uShow);
   }
 `;
 
@@ -69,16 +72,22 @@ export default function Birds({ amount }: { amount: number }) {
         depthWrite: false,
         uniforms: {
           uTime: { value: 0 },
+          uShow: { value: 1 },
           uCenter: { value: new THREE.Vector3(6, 0, -85) },
         },
       }),
     [],
   );
 
+  // burung hanya siang: memudar di sore hari, hilang di malam hari
+  const ref = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     mat.uniforms.uTime.value = clock.elapsedTime;
+    const show = smoothstep(0.35, 0.9, dayState.daylight);
+    mat.uniforms.uShow.value = show;
+    if (ref.current) ref.current.visible = show > 0.01;
   });
 
   if (amount <= 0) return null;
-  return <mesh geometry={geo} material={mat} frustumCulled={false} />;
+  return <mesh ref={ref} geometry={geo} material={mat} frustumCulled={false} />;
 }

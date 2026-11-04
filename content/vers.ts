@@ -9,6 +9,11 @@ export const vers = {
   intro:
     "Rak-rak di sini diisi pelan-pelan. Ambil satu, duduk, baca sampai habis.",
   emptyRubrik: "Belum ada tulisan di rubrik ini.",
+  search: {
+    label: "Cari tulisan",
+    placeholder: "Cari judul atau ringkasan…",
+    noMatch: "Nggak ketemu yang cocok sama pencarianmu.",
+  },
   rekomendasi: {
     intro: "Yang pernah bikin saya berhenti sejenak — dibedah sedikit.",
     searchLabel: "Cari rekomendasi",
@@ -19,5 +24,6 @@ export const vers = {
   series: {
     back: "← Kembali ke semua Vers",
     badge: "cerbung",
+    continueReading: "Lanjut membaca",
   },
 } as const;

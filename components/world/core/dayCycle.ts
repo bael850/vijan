@@ -1,19 +1,63 @@
 import * as THREE from "three";
 import { smoothstep } from "./math";
 
-// Siklus siang-malam. Jam awal = jam lokal pengunjung, lalu berjalan real-time.
-// Untuk mencoba, tambahkan di URL:  ?jam=17.5  (mulai jam 17.30)  dan  ?laju=600  (600x lebih cepat).
+// Siklus siang-malam yang dipadatkan: pengunjung sempat melihat siang, sore, lalu malam
+// (langit berbintang) dalam beberapa menit, lalu fajar, dan berulang.
+// Tidak lagi mengikuti jam lokal pengunjung. Ubah lama tiap bagian di sini (detik).
+export const CYCLE = {
+  siang: 120, // jam 9 -> 16.5
+  sore: 60, //   jam 16.5 -> 18.8 (matahari turun, langit jingga, lampu menyala)
+  malam: 150, // jam 18.8 -> 29 (05.00), bagian terpanjang supaya malamnya sempat dinikmati
+  fajar: 40, //  jam 5 -> 9 (cepat, kembali ke siang)
+};
+
+// Urutan bagian dan rentang jam virtualnya.
+const PHASES = [
+  { sec: CYCLE.siang, from: 9, to: 16.5 },
+  { sec: CYCLE.sore, from: 16.5, to: 18.8 },
+  { sec: CYCLE.malam, from: 18.8, to: 29 },
+  { sec: CYCLE.fajar, from: 29, to: 33 },
+];
+const TOTAL = PHASES.reduce((a, p) => a + p.sec, 0);
+
+// detik dalam siklus -> jam virtual (0..24)
+function hourAt(t: number) {
+  let r = ((t % TOTAL) + TOTAL) % TOTAL;
+  for (const p of PHASES) {
+    if (r < p.sec) return (p.from + (p.to - p.from) * (r / p.sec)) % 24;
+    r -= p.sec;
+  }
+  return 9;
+}
+
+// jam virtual -> detik dalam siklus (untuk ?jam=)
+function cycleAt(h: number) {
+  const hh = ((h % 24) + 24) % 24;
+  let acc = 0;
+  for (const p of PHASES) {
+    const lo = p.from;
+    const hi = p.to;
+    for (const cand of [hh, hh + 24]) {
+      if (cand >= lo && cand < hi)
+        return acc + ((cand - lo) / (hi - lo)) * p.sec;
+    }
+    acc += p.sec;
+  }
+  return 0;
+}
+
+// Untuk mencoba, tambahkan di URL:  ?jam=21  (mulai di tengah malam)  dan  ?laju=5  (5x lebih cepat).
 export const DAY = { speed: 1 };
 
 // Cahaya dan warna siang (malam tetap di config/light.ts)
 export const DAY_LIGHT = {
-  fog: "#b4d6d2",
+  fog: "#bccfdc", // abu-biru netral, tidak lagi hijau-susu
   hemiSky: "#cfe4ff",
   hemiGround: "#5f7a4a",
-  hemi: 0.85,
+  hemi: 0.6, // lebih rendah = bayangan siang lebih tegas
   sun: "#fff0cf",
   sunWarm: "#ff9a55",
-  sunIntensity: 1.9,
+  sunIntensity: 2.4,
 };
 
 export const dayState = {
@@ -35,11 +79,8 @@ function init() {
   const jam = parseFloat(q.get("jam") ?? "");
   const laju = parseFloat(q.get("laju") ?? "");
   if (!Number.isNaN(laju) && laju > 0) speed = laju;
-  if (!Number.isNaN(jam)) start = ((jam % 24) + 24) % 24;
-  else {
-    const d = new Date();
-    start = d.getHours() + d.getMinutes() / 60;
-  }
+  // tanpa ?jam, mulai dari awal siang supaya urutannya siang -> sore -> malam
+  start = !Number.isNaN(jam) ? cycleAt(jam) : 0;
 }
 
 // Aman dipanggil dari beberapa komponen dalam satu frame (dihitung sekali per waktu).
@@ -48,7 +89,7 @@ export function tickDay(elapsed: number) {
   init();
   if (elapsed === lastElapsed) return;
   lastElapsed = elapsed;
-  const h = (start + (elapsed * speed) / 3600) % 24;
+  const h = hourAt(start + elapsed * speed);
   dayState.hours = h;
   // matahari terbit di kanan (timur), tenggelam di kiri, melintas di utara-ahead
   const a = ((h - 6) / 24) * Math.PI * 2;

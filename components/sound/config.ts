@@ -6,6 +6,7 @@ export const LAYER_NAMES = [
   "fire",
   "room",
   "crickets",
+  "birds",
   "cat",
 ] as const;
 export type LayerName = (typeof LAYER_NAMES)[number];
@@ -41,6 +42,7 @@ export const SOUND = {
     fire: { volume: 0.3, reverb: 0.5 },
     room: { volume: 0.5, reverb: 0.6 },
     crickets: { volume: 0.12, reverb: 0.2 },
+    birds: { volume: 0.14, reverb: 0.3 },
     cat: { volume: 0.6, reverb: 0.4 },
   } as Record<LayerName, { volume: number; reverb: number }>,
 
@@ -51,4 +53,5 @@ export const SOUND = {
   fire: { outdoorLevel: 0.12 },
   room: { creakEvery: [25, 50] },
   crickets: { hz: 4300, every: [0.8, 2.4] },
+  birds: { hz: 3000, every: [2.5, 8] }, // kicau siang hari: nada tinggi pendek, berselang acak
 } as const;

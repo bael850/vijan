@@ -1,14 +1,16 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { hash } from "../../core/math";
-import { getBlob, getGlow } from "../../core/glow";
+import { getBlob, getGlowWhite } from "../../core/glow";
 import { grainMat, type GrainKind } from "../../core/grain";
+import { houseLamps } from "../../core/houseLamps";
 
 export const WOOD = "#7a5a3a";
 export const WOOD_DARK = "#4a3626";
-export const GLOW = "#ffd89a";
+export const GLOW = "#f1f5fb"; // putih netral, bukan kuning
 
 type V3 = [number, number, number];
 
@@ -28,7 +30,15 @@ export function Box({
   grain?: GrainKind;
 }) {
   return (
-    <mesh position={pos} rotation={rot} castShadow receiveShadow>
+    <mesh
+      position={pos}
+      rotation={rot}
+      receiveShadow
+      // hanya benda yang cukup tebal dan besar yang menimbulkan bayangan (badan perabot, bukan karpet/bingkai tipis)
+      castShadow={
+        !glow && Math.min(...size) >= 0.08 && Math.max(...size) >= 0.3
+      }
+    >
       <boxGeometry args={size} />
       {glow ? (
         <meshBasicMaterial color={color} />
@@ -57,7 +67,11 @@ export function Cyl({
   seg?: number;
 }) {
   return (
-    <mesh position={pos} castShadow receiveShadow>
+    <mesh
+      position={pos}
+      receiveShadow
+      castShadow={!glow && r >= 0.07 && h >= 0.25}
+    >
       <cylinderGeometry args={[r, r, h, seg]} />
       {glow ? (
         <meshBasicMaterial color={color} />
@@ -168,7 +182,6 @@ export function Bookshelf({
         key={books.length}
         ref={ref}
         args={[undefined, undefined, books.length]}
-        castShadow
       >
         <boxGeometry args={[0.26, 1, 1]} />
         <meshLambertMaterial />
@@ -211,17 +224,24 @@ export function Halo({
   pos,
   size,
   o = 0.5,
-  color = "#ffb866",
+  color = "#e9eefa",
+  lamp = false,
 }: {
   pos: V3;
   size: number;
   o?: number;
   color?: string;
+  lamp?: boolean;
 }) {
-  const map = useMemo(getGlow, []);
+  const map = useMemo(getGlowWhite, []);
+  const mat = useRef<THREE.SpriteMaterial>(null);
+  useFrame(() => {
+    if (lamp && mat.current) mat.current.opacity = o * houseLamps.v;
+  });
   return (
     <sprite position={pos} scale={[size, size, 1]}>
       <spriteMaterial
+        ref={mat}
         map={map}
         color={color}
         transparent

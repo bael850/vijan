@@ -16,7 +16,9 @@ export const makeCrickets: LayerFactory = (ac, out) => {
   let next = 0;
   return {
     update(s, t) {
-      ramp(level.gain, (1 - s.indoor) * (1 - 0.5 * s.lake), t);
+      // jangkrik hanya malam: hilang begitu hari mulai terang
+      const night = 1 - Math.min(1, s.day * 2);
+      ramp(level.gain, (1 - s.indoor) * (1 - 0.5 * s.lake) * night, t);
     },
     tick(t) {
       if (t < next) return;

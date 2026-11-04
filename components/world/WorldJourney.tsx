@@ -28,6 +28,12 @@ import LakeWriter from "./lake/LakeWriter";
 import { SHORE } from "./config/shore";
 import { newWish } from "./lake/wish";
 import QuickLinks from "./QuickLinks";
+import DeskBar from "./DeskBar";
+import {
+  DESK_OPEN_AT,
+  newDeskState,
+  type DeskStation,
+} from "./house/content/deskLayout";
 import { LINES, SCROLL, TITLE } from "./config/scroll";
 import { journey } from "@/content/world";
 
@@ -108,6 +114,25 @@ export default function WorldJourney({
   const isActive = useInViewport(ref, "100px 0px");
   const progress = useRef(0);
   const wish = useRef(newWish());
+  // meja kerja di akhir tur: zona yang dipilih dibaca kamera lewat ref
+  const desk = useRef(newDeskState());
+  const [deskOpen, setDeskOpen] = useState(false);
+  const [station, setStationState] = useState<DeskStation>("overview");
+  const [wide, setWide] = useState(true);
+  const setStation = useCallback((s: DeskStation) => {
+    desk.current.station = s;
+    setStationState(s);
+  }, []);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-aspect-ratio: 23/20)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  useEffect(() => {
+    desk.current.active = deskOpen;
+  }, [deskOpen]);
   // adegan tepi danau: state untuk tampilan HTML, ref untuk dibaca kamera 3D
   const [shore, setShore] = useState(false);
   const shoreRef = useRef(false);
@@ -179,6 +204,10 @@ export default function WorldJourney({
   }, [p]);
   useMotionValueEvent(p, "change", (v) => {
     progress.current = v;
+    const open = v >= DESK_OPEN_AT && v < 0.995;
+    setDeskOpen(open);
+    // keluar dari meja (scroll balik): zona kembali ke "semua meja"
+    if (!open && desk.current.station !== "overview") setStation("overview");
   });
 
   const titleOpacity = useScrollTransform(p, [0, 0.04, 0.08], [1, 1, 0]);
@@ -213,6 +242,7 @@ export default function WorldJourney({
                 writings={writings}
                 photos={photos}
                 onOpen={(href) => router.push(href)}
+                desk={desk}
                 wish={wish}
                 shore={shoreRef}
                 onEnterShore={enterShore}
@@ -322,6 +352,13 @@ export default function WorldJourney({
           </span>
           <span className="block h-8 w-px animate-pulse bg-gradient-to-b from-[#ffe9a8] to-transparent" />
         </motion.div>
+
+        <DeskBar
+          open={deskOpen && !shore}
+          wide={wide}
+          station={station}
+          onStation={setStation}
+        />
 
         <QuickLinks className="absolute right-16 top-4 z-30 sm:right-[4.75rem] sm:top-5" />
 

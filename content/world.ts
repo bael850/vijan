@@ -34,3 +34,27 @@ export const lake = {
   release: "Lepaskan",
   writeAgain: "Tulis lagi",
 } as const;
+
+export const desk = {
+  label: "Meja kerja",
+  stations: {
+    overview: "Semua",
+    cv: "CV",
+    tulisan: "Tulisan",
+    foto: "Foto",
+    kontak: "Kontak",
+  },
+  hints: {
+    overview: "Ini mejaku. Pilih satu bagian, atau klik bendanya langsung.",
+    cv: "Klik map untuk membuka CV (PDF).",
+    tulisan: "Klik sebuah tulisan untuk membacanya.",
+    foto: "Klik album untuk masuk ke kamar gelap.",
+    kontak: "Klik kartu untuk menghubungi aku.",
+  },
+  tips: {
+    album: (n: number) => (n > 0 ? `Album foto · ${n} foto` : "Album foto"),
+    cvWriter: "CV Penulis (PDF)",
+    cvMarketing: "CV Digital Marketing (PDF)",
+    contact: (label: string) => label,
+  },
+} as const;

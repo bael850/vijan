@@ -11,6 +11,7 @@ import {
 import { auth } from "@/auth";
 import { getCommentsBySlug } from "@/lib/comments/queries";
 import Comments from "@/components/vers/Comments";
+import ReadingTracker from "@/components/vers/ReadingTracker";
 import { isAuthorEmail } from "@/lib/comments/author";
 import Reveal from "@/components/ui/Reveal";
 import ScrollProgress from "@/components/layout/ScrollProgress";
@@ -91,6 +92,7 @@ export default async function PostView({
   return (
     <main className={overlay ? "" : "min-h-screen bg-black text-white"}>
       {!overlay && <ScrollProgress />}
+      {post.series && <ReadingTracker series={post.series} slug={post.slug} />}
 
       <div
         className={

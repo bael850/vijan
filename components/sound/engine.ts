@@ -1,4 +1,5 @@
 import { LAYER_NAMES, SOUND, type LayerName } from "./config";
+import { makeBirds } from "./layers/birds";
 import { makeCrickets } from "./layers/crickets";
 import { makeFire } from "./layers/fire";
 import { makeLake } from "./layers/lake";
@@ -22,6 +23,7 @@ const FACTORIES: Partial<Record<LayerName, LayerFactory>> = {
   fire: makeFire,
   room: makeRoom,
   crickets: makeCrickets,
+  birds: makeBirds,
 };
 
 export type Mix = {

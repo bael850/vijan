@@ -1,24 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { getBlob } from "../core/glow";
 import {
-  GlowPlane,
   GlowSprite as NightGlow,
   NightBasic,
   NightLight,
-  NightPlane,
 } from "../core/nightLights";
 import { grainMat, type GrainKind } from "../core/grain";
-import {
-  DOORWAY,
-  H,
-  STAIR,
-  WINDOWS,
-  windowPose,
-  type WindowSpec,
-} from "./houseLayout";
+import { CHIMNEY_POS, DOORWAY, H, STAIR, WINDOWS } from "./houseLayout";
+import { HouseWalls, Window } from "./WindowParts";
 
 const PLASTER = "#e8dcc0";
 const BEAM = "#4a3626";
@@ -26,7 +18,7 @@ const ROOF = "#6b3b36";
 const ROOF_RIDGE = "#4d2a27";
 const STONE = "#7d776a";
 const CHIMNEY = "#8a4a3a";
-const GLOW = "#ffd27a";
+const GLOW = "#f1f5fb";
 
 const KIND: Record<string, GrainKind> = {
   [PLASTER]: "plaster",
@@ -58,197 +50,6 @@ function Box({
         attach="material"
       />
     </mesh>
-  );
-}
-
-let nightTex: THREE.CanvasTexture | null = null;
-// Pemandangan malam di balik kaca: langit biru tua ke hijau-teal, bintang, bulan, dan pantulan tipis.
-function getNight() {
-  if (nightTex) return nightTex;
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const g = c.getContext("2d")!;
-  const grd = g.createLinearGradient(0, 0, 0, 128);
-  grd.addColorStop(0, "#0b1634");
-  grd.addColorStop(0.6, "#1f4a7a");
-  grd.addColorStop(1, "#2f6a6a");
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 26; i++) {
-    const x = (Math.sin(i * 91.7) * 0.5 + 0.5) * 128;
-    const y = (Math.sin(i * 47.3 + 2) * 0.5 + 0.5) * 80;
-    g.fillStyle = `rgba(255,244,214,${0.4 + (i % 3) * 0.25})`;
-    g.fillRect(x, y, i % 4 === 0 ? 2 : 1, i % 4 === 0 ? 2 : 1);
-  }
-  const m = g.createRadialGradient(96, 28, 0, 96, 28, 22);
-  m.addColorStop(0, "rgba(255,240,190,0.95)");
-  m.addColorStop(0.3, "rgba(255,230,160,0.35)");
-  m.addColorStop(1, "rgba(255,230,160,0)");
-  g.fillStyle = m;
-  g.fillRect(0, 0, 128, 128);
-  g.fillStyle = "rgba(10,30,30,0.7)";
-  g.beginPath();
-  g.moveTo(0, 128);
-  g.lineTo(0, 108);
-  for (let x = 0; x <= 128; x += 16) g.lineTo(x, 104 + Math.sin(x * 0.2) * 6);
-  g.lineTo(128, 128);
-  g.fill();
-  g.fillStyle = "rgba(255,255,255,0.10)";
-  g.beginPath();
-  g.moveTo(10, 0);
-  g.lineTo(46, 0);
-  g.lineTo(0, 70);
-  g.lineTo(0, 34);
-  g.fill();
-  nightTex = new THREE.CanvasTexture(c);
-  nightTex.colorSpace = THREE.SRGBColorSpace;
-  return nightTex;
-}
-
-let dayTex: THREE.CanvasTexture | null = null;
-function getDay() {
-  if (dayTex) return dayTex;
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const g = c.getContext("2d")!;
-  const grd = g.createLinearGradient(0, 0, 0, 128);
-  grd.addColorStop(0, "#3f86d6");
-  grd.addColorStop(0.65, "#8cc2ea");
-  grd.addColorStop(1, "#cfe6e4");
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 128, 128);
-  g.fillStyle = "rgba(255,250,236,0.85)";
-  for (const [x, y, r] of [
-    [34, 36, 12],
-    [50, 34, 16],
-    [70, 38, 11],
-    [96, 62, 10],
-    [110, 60, 7],
-  ]) {
-    g.beginPath();
-    g.arc(x, y, r, 0, Math.PI * 2);
-    g.fill();
-  }
-  g.fillStyle = "rgba(60,90,70,0.65)";
-  g.beginPath();
-  g.moveTo(0, 128);
-  g.lineTo(0, 108);
-  for (let x = 0; x <= 128; x += 16) g.lineTo(x, 104 + Math.sin(x * 0.2) * 6);
-  g.lineTo(128, 128);
-  g.fill();
-  dayTex = new THREE.CanvasTexture(c);
-  dayTex.colorSpace = THREE.SRGBColorSpace;
-  return dayTex;
-}
-
-// Jendela menyala hangat di malam hari: bingkai kayu, kaca bercahaya, dua kayu silang.
-// Siang: kaca memantulkan langit dan tidak ada pendar.
-function Window({ spec }: { spec: WindowSpec }) {
-  const p = windowPose(spec);
-  const { w, h } = spec;
-  const [on, setOn] = useState(true);
-  const night = useMemo(getNight, []);
-  const day = useMemo(getDay, []);
-  return (
-    <group position={[p.x, p.y, p.z]} rotation-y={p.ry}>
-      <NightGlow
-        position={[0, 0, 0.35]}
-        scale={[w * 3.4, h * 3.4, 1]}
-        color="#ffb866"
-        base={0.5}
-        on={on}
-      />
-      {/* kolam cahaya hangat di tanah di bawah jendela lantai bawah */}
-      {p.y < H.floor2Y && (
-        <GlowPlane
-          position={[0, H.padY + 0.07 - p.y, 1.7]}
-          size={[w * 3.2, 3.2]}
-          base={0.32}
-          on={on}
-        />
-      )}
-      {/* daun jendela kayu biru di kiri-kanan */}
-      {spec.face !== "back" &&
-        [-1, 1].map((s) => (
-          <mesh key={s} position={[s * (w / 2 + 0.3), 0, 0.05]}>
-            <boxGeometry args={[0.36, h + 0.1, 0.05]} />
-            <meshLambertMaterial color="#3a5f7a" />
-          </mesh>
-        ))}
-      {/* kotak bunga di bawah jendela depan lantai bawah */}
-      {spec.face === "front" && p.y < H.floor2Y && (
-        <group position={[0, -h / 2 - 0.38, 0.22]}>
-          <mesh>
-            <boxGeometry args={[w + 0.3, 0.18, 0.24]} />
-            <meshLambertMaterial color="#6b4a30" />
-          </mesh>
-          {[-0.5, -0.25, 0, 0.25, 0.5].map((k, i) => (
-            <mesh key={i} position={[k * w, 0.15, 0]}>
-              <sphereGeometry args={[0.09, 8, 6]} />
-              <meshLambertMaterial
-                color={
-                  ["#c0453a", "#f2d36b", "#e8dcc0", "#b86aa0", "#f2d36b"][i]
-                }
-              />
-            </mesh>
-          ))}
-        </group>
-      )}
-      <mesh>
-        <boxGeometry args={[w + 0.24, h + 0.24, 0.06]} />
-        <meshLambertMaterial color={BEAM} />
-      </mesh>
-      <NightBasic
-        position={[0, 0, 0.035]}
-        night={GLOW}
-        day="#8fb6cc"
-        on={on}
-        onClick={(e) => {
-          e.stopPropagation();
-          setOn((v) => !v);
-        }}
-        onPointerOver={() => (document.body.style.cursor = "pointer")}
-        onPointerOut={() => (document.body.style.cursor = "")}
-      >
-        <planeGeometry args={[w, h]} />
-      </NightBasic>
-      <mesh position={[0, 0, 0.05]}>
-        <boxGeometry args={[0.05, h, 0.03]} />
-        <meshLambertMaterial color={BEAM} />
-      </mesh>
-      <mesh position={[0, 0, 0.05]}>
-        <boxGeometry args={[w, 0.05, 0.03]} />
-        <meshLambertMaterial color={BEAM} />
-      </mesh>
-      <mesh position={[0, -h / 2 - 0.16, 0.08]}>
-        <boxGeometry args={[w + 0.4, 0.08, 0.2]} />
-        <meshLambertMaterial color={BEAM} />
-      </mesh>
-      {/* sisi dalam: kaca malam supaya dari dalam rumah jendelanya terlihat */}
-      <group position={[0, 0, -(H.wallT + 0.06)]} rotation-y={Math.PI}>
-        <mesh>
-          <boxGeometry args={[w + 0.24, h + 0.24, 0.06]} />
-          <meshLambertMaterial color={BEAM} />
-        </mesh>
-        <mesh position={[0, 0, 0.034]}>
-          <planeGeometry args={[w, h]} />
-          <meshBasicMaterial map={day} toneMapped={false} />
-        </mesh>
-        <NightPlane args={[w, h]} map={night} position={[0, 0, 0.035]} />
-        <mesh position={[0, -h / 2 - 0.12, 0.1]}>
-          <boxGeometry args={[w + 0.4, 0.05, 0.2]} />
-          <meshLambertMaterial color={BEAM} />
-        </mesh>
-        <mesh position={[0, 0, 0.05]}>
-          <boxGeometry args={[0.05, h, 0.03]} />
-          <meshLambertMaterial color={BEAM} />
-        </mesh>
-        <mesh position={[0, 0, 0.05]}>
-          <boxGeometry args={[w, 0.05, 0.03]} />
-          <meshLambertMaterial color={BEAM} />
-        </mesh>
-      </group>
-    </group>
   );
 }
 
@@ -356,42 +157,14 @@ export default function Exterior() {
         receive={false}
       />
 
-      {/* dinding depan: kiri dan kanan pintu, di atas pintu, lalu lantai atas */}
-      <Box
-        pos={[(cx - halfW + doorL) / 2, H.floorY + H.h1 / 2, frontOuterZ]}
-        size={[doorL - (cx - halfW), H.h1, wallT]}
-        color={PLASTER}
-      />
-      <Box
-        pos={[(cx + halfW + doorR) / 2, H.floorY + H.h1 / 2, frontOuterZ]}
-        size={[cx + halfW - doorR, H.h1, wallT]}
-        color={PLASTER}
-      />
+      {/* dinding depan, belakang, dan samping: berlubang di tempat jendela (lihat WindowParts) */}
+      <HouseWalls />
+      {/* dinding di atas pintu (tanpa jendela) */}
       <Box
         pos={[cx, H.floorY + DOORWAY.h + (H.h1 - DOORWAY.h) / 2, frontOuterZ]}
         size={[DOORWAY.halfW * 2, H.h1 - DOORWAY.h, wallT]}
         color={PLASTER}
       />
-      <Box
-        pos={[cx, H.floor2Y + H.h2 / 2, frontOuterZ]}
-        size={[w, H.h2, wallT]}
-        color={PLASTER}
-      />
-
-      {/* dinding belakang dan samping, penuh dari lantai sampai atap */}
-      <Box
-        pos={[cx, H.floorY + wallH / 2, H.backZ + wallT / 2]}
-        size={[w, wallH, wallT]}
-        color={PLASTER}
-      />
-      {[-1, 1].map((s) => (
-        <Box
-          key={s}
-          pos={[cx + s * (halfW - wallT / 2), H.floorY + wallH / 2, cz]}
-          size={[wallT, wallH, d - wallT * 2]}
-          color={PLASTER}
-        />
-      ))}
 
       {/* rangka kayu: empat tiang sudut dan pita di pertemuan lantai */}
       {[-1, 1].flatMap((sx) =>
@@ -468,13 +241,13 @@ export default function Exterior() {
 
       {/* cerobong batu (asapnya nanti di langkah 5) */}
       <Box
-        pos={[cx + halfW - 1.6, H.ridgeY - 0.2, cz - 2]}
-        size={[1.1, 3.4, 1.1]}
+        pos={[CHIMNEY_POS.x, (CHIMNEY_POS.topY + H.padY) / 2, CHIMNEY_POS.z]}
+        size={[1.1, CHIMNEY_POS.topY - H.padY, 1.4]}
         color={CHIMNEY}
       />
       <Box
-        pos={[cx + halfW - 1.6, H.ridgeY + 1.55, cz - 2]}
-        size={[1.4, 0.2, 1.4]}
+        pos={[CHIMNEY_POS.x, CHIMNEY_POS.topY + 0.1, CHIMNEY_POS.z]}
+        size={[1.4, 0.2, 1.7]}
         color={BEAM}
       />
 
@@ -546,7 +319,7 @@ export default function Exterior() {
           <NightGlow
             position={[0, 0, 0.4]}
             scale={[2.2, 2.2, 1]}
-            color="#ffb866"
+            color="#e6edfb"
             base={0.4}
           />
         </group>
@@ -572,7 +345,7 @@ export default function Exterior() {
       {/* lampu teras kedua di kiri pintu (cahaya dari sprite) */}
       <NightBasic
         position={[cx - 1.7, H.floorY + 2.3, H.frontZ + 0.35]}
-        night="#ffe3a0"
+        night="#f1f5fb"
         day="#d8d0bc"
       >
         <sphereGeometry args={[0.13, 10, 8]} />
@@ -585,6 +358,7 @@ export default function Exterior() {
       <NightGlow
         position={[cx - 1.7, H.floorY + 2.3, H.frontZ + 0.5]}
         scale={[2.6, 2.6, 1]}
+        color="#e9eefa"
         base={0.6}
       />
 
@@ -595,7 +369,7 @@ export default function Exterior() {
       {/* lampu teras di sisi pintu */}
       <NightBasic
         position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.35]}
-        night="#ffe3a0"
+        night="#f1f5fb"
         day="#d8d0bc"
       >
         <sphereGeometry args={[0.13, 10, 8]} />
@@ -608,17 +382,18 @@ export default function Exterior() {
       <NightGlow
         position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.5]}
         scale={[2.6, 2.6, 1]}
+        color="#e9eefa"
         base={0.7}
       />
       <NightLight
-        color="#ffcf8a"
+        color="#e9eefa"
         intensity={6}
         distance={14}
         position={[cx + 1.7, H.floorY + 2.3, H.frontZ + 0.8]}
       />
       {/* cahaya dari dalam rumah, jatuh ke pintu yang terbuka */}
       <NightLight
-        color="#ffb86b"
+        color="#e4ebf8"
         intensity={8}
         distance={13}
         position={[cx, H.floorY + 2.2, H.frontZ - 3]}

@@ -345,9 +345,9 @@ export default function Kitchen() {
       <Plant pos={[-4.0, FY, -138.8]} s={1.2} seed={8} leaves={9} />
       <Shade pos={[-4.0, FY + 0.04, -138.8]} w={0.9} d={0.9} o={0.4} />
 
-      <Cyl pos={[-7, FY + 3.3, -135.6]} r={0.008} h={2.4} color={WOOD_DARK} />
+      <Cyl pos={[-7, FY + 2.55, -135.6]} r={0.008} h={0.7} color={WOOD_DARK} />
       <Cyl pos={[-7, FY + 2.1, -135.6]} r={0.22} h={0.2} color={GLOW} glow />
-      <Halo pos={[-7, FY + 2.0, -135.6]} size={2.4} o={0.5} />
+      <Halo pos={[-7, FY + 2.0, -135.6]} size={2.4} o={0.5} lamp />
     </group>
   );
 }

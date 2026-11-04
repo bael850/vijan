@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { hash } from "../core/math";
+import { dayState } from "../core/dayCycle";
+import { hash, smoothstep } from "../core/math";
 import { groundHeight } from "../terrain/heightmap";
 import { BUILDINGS } from "../village/villageLayout";
 
@@ -111,6 +112,8 @@ export default function SkyLanterns({
 
   useFrame(({ clock }) => {
     mat.uniforms.uTime.value = reduceMotion ? 0 : clock.elapsedTime;
+    // lentera dilepas dari sore; di siang terang tidak terlihat
+    mat.uniforms.uShow.value = 1 - smoothstep(0.3, 0.8, dayState.daylight);
   });
 
   if (amount <= 0) return null;

@@ -3,7 +3,7 @@
 import { useMemo, useRef, type ReactNode } from "react";
 import { useFrame, type ThreeElements } from "@react-three/fiber";
 import * as THREE from "three";
-import { getGlow } from "./glow";
+import { getGlowWhite } from "./glow";
 import { dayState } from "./dayCycle";
 
 // Semua lampu, jendela menyala, dan nyala api hanya hidup di malam hari.
@@ -13,7 +13,7 @@ import { dayState } from "./dayCycle";
 export function GlowSprite({
   position,
   scale,
-  color = "#ffffff",
+  color = "#ffd6a0", // default hangat untuk lampu luar; rumah memberi warna sendiri
   base,
   on = true,
 }: {
@@ -23,7 +23,7 @@ export function GlowSprite({
   base: number;
   on?: boolean;
 }) {
-  const map = useMemo(getGlow, []);
+  const map = useMemo(getGlowWhite, []);
   const sp = useRef<THREE.Sprite>(null);
   const mat = useRef<THREE.SpriteMaterial>(null);
   useFrame(() => {
@@ -60,7 +60,7 @@ export function GlowPlane({
   base: number;
   on?: boolean;
 }) {
-  const map = useMemo(getGlow, []);
+  const map = useMemo(getGlowWhite, []);
   const ref = useRef<THREE.Mesh>(null);
   const mat = useRef<THREE.MeshBasicMaterial>(null);
   useFrame(() => {
@@ -100,7 +100,8 @@ export function NightLight({
 }) {
   const ref = useRef<THREE.PointLight>(null);
   useFrame(() => {
-    if (ref.current) ref.current.intensity = intensity * dayState.lamps * (on ? 1 : 0);
+    if (ref.current)
+      ref.current.intensity = intensity * dayState.lamps * (on ? 1 : 0);
   });
   return <pointLight ref={ref} intensity={0} {...rest} />;
 }

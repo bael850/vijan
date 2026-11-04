@@ -32,7 +32,11 @@ export default async function VersPage({
           <div className="mb-16 mt-10 h-px w-full bg-gradient-to-r from-lantern/60 via-line to-transparent" />
         </Reveal>
 
-        <VerseListClient posts={posts} initial={initial} />
+        {/* `isi` (teks penuh) tidak dipakai daftar ini — jangan dikirim ke browser. */}
+        <VerseListClient
+          posts={posts.map((p) => ({ ...p, isi: "" }))}
+          initial={initial}
+        />
       </div>
     </main>
   );

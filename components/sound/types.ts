@@ -5,6 +5,7 @@ export type SoundState = {
   forest: number;
   house: number;
   housePan: number;
+  day: number; // 0 = malam, 1 = siang penuh
 };
 
 export const DEFAULT_STATE: SoundState = {
@@ -14,6 +15,7 @@ export const DEFAULT_STATE: SoundState = {
   forest: 0.3,
   house: 0,
   housePan: 0,
+  day: 0,
 };
 
 export type Layer = {

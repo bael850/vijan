@@ -3,7 +3,6 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 
 import { H, INNER, STAIR, WINDOWS, type WindowSpec } from "../houseLayout";
 import { Box, Cyl, GLOW, WOOD, WOOD_DARK } from "./parts";
@@ -22,18 +21,53 @@ function Trim() {
   const stairB = STAIR.zBottom - STAIR.length;
   const base = (y: number, door: boolean) => (
     <group>
-      <Box pos={[(x0 + x1) / 2, y + 0.08, zb + 0.025]} size={[x1 - x0, 0.16, 0.05]} color={WOOD_DARK} grain="wood" />
-      <Box pos={[x0 + 0.025, y + 0.08, (zf + zb) / 2]} size={[0.05, 0.16, zf - zb]} color={WOOD_DARK} grain="wood" />
+      <Box
+        pos={[(x0 + x1) / 2, y + 0.08, zb + 0.025]}
+        size={[x1 - x0, 0.16, 0.05]}
+        color={WOOD_DARK}
+        grain="wood"
+      />
+      <Box
+        pos={[x0 + 0.025, y + 0.08, (zf + zb) / 2]}
+        size={[0.05, 0.16, zf - zb]}
+        color={WOOD_DARK}
+        grain="wood"
+      />
       {door ? (
         <>
-          <Box pos={[(x0 + cd) / 2, y + 0.08, zf - 0.025]} size={[cd - x0, 0.16, 0.05]} color={WOOD_DARK} grain="wood" />
-          <Box pos={[(ce + x1) / 2, y + 0.08, zf - 0.025]} size={[x1 - ce, 0.16, 0.05]} color={WOOD_DARK} grain="wood" />
+          <Box
+            pos={[(x0 + cd) / 2, y + 0.08, zf - 0.025]}
+            size={[cd - x0, 0.16, 0.05]}
+            color={WOOD_DARK}
+            grain="wood"
+          />
+          <Box
+            pos={[(ce + x1) / 2, y + 0.08, zf - 0.025]}
+            size={[x1 - ce, 0.16, 0.05]}
+            color={WOOD_DARK}
+            grain="wood"
+          />
         </>
       ) : (
-        <Box pos={[(x0 + x1) / 2, y + 0.08, zf - 0.025]} size={[x1 - x0, 0.16, 0.05]} color={WOOD_DARK} grain="wood" />
+        <Box
+          pos={[(x0 + x1) / 2, y + 0.08, zf - 0.025]}
+          size={[x1 - x0, 0.16, 0.05]}
+          color={WOOD_DARK}
+          grain="wood"
+        />
       )}
-      <Box pos={[x1 - 0.025, y + 0.08, (zf + stairA) / 2]} size={[0.05, 0.16, zf - stairA]} color={WOOD_DARK} grain="wood" />
-      <Box pos={[x1 - 0.025, y + 0.08, (stairB + zb) / 2]} size={[0.05, 0.16, stairB - zb]} color={WOOD_DARK} grain="wood" />
+      <Box
+        pos={[x1 - 0.025, y + 0.08, (zf + stairA) / 2]}
+        size={[0.05, 0.16, zf - stairA]}
+        color={WOOD_DARK}
+        grain="wood"
+      />
+      <Box
+        pos={[x1 - 0.025, y + 0.08, (stairB + zb) / 2]}
+        size={[0.05, 0.16, stairB - zb]}
+        color={WOOD_DARK}
+        grain="wood"
+      />
     </group>
   );
   const beamZ = [-126.5, -130, -133.5, -137];
@@ -43,7 +77,13 @@ function Trim() {
       const over = clearStair && z < stairA + 0.2 && z > stairB - 0.2;
       const xe = over ? STAIR.x0 - 0.1 : x1;
       return (
-        <Box key={z} pos={[(x0 + xe) / 2, y, z]} size={[xe - x0, 0.22, 0.2]} color={WOOD_DARK} grain="wood" />
+        <Box
+          key={z}
+          pos={[(x0 + xe) / 2, y, z]}
+          size={[xe - x0, 0.22, 0.2]}
+          color="#6b5038"
+          grain="wood"
+        />
       );
     });
   const ceil = H.floor2Y - H.slab; // 4.5
@@ -54,17 +94,34 @@ function Trim() {
       {beams(ceil - 0.11, true)}
       {beams(H.wallTop - 0.1 - 0.11, false)}
       {/* plafon lantai bawah, dengan lubang tangga dibiarkan terbuka */}
-      <Box pos={[(x0 + STAIR.x0) / 2, ceil - 0.01, (zf + zb) / 2]} size={[STAIR.x0 - x0, 0.02, zf - zb]} color="#d9c9a6" grain="plaster" />
-      <Box pos={[(STAIR.x0 + x1) / 2, ceil - 0.01, (zf + stairA) / 2]} size={[x1 - STAIR.x0, 0.02, zf - stairA]} color="#d9c9a6" grain="plaster" />
-      <Box pos={[(STAIR.x0 + x1) / 2, ceil - 0.01, (stairB + zb) / 2]} size={[x1 - STAIR.x0, 0.02, stairB - zb]} color="#d9c9a6" grain="plaster" />
+      <Box
+        pos={[(x0 + STAIR.x0) / 2, ceil - 0.01, (zf + zb) / 2]}
+        size={[STAIR.x0 - x0, 0.02, zf - zb]}
+        color="#d9c9a6"
+        grain="plaster"
+      />
+      <Box
+        pos={[(STAIR.x0 + x1) / 2, ceil - 0.01, (zf + stairA) / 2]}
+        size={[x1 - STAIR.x0, 0.02, zf - stairA]}
+        color="#d9c9a6"
+        grain="plaster"
+      />
+      <Box
+        pos={[(STAIR.x0 + x1) / 2, ceil - 0.01, (stairB + zb) / 2]}
+        size={[x1 - STAIR.x0, 0.02, stairB - zb]}
+        color="#d9c9a6"
+        grain="plaster"
+      />
     </group>
   );
 }
 
-// Hordeng semua jendela: tirai tipis tembus pandang, dua sisi gorden berlipat, rel, dan lambrequin.
+// Hordeng jendela menurut spec.dress: "sheer" = tirai tipis tembus pandang saja,
+// "drapes" = tirai tipis + dua sisi gorden berlipat, rel, dan lambrequin, "none" = polos.
 function WindowDress({ spec }: { spec: WindowSpec }) {
   const { x0, x1, zFront, zBack } = INNER;
-  const { face, u, y, w, h } = spec;
+  const { face, u, y, w, h, dress = "none" } = spec;
+  if (dress === "none") return null;
   let pos: [number, number, number];
   let ry: number;
   switch (face) {
@@ -100,18 +157,34 @@ function WindowDress({ spec }: { spec: WindowSpec }) {
           depthWrite={false}
         />
       </mesh>
-      <Box pos={[0, top, 0.16]} size={[w + 1.3, 0.035, 0.035]} color={WOOD_DARK} grain="wood" />
-      <Box pos={[0, top - 0.12, 0.17]} size={[w + 1.1, 0.2, 0.05]} color={dark} />
-      {[-1, 1].flatMap((s) =>
-        [0, 1, 2].map((k) => (
-          <Box
-            key={`${s}${k}`}
-            pos={[s * (w / 2 + 0.1 + k * 0.14), top - 0.22 - (len - 0.22) / 2, 0.15 + (k % 2) * 0.05]}
-            size={[0.14, len - 0.22, 0.05]}
-            color={k === 1 ? col : dark}
-          />
-        )),
+      <Box
+        pos={[0, top, 0.16]}
+        size={[w + (dress === "drapes" ? 1.3 : 0.5), 0.035, 0.035]}
+        color={WOOD_DARK}
+        grain="wood"
+      />
+      {dress === "drapes" && (
+        <Box
+          pos={[0, top - 0.12, 0.17]}
+          size={[w + 1.1, 0.2, 0.05]}
+          color={dark}
+        />
       )}
+      {dress === "drapes" &&
+        [-1, 1].flatMap((s) =>
+          [0, 1, 2].map((k) => (
+            <Box
+              key={`${s}${k}`}
+              pos={[
+                s * (w / 2 + 0.1 + k * 0.14),
+                top - 0.22 - (len - 0.22) / 2,
+                0.15 + (k % 2) * 0.05,
+              ]}
+              size={[0.14, len - 0.22, 0.05]}
+              color={k === 1 ? col : dark}
+            />
+          )),
+        )}
     </group>
   );
 }
@@ -201,7 +274,7 @@ function Clock() {
   });
   const rot: [number, number, number] = [Math.PI / 2, 0, 0];
   return (
-    <group position={[-6.0, FY + 1.75, ZF]}>
+    <group position={[-5.8, FY + 1.75, ZF]}>
       <mesh rotation={rot}>
         <cylinderGeometry args={[0.27, 0.27, 0.05, 20]} />
         <meshLambertMaterial color={WOOD_DARK} />
@@ -222,46 +295,19 @@ function Clock() {
 
 function Painting() {
   return (
-    <group position={[-2.0, FY + 1.75, ZF]}>
-      <Box pos={[0, 0, 0]} size={[0.58, 0.74, 0.04]} color={WOOD_DARK} grain="wood" />
+    <group position={[-2.42, FY + 1.75, ZF]}>
+      <Box
+        pos={[0, 0, 0]}
+        size={[0.58, 0.74, 0.04]}
+        color={WOOD_DARK}
+        grain="wood"
+      />
       <Box pos={[0, 0, -0.025]} size={[0.48, 0.64, 0.02]} color="#27407a" />
       <mesh position={[0.08, 0.14, -0.04]} scale={[1, 1, 0.1]}>
         <sphereGeometry args={[0.07, 12, 8]} />
         <meshBasicMaterial color="#ffe9a8" />
       </mesh>
       <Box pos={[-0.1, -0.2, -0.04]} size={[0.2, 0.2, 0.01]} color="#17264a" />
-    </group>
-  );
-}
-
-function Candles({ reduceMotion }: { reduceMotion: boolean }) {
-  const flames = useRef<(THREE.Mesh | null)[]>([]);
-  useFrame(({ clock }) => {
-    if (reduceMotion) return;
-    const t = clock.elapsedTime;
-    flames.current.forEach((m, i) => {
-      if (m)
-        m.scale.y = 1 + 0.25 * Math.sin(t * 12 + i * 3) * Math.sin(t * 5.3 + i);
-    });
-  });
-  const x = INNER.x0 + 0.45;
-  const y = FY + 2.7;
-  return (
-    <group>
-      {[-0.7, 0.55].map((dz, i) => (
-        <group key={i}>
-          <Cyl pos={[x, y + 0.06, FZ + dz]} r={0.03} h={0.12} color="#e8dcc0" />
-          <mesh
-            ref={(m) => {
-              flames.current[i] = m;
-            }}
-            position={[x, y + 0.15, FZ + dz]}
-          >
-            <sphereGeometry args={[0.022, 8, 6]} />
-            <meshBasicMaterial color="#ffd27a" />
-          </mesh>
-        </group>
-      ))}
     </group>
   );
 }
@@ -371,62 +417,14 @@ function FairyLights({ reduceMotion }: { reduceMotion: boolean }) {
           position={[INNER.x0 + 0.1, p.y, p.z]}
         >
           <sphereGeometry args={[0.035, 8, 6]} />
-          <meshBasicMaterial color={i % 3 === 0 ? "#ffb866" : GLOW} />
+          <meshBasicMaterial color={i % 3 === 0 ? "#dfe8fa" : GLOW} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function Motes({ reduceMotion }: { reduceMotion: boolean }) {
-  const ref = useRef<THREE.Points>(null);
-  const { geo, base } = useMemo(() => {
-    const n = 40;
-    const base = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      base[i * 3] = INNER.x0 + 0.8 + Math.random() * 9;
-      base[i * 3 + 1] = FY + 0.4 + Math.random() * 2.2;
-      base[i * 3 + 2] = -124.8 - Math.random() * 7;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(base.slice(), 3));
-    return { geo, base };
-  }, []);
-  useFrame(({ clock }) => {
-    const a = ref.current?.geometry.getAttribute("position");
-    if (!a || reduceMotion) return;
-    const t = clock.elapsedTime;
-    for (let i = 0; i < a.count; i++) {
-      a.setXYZ(
-        i,
-        base[i * 3] + Math.sin(t * 0.2 + i) * 0.4,
-        base[i * 3 + 1] + Math.sin(t * 0.15 + i * 2) * 0.25,
-        base[i * 3 + 2] + Math.cos(t * 0.18 + i * 3) * 0.4,
-      );
-    }
-    a.needsUpdate = true;
-  });
-  return (
-    <points ref={ref} geometry={geo} frustumCulled={false}>
-      <pointsMaterial
-        color="#ffd89a"
-        size={0.04}
-        transparent
-        opacity={0.55}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  );
-}
-
-export default function Details({
-  quality,
-  reduceMotion,
-}: {
-  quality: GraphicsQuality;
-  reduceMotion: boolean;
-}) {
+export default function Details({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <group>
       {WINDOWS.map((w, i) => (
@@ -435,7 +433,6 @@ export default function Details({
       <Trim />
       <Clock />
       <Painting />
-      <Candles reduceMotion={reduceMotion} />
       <CatBed />
       <KitchenBits />
       <FairyLights reduceMotion={reduceMotion} />
@@ -445,7 +442,6 @@ export default function Details({
         s={1.2}
         reduceMotion={reduceMotion}
       />
-      {quality !== "low" && <Motes reduceMotion={reduceMotion} />}
     </group>
   );
 }

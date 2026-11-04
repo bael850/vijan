@@ -3,8 +3,10 @@
 import { useMemo, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { dayState } from "../core/dayCycle";
 import { smoothstep } from "../core/math";
 import { groundHeight } from "../terrain/heightmap";
+import { H } from "../house/houseLayout";
 
 // Kunang-kunang kecil di sekitar kamera. Menyingkir dari kursor, lalu kembali.
 const VERT = /* glsl */ `
@@ -14,6 +16,8 @@ const VERT = /* glsl */ `
   uniform float uGround;
   uniform vec2 uPtr;
   uniform float uAspect;
+  uniform vec4 uHouse; // x0, x1, z0, z1 (+margin)
+  uniform vec2 uHouseY; // lantai, atap
   attribute vec4 aSeed;
   varying float vA;
   void main() {
@@ -28,6 +32,10 @@ const VERT = /* glsl */ `
     w.z = mod(w.z - uCam.z + uBox.z * 0.5, uBox.z) + uCam.z - uBox.z * 0.5;
     w.y = uGround + 0.4 + w.y * 0.22;
     vec4 clip = projectionMatrix * viewMatrix * vec4(w, 1.0);
+    // rumah harus bersih: tidak ada titik di dalam (atau menembus) dinding rumah
+    float inside = step(uHouse.x, w.x) * step(w.x, uHouse.y)
+      * step(uHouse.z, w.z) * step(w.z, uHouse.w)
+      * step(uHouseY.x - 1.0, w.y) * step(w.y, uHouseY.y);
     vec2 d = clip.xy / clip.w - uPtr;
     d.x *= uAspect;
     float push = smoothstep(0.4, 0.0, length(d));
@@ -40,7 +48,7 @@ const VERT = /* glsl */ `
     gl_PointSize = clamp(aSeed.w * 70.0 / -mv.z, 1.5, 14.0);
     float dekat = smoothstep(1.0, 4.0, -mv.z);
     vA = (0.45 + 0.55 * sin(uTime * 2.0 + aSeed.x * 50.0)) * dekat
-      * (1.0 - smoothstep(22.0, 40.0, -mv.z));
+      * (1.0 - smoothstep(22.0, 40.0, -mv.z)) * (1.0 - inside);
   }
 `;
 
@@ -97,6 +105,15 @@ export default function Fireflies({
           uPtr: { value: new THREE.Vector2(9, 9) },
           uAspect: { value: 1 },
           uShow: { value: 0 },
+          uHouse: {
+            value: new THREE.Vector4(
+              H.cx - H.w / 2 - 0.8,
+              H.cx + H.w / 2 + 0.8,
+              H.backZ - 0.8,
+              H.frontZ + 0.8,
+            ),
+          },
+          uHouseY: { value: new THREE.Vector2(H.floorY, H.ridgeY + 1) },
         },
       }),
     [],
@@ -111,7 +128,15 @@ export default function Fireflies({
     u.uPtr.value.set(pointer.x, pointer.y);
     u.uAspect.value = size.width / size.height;
     const low = smoothstep(14, 5, camera.position.y - g);
-    u.uShow.value = low * (1 - indoor.current);
+    // kunang-kunang hanya malam: mulai muncul di senja, hilang saat hari terang
+    const night = 1 - smoothstep(0.05, 0.5, dayState.daylight);
+    // hilang cepat begitu kamera mendekati pintu, jauh sebelum masuk
+    const nearHouse = smoothstep(
+      26,
+      12,
+      Math.hypot(camera.position.x - H.cx, camera.position.z - H.cz),
+    );
+    u.uShow.value = low * (1 - indoor.current) * (1 - nearHouse) * night;
   });
 
   return <points geometry={geo} material={mat} frustumCulled={false} />;

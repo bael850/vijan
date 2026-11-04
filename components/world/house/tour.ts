@@ -1,3 +1,4 @@
+import { DESK_END_KEY, DESK_HOLD } from "./content/deskLayout";
 import { H, INNER, STAIR } from "./houseLayout";
 
 // Jalur kamera berkeliling di dalam rumah. Murni hitungan, tanpa three.js.
@@ -36,21 +37,29 @@ const k = (
 });
 
 // Urutan: tangga luar, pintu (pemutar piringan), ruang tamu (perapian), dapur, kembali, naik tangga,
-// kamar tidur, dinding foto, meja kerja.
+// kamar tidur, dinding foto, meja kerja (berakhir di close-up meja).
 export const TOUR_KEYS: Key[] = [
   k(H.cx, H.padY + E, H.frontZ + 4, H.cx, fy - 0.25, H.frontZ - 6),
-  k(H.cx, fy, H.frontZ - 1.5, -6.8, fy - 0.6, H.frontZ - 0.6), // menoleh ke pemutar piringan
-  k(H.cx + 0.5, fy, -127.5, INNER.x0, fy - 0.5, -128),
-  k(-5.5, fy, -130.5, -7.5, fy - 0.6, -136),
-  k(-6.5, fy, -134, -8, fy - 0.2, INNER.zBack),
+  k(H.cx, fy, H.frontZ - 1.5, H.cx - 1, fy - 0.2, H.frontZ - 5), // masuk lewat pintu, pandang lurus
+  // pemutar piringan: berdiri agak jauh di sisi, jadi pemutar utuh dan jendela tidak menempel
+  k(-4.6, fy, -127.4, -6.8, fy - 0.75, -124.9),
+  // perapian + lampu: dilihat dari seberang ruangan, bukan menempel di dinding
+  k(-3.4, fy, -128.4, INNER.x0, fy - 0.35, -128),
+  k(-5.5, fy, -130.5, -7.5, fy - 0.6, -136), // dapur: meja makan + lampu gantung
+  k(-5.2, fy, -133.6, -8, fy - 0.3, -137.5),
   k(-2, fy, -130.5, 0.5, fy + 0.4, -128.5),
   k(0.2, fy, -127.2, stairMid, fy + 0.8, -131),
   k(stairMid, stairY(-130), -130, stairMid, stairY(-136) + 0.4, -137),
   k(stairMid, stairY(-133), -133, -3, uy - 0.2, -137),
-  k(1.0, uy, -136.6, -4, uy - 0.4, -131),
-  k(-3, uy, -130.5, -8.5, uy - 0.8, -127.3), // ranjang
-  k(-5.2, uy, -133.4, INNER.x0, uy - 0.45, -135.2), // dinding foto
-  k(-6.3, uy, -137, -6.7, H.floor2Y + 0.8, INNER.zBack + 0.5), // meja kerja
+  k(0.4, uy, -134.8, -4, uy - 0.4, -130),
+  k(-3.2, uy, -130.2, -8.5, uy - 0.8, -127.3), // ranjang + lampu tidur
+  // dinding foto: mundur ke tengah ruangan supaya semua bingkai masuk layar
+  k(-5.0, uy, -131.6, INNER.x0, uy - 0.1, -135.2),
+  // meja kerja, dari jauh: dari sisi kanan-depan, di atas kursi, bukan di dalam kursi
+  k(-4.7, uy + 0.05, -135.4, -6.5, H.floor2Y + 0.8, INNER.zBack + 0.5),
+  // penutup: naik ke atas meja, close-up sampai layar penuh meja. Setelah ini kamera ditahan
+  // (lihat DESK_HOLD), lalu pengunjung memilih zona lewat tombol di layar.
+  DESK_END_KEY,
 ];
 
 const cr = (p0: number, p1: number, p2: number, p3: number, f: number) =>
@@ -64,7 +73,8 @@ const cr = (p0: number, p1: number, p2: number, p3: number, f: number) =>
 export function tourAt(u: number, start: Key, out: Key) {
   const keys = [start, ...TOUR_KEYS];
   const n = keys.length;
-  const t = Math.min(1, Math.max(0, u)) * (n - 1);
+  // bagian akhir (DESK_HOLD) kamera diam di meja
+  const t = Math.min(1, Math.max(0, u) / (1 - DESK_HOLD)) * (n - 1);
   const i = Math.min(n - 2, Math.floor(t));
   const f = t - i;
   const a = keys[Math.max(0, i - 1)];
