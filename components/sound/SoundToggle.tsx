@@ -64,9 +64,9 @@ export default function SoundToggle() {
         aria-pressed={on}
         aria-label={on ? "Sound off" : "Sound on"}
         title={on ? "Sound off" : "Sound on"}
-        className={`fixed z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/50 text-[#fff3e0] ${
+        className={`fixed z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/70 text-[#fff3e0] ${
           home ? "right-5 top-4 sm:right-8 sm:top-5" : "bottom-20 left-4"
-        } backdrop-blur-md transition-colors hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866]`}
+        } transition-colors hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866]`}
       >
         <svg
           aria-hidden

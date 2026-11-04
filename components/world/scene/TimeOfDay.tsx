@@ -21,10 +21,12 @@ export default function TimeOfDay({
   progress,
   indoor,
   quality = "medium",
+  mobile = false,
 }: {
   progress: MutableRefObject<number>;
   indoor?: MutableRefObject<number>; // 0 di luar, 1 di dalam rumah
   quality?: GraphicsQuality;
+  mobile?: boolean;
 }) {
   const fill = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
@@ -60,7 +62,7 @@ export default function TimeOfDay({
 
   // bayangan fokus di rumah + pekarangan + ujung jalan; low = mati
   const shadowOn = quality !== "low";
-  const mapSize = quality === "high" ? 2048 : 1024;
+  const mapSize = quality === "high" && !mobile ? 2048 : 1024;
   // arah bulan match skyShader; jarak 180 cukup untuk ortho frustum besar
   const moonPos = useMemo(() => {
     const v = new THREE.Vector3(...LIGHT.moon.position)
@@ -149,7 +151,7 @@ export default function TimeOfDay({
       // tempel ke grid texel di ruang cahaya supaya bayangan tidak bergetar saat kamera bergerak
       tmp.right.set(dir.z, 0, -dir.x).normalize();
       tmp.up.crossVectors(dir, tmp.right);
-      const texel = (SHADOW_HALF * 2) / (quality === "high" ? 2048 : 1024);
+      const texel = (SHADOW_HALF * 2) / mapSize;
       const pa = tmp.p.dot(tmp.right);
       const pb = tmp.p.dot(tmp.up);
       tmp.p
@@ -160,13 +162,11 @@ export default function TimeOfDay({
       m.target.updateMatrixWorld();
       m.position.copy(tmp.p).addScaledVector(dir, 180);
 
-      // gambar ulang peta bayangan kalau pusat/arah cahaya bergeser, plus berkala
-      // untuk penduduk dan penjaga yang bergerak
+      // Peta bayangan digambar ulang berkala, bukan tiap frame saat bergerak:
+      // biaya per frame jadi rata. Matriks bayangan ikut diperbarui bersamaan dengan petanya,
+      // jadi bayangan tidak bergeser-geser di antara dua pembaruan.
       tmp.n += 1;
-      const moved =
-        tmp.p.distanceToSquared(tmp.last) > 1e-6 ||
-        tmp.dir.distanceToSquared(tmp.lastDir) > 1e-8;
-      if (moved || tmp.n % (quality === "high" ? 2 : 3) === 0) {
+      if (tmp.n % (quality === "high" && !mobile ? 2 : 3) === 0) {
         gl.shadowMap.needsUpdate = true;
       }
       tmp.last.copy(tmp.p);

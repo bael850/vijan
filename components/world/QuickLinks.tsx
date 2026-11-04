@@ -58,7 +58,7 @@ export default function QuickLinks({ className = "" }: { className?: string }) {
         aria-haspopup="true"
         aria-label={journey.menuLabel}
         title={journey.menuLabel}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/50 text-[#fff3e0] backdrop-blur-md transition-colors hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866]"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/70 text-[#fff3e0] transition-colors hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866]"
       >
         <svg
           aria-hidden
@@ -80,7 +80,7 @@ export default function QuickLinks({ className = "" }: { className?: string }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-11 z-40 overflow-hidden rounded-xl border border-[#fff3e0]/20 bg-[#120d24]/90 py-1 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md"
+          className="absolute right-0 top-11 z-40 overflow-hidden rounded-xl border border-[#fff3e0]/20 bg-[#120d24]/95 py-1 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
         >
           {LINKS.map((l) => {
             const isDownload = "download" in l;

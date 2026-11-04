@@ -58,3 +58,27 @@ export const desk = {
     contact: (label: string) => label,
   },
 } as const;
+
+// Layar loading: kalimat yang bergantian di kiri garis, sesuai yang sedang dikerjakan.
+export const loader = {
+  stuck: "Terlalu lama? Lanjut sekarang",
+  say: {
+    assets: "Memuat model dan gambar",
+    file: (name: string) => `Memuat ${name}`,
+    world: "Membangun langit, tanah, dan danau",
+    village: "Memasang desa dan rumah",
+    shaders: "Menyusun cahaya dan bayangan",
+    gpu: "Menyiapkan kartu grafis",
+    tune: "Menyetel kelancaran",
+    done: "Selesai",
+  },
+  files: {
+    kucing: "Kucing",
+    "pohon-maple": "Pohon maple",
+    ksatria: "Ksatria penjaga",
+    biarawan: "Penduduk desa",
+    prajurit: "Prajurit",
+    naga: "Naga",
+  } as Record<string, string>,
+  photo: "Foto",
+} as const;

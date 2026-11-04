@@ -15,6 +15,7 @@ interface GraphicsContextValue {
   setQuality: (q: GraphicsQuality) => void;
   reduceMotion: boolean;
   setReduceMotion: (v: boolean) => void;
+  mobile: boolean; // layar sentuh (HP/tablet): beban 3D dibuat lebih hemat
   ready: boolean; // true setelah baca localStorage, hindari flash setting default
 }
 
@@ -28,6 +29,12 @@ const MOTION_KEY = "vijan:reduce-motion";
 // bisa dibaca browser, TANPA pernah menimpa preferensi yang sudah user
 // pilih sendiri secara eksplisit (itu selalu menang, dibaca terpisah di
 // bawah).
+function detectMobile(): boolean {
+  if (typeof window === "undefined") return false;
+  const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  return coarse && Math.min(window.screen.width, window.screen.height) <= 900;
+}
+
 function detectDefaultQuality(): GraphicsQuality {
   if (typeof navigator === "undefined") return "high";
 
@@ -61,7 +68,8 @@ function detectDefaultQuality(): GraphicsQuality {
     if (cores <= 4) return "medium";
   }
 
-  return "high";
+  // HP: jangan mulai di "high"; panas dan baterai cepat habis, dan layar kecil tidak butuh itu
+  return detectMobile() ? "medium" : "high";
 }
 
 const GraphicsContext = createContext<GraphicsContextValue | null>(null);
@@ -70,6 +78,7 @@ export function GraphicsProvider({ children }: { children: ReactNode }) {
   const [quality, setQualityState] = useState<GraphicsQuality>("high");
   const [reduceMotion, setReduceMotionState] = useState(false);
   const [ready, setReady] = useState(false);
+  const [mobile, setMobile] = useState(false);
 
   // Baca preferensi tersimpan + fallback ke prefers-reduced-motion sistem
   // kalau user belum pernah set apa-apa. Jalan sekali setelah mount —
@@ -87,6 +96,7 @@ export function GraphicsProvider({ children }: { children: ReactNode }) {
           ? savedQuality
           : detectDefaultQuality();
       setQualityState(initialQuality);
+      setMobile(detectMobile());
 
       const savedMotion = localStorage.getItem(MOTION_KEY);
       if (savedMotion === "true" || savedMotion === "false") {
@@ -120,7 +130,14 @@ export function GraphicsProvider({ children }: { children: ReactNode }) {
 
   return (
     <GraphicsContext.Provider
-      value={{ quality, setQuality, reduceMotion, setReduceMotion, ready }}
+      value={{
+        quality,
+        setQuality,
+        reduceMotion,
+        setReduceMotion,
+        mobile,
+        ready,
+      }}
     >
       {children}
     </GraphicsContext.Provider>

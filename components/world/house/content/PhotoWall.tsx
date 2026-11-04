@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Box } from "../rooms/parts";
 import {
@@ -13,7 +14,10 @@ import { Hotspot } from "./Switches";
 import { Tip, useHover } from "./Tip";
 
 // Memuat gambar tanpa membuat adegan menunggu. Kalau gagal, bingkai tetap tampil kosong.
+const PHOTO_MAX_PX = 1280; // foto lebih besar dari ini diperkecil: tidak terlihat bedanya di bingkai, hemat memori GPU
+
 export function usePhoto(url?: string) {
+  const gl = useThree((st) => st.gl);
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
     if (!url) return;
@@ -27,8 +31,35 @@ export function usePhoto(url?: string) {
           t.dispose();
           return;
         }
-        t.colorSpace = THREE.SRGBColorSpace;
-        setTex(t);
+        let out: THREE.Texture = t;
+        const img = t.image as { width?: number; height?: number } | undefined;
+        const big = Math.max(img?.width ?? 0, img?.height ?? 0);
+        if (img && big > PHOTO_MAX_PX) {
+          try {
+            const k = PHOTO_MAX_PX / big;
+            const cv = document.createElement("canvas");
+            cv.width = Math.round((img.width ?? 1) * k);
+            cv.height = Math.round((img.height ?? 1) * k);
+            cv.getContext("2d")?.drawImage(
+              img as CanvasImageSource,
+              0,
+              0,
+              cv.width,
+              cv.height,
+            );
+            out = new THREE.CanvasTexture(cv);
+            t.dispose();
+          } catch {
+            out = t;
+          }
+        }
+        out.colorSpace = THREE.SRGBColorSpace;
+        out.anisotropy = 4;
+        // unggah ke GPU sekarang, bukan saat frame berikutnya, supaya tidak ada sentakan saat dilihat
+        try {
+          gl.initTexture(out);
+        } catch {}
+        setTex(out);
       },
       undefined,
       () => {},
@@ -36,7 +67,7 @@ export function usePhoto(url?: string) {
     return () => {
       live = false;
     };
-  }, [url]);
+  }, [url, gl]);
   useEffect(() => () => tex?.dispose(), [tex]);
   return tex;
 }

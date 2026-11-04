@@ -305,3 +305,16 @@ html {
     animation: none;
   }
 }
+
+/* Kilau tipis di garis loading (jalan di compositor, tidak membebani thread utama) */
+@keyframes loader-sheen {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(400%);
+  }
+}
+.loader-sheen {
+  animation: loader-sheen 1.8s linear infinite;
+}

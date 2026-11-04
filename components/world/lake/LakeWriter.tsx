@@ -66,7 +66,7 @@ export default function LakeWriter({
           filter: folded ? "blur(8px)" : "blur(0px)",
         }}
         transition={{ duration: folded ? 0.9 : 0.6, ease: "easeOut" }}
-        className={`group relative w-full max-w-lg overflow-hidden rounded-[28px] bg-gradient-to-b from-[#16213f]/60 to-[#070c1c]/75 px-6 pb-4 pt-5 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85)] ring-1 ring-inset ring-[#ffe9a8]/15 backdrop-blur-xl transition-[box-shadow,--tw-ring-color] duration-700 focus-within:shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85),0_0_60px_-12px_rgba(255,196,120,0.35)] focus-within:ring-[#ffe9a8]/45 ${
+        className={`group relative w-full max-w-lg overflow-hidden rounded-[28px] bg-gradient-to-b from-[#16213f]/85 to-[#070c1c]/90 md:from-[#16213f]/60 md:to-[#070c1c]/75 px-6 pb-4 pt-5 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85)] ring-1 ring-inset ring-[#ffe9a8]/15 md:backdrop-blur-xl transition-[box-shadow,--tw-ring-color] duration-700 focus-within:shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85),0_0_60px_-12px_rgba(255,196,120,0.35)] focus-within:ring-[#ffe9a8]/45 ${
           interactive ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -142,7 +142,7 @@ export default function LakeWriter({
         transition={{ duration: 0.8, delay: folded ? 1.6 : 0 }}
         tabIndex={open && folded ? 0 : -1}
         onClick={unfold}
-        className={`absolute bottom-0 flex items-center gap-2 rounded-full bg-[#0a1226]/55 px-5 py-2 text-[11px] uppercase tracking-[0.25em] text-[#ffe9a8] ring-1 ring-inset ring-[#ffe9a8]/30 backdrop-blur-md transition-colors hover:bg-[#ffe9a8]/10 ${
+        className={`absolute bottom-0 flex items-center gap-2 rounded-full bg-[#0a1226]/55 px-5 py-2 text-[11px] uppercase tracking-[0.25em] text-[#ffe9a8] ring-1 ring-inset ring-[#ffe9a8]/30 md:backdrop-blur-md transition-colors hover:bg-[#ffe9a8]/10 ${
           open && folded ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >

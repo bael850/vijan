@@ -36,6 +36,8 @@ import {
 } from "./house/content/deskLayout";
 import { LINES, SCROLL, TITLE } from "./config/scroll";
 import { journey } from "@/content/world";
+import WorldLoader from "./loading/WorldLoader";
+import { loadStore } from "./loading/loadStore";
 
 const WorldScene = dynamic(() => import("./scene/WorldScene"), { ssr: false });
 
@@ -70,16 +72,18 @@ function Line({
   p,
   r,
   text,
+  lite,
 }: {
   p: MotionValue<number>;
   r: readonly [number, number, number, number];
   text: string;
+  lite: boolean; // HP / grafis rendah: tanpa blur (filter blur di atas canvas yang terus bergerak itu mahal)
 }) {
   const opacity = useScrollTransform(p, [...r], [0, 1, 1, 0]);
   const y = useScrollTransform(p, [...r], [40, 0, 0, -40]);
   const blur = useScrollTransform(p, [...r], [10, 0, 0, 10]);
   const filter = useTransform(blur, (b) =>
-    b < 0.4 ? "none" : `blur(${b.toFixed(1)}px)`,
+    lite || b < 0.4 ? "none" : `blur(${b.toFixed(1)}px)`,
   );
   return (
     <motion.div
@@ -106,7 +110,7 @@ export default function WorldJourney({
   photos: ContentItem[];
 }) {
   const router = useRouter();
-  const { reduceMotion, quality, ready: gfxReady } = useGraphics();
+  const { reduceMotion, quality, mobile, ready: gfxReady } = useGraphics();
   // lapisan baca terbuka (alamat bukan "/"): dunia berhenti merender, tidak ada gunanya hidup di balik kertas
   const covered = usePathname() !== "/";
   const entered = useEntered();
@@ -137,12 +141,15 @@ export default function WorldJourney({
   const [shore, setShore] = useState(false);
   const shoreRef = useRef(false);
   // layar loading: tampil sampai dunia siap (model termuat, frame pertama tergambar)
-  const [pct, setPct] = useState(0);
   const [ready, setReady] = useState(false);
   const [gone, setGone] = useState(false);
-  const onStatus = useCallback((p: number, r: boolean) => {
-    setPct(p);
-    if (r) setReady(true);
+  const onReady = useCallback(() => {
+    loadStore.patch({ ready: true });
+    setReady(true);
+  }, []);
+  // papan status loading mulai bersih tiap dunia dibangun
+  useEffect(() => {
+    loadStore.reset();
   }, []);
   const [run, setRun] = useState(0); // naik tiap masuk tepi danau, supaya kata pembuka dan kotak tulis mulai dari awal
 
@@ -156,9 +163,9 @@ export default function WorldJourney({
     setShore(false);
   }
 
-  // batas waktu: kalau ada yang macet (atau WebGL gagal), jangan tahan pengunjung selamanya
+  // batas waktu: muat awal boleh lama, tapi kalau ada yang macet (atau WebGL gagal) jangan tahan pengunjung selamanya
   useEffect(() => {
-    const t = window.setTimeout(() => setReady(true), 12000);
+    const t = window.setTimeout(() => setReady(true), 90000);
     return () => window.clearTimeout(t);
   }, []);
 
@@ -237,6 +244,7 @@ export default function WorldJourney({
               <WorldScene
                 progress={progress}
                 quality={quality}
+                mobile={mobile}
                 reduceMotion={reduceMotion}
                 active={isActive && !covered}
                 writings={writings}
@@ -246,7 +254,7 @@ export default function WorldJourney({
                 wish={wish}
                 shore={shoreRef}
                 onEnterShore={enterShore}
-                onStatus={onStatus}
+                onReady={onReady}
               />
             )}
           </SceneBoundary>
@@ -294,7 +302,13 @@ export default function WorldJourney({
           }`}
         >
           {LINES.map((k) => (
-            <Line key={k.text} p={p} r={k.r} text={k.text} />
+            <Line
+              key={k.text}
+              p={p}
+              r={k.r}
+              text={k.text}
+              lite={mobile || quality === "low"}
+            />
           ))}
         </div>
 
@@ -304,7 +318,7 @@ export default function WorldJourney({
           tabIndex={shore ? 0 : -1}
           aria-label={journey.backToPath}
           title={journey.backToPath}
-          className={`absolute right-[6.75rem] top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/50 text-[#fff3e0] backdrop-blur-md transition-all duration-1000 hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866] sm:right-[7.5rem] sm:top-5 ${
+          className={`absolute right-[6.75rem] top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/70 text-[#fff3e0] transition-all duration-1000 hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866] sm:right-[7.5rem] sm:top-5 ${
             shore ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
@@ -375,30 +389,11 @@ export default function WorldJourney({
       </div>
 
       {!gone && (
-        <motion.div
-          role="status"
-          aria-live="polite"
-          initial={false}
-          animate={{ opacity: ready ? 0 : 1 }}
-          transition={{ duration: reduceMotion ? 0.2 : 1.3, ease: "easeInOut" }}
-          className={`fixed inset-0 z-[90] flex flex-col items-center justify-center ${
-            ready ? "pointer-events-none" : ""
-          }`}
-          style={{
-            background:
-              "radial-gradient(60% 45% at 50% 72%, rgba(255,184,102,0.14), transparent 70%), #17121a",
-          }}
-        >
-          <p className="font-display text-xl italic text-[#efe3cf]/80 sm:text-2xl">
-            {journey.loading}
-          </p>
-          <div className="mt-7 h-px w-40 overflow-hidden bg-[#3a2e36]">
-            <div
-              className="h-full origin-left bg-[#ffb866] transition-transform duration-500 ease-out"
-              style={{ transform: `scaleX(${Math.max(pct, 4) / 100})` }}
-            />
-          </div>
-        </motion.div>
+        <WorldLoader
+          ready={ready}
+          reduceMotion={reduceMotion}
+          onSkip={() => setReady(true)}
+        />
       )}
     </section>
   );

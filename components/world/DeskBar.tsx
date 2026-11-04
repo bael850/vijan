@@ -52,14 +52,14 @@ export default function DeskBar({
     >
       <p
         key={current}
-        className="max-w-sm rounded-full bg-[#120d24]/65 px-4 py-1.5 text-center font-display text-sm italic text-[#fff3e0] backdrop-blur-sm [text-shadow:0_1px_3px_rgba(8,20,30,0.9)]"
+        className="max-w-sm rounded-full bg-[#120d24]/80 px-4 py-1.5 text-center font-display text-sm italic text-[#fff3e0] [text-shadow:0_1px_3px_rgba(8,20,30,0.9)]"
       >
         {text.hints[current]}
       </p>
       <div
         role="tablist"
         aria-label={text.label}
-        className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-[#fff3e0]/25 bg-[#120d24]/60 p-1 backdrop-blur-md"
+        className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-[#fff3e0]/25 bg-[#120d24]/80 p-1"
       >
         {list.map((s) => {
           const on = s === current;
