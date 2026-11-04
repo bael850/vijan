@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { WATER_Y } from "../config/world";
-import { takeSplashes } from "../effects/splashBus";
+import { takeSplashes } from "../lake/splashBus";
 
 // Riak melingkar dan butiran air yang muncul di tempat splash(x, z, power) dipanggil.
 // Dipakai ikan melompat sekarang, dan nanti sayap naga yang menyentuh danau.

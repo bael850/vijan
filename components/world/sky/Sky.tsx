@@ -49,7 +49,7 @@ export default function Sky() {
   return (
     <group ref={group}>
       <mesh renderOrder={100}>
-        <sphereGeometry args={[500, 48, 24]} />
+        <sphereGeometry args={[1400, 48, 24]} />
         <shaderMaterial
           ref={mat}
           vertexShader={SKY_VERT}

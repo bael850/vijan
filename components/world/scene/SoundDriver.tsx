@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { sound } from "@/components/sound";
-import { DOOR, LAKE } from "../config/world";
+import { CASTLE, LAKE } from "../config/world";
 import { dayState } from "../core/dayCycle";
 import { clamp, smoothstep } from "../core/math";
-import { roadX } from "../path/road";
+import { routeDist } from "../core/route";
 import { lakeDist } from "../terrain/heightmap";
 
 // Menerjemahkan posisi kamera menjadi keadaan suara: dekat danau, di hutan, dekat rumah, di dalam rumah.
@@ -38,8 +38,10 @@ export default function SoundDriver({
     };
 
     const lake = 1 - smoothstep(1.0, 2.3, lakeDist(x, z));
-    const forest = smoothstep(3, 16, Math.abs(x - roadX(z))) * (1 - lake);
-    const house = 1 - smoothstep(4, 45, Math.hypot(x - DOOR.x, z - DOOR.z));
+    const forest = smoothstep(3, 16, routeDist(x, z)) * (1 - lake);
+    // "house" = keramaian kota: makin dekat pusat kastil makin ramai
+    const house =
+      1 - smoothstep(20, 130, Math.hypot(x - CASTLE.x, z - CASTLE.z));
 
     sound.setState({
       indoor: indoor.current,
@@ -47,7 +49,7 @@ export default function SoundDriver({
       lakePan: pan(LAKE.x, LAKE.z),
       forest,
       house,
-      housePan: pan(DOOR.x, DOOR.z),
+      housePan: pan(CASTLE.x, CASTLE.z),
       day: dayState.daylight,
     });
   });

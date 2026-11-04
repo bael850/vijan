@@ -8,10 +8,10 @@ export const LIGHT = {
   fog: {
     colorStart: "#2b6f64",
     colorEnd: "#245e5c",
-    nearStart: 48,
-    nearEnd: 32,
-    farStart: 320,
-    farEnd: 250,
+    nearStart: 90,
+    nearEnd: 70,
+    farStart: 750,
+    farEnd: 600,
   },
 
   hemi: {

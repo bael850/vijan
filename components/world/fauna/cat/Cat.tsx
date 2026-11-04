@@ -7,18 +7,8 @@ import * as THREE from "three";
 import { CAT } from "../../config/cat";
 import { getGlow } from "../../core/glow";
 import { dayState } from "../../core/dayCycle";
-import { CAMERA } from "../../config/scroll";
-import { ROAD_LENGTH, roadPointAt } from "../../path/roadDistance";
-import {
-  funPose,
-  dashHome,
-  leaveHome,
-  newHome,
-  reactHome,
-  stepHome,
-  type Home,
-} from "./catHome";
-import { groundHeight } from "../../terrain/heightmap";
+import { ROUTE_LENGTH, routePointAt } from "../../core/route";
+import { walkHeight } from "../../terrain/heightmap";
 import { newBehavior, stepBehavior } from "./catBehavior";
 import { gazeTo } from "./catGaze";
 import { meow } from "./catSound";
@@ -33,7 +23,6 @@ import {
 } from "./catInteraction";
 import { newMotion, stepMotion } from "./catMotion";
 import { smoothstep } from "../../core/math";
-import { STAIR_SLOPE } from "./catStairs";
 import { smoothNormals } from "./catGeometry";
 import { approachPose, newPose, writePose, type PoseVel } from "./catPose";
 import {
@@ -71,15 +60,9 @@ export default function Cat({
   const meowing = useRef({ idle: false, pet: false });
   const pose = useRef(newPose());
   const yaw = useRef<number | null>(null);
-  const home = useRef<Home | null>(null);
-  const homeScale = useRef(1);
-  const pitch = useRef(0);
   const poseVel = useRef<PoseVel>({});
-  const wasPetting = useRef(false);
   const bend = useRef(0);
-  const squash = useRef(0);
   const lastYaw = useRef<number | null>(null);
-  const fwd = useMemo(() => new THREE.Vector3(), []);
   const lastPointer = useRef(new THREE.Vector2(9, 9));
   const aim = useMemo(() => new THREE.Vector3(), []);
   const shadow = useRef<THREE.Group>(null);
@@ -108,7 +91,6 @@ export default function Cat({
   }, []);
   const selfLight = useRef<THREE.PointLight>(null);
   const selfGlow = useRef<THREE.SpriteMaterial>(null);
-  const homeK = useRef(0);
   const shadowY = useRef<number | null>(null);
   const shadowSize = useRef({ l: 1, w: 1 });
 
@@ -184,92 +166,30 @@ export default function Cat({
     const m = motion.current;
     const it = inter.current;
 
-    // masuk rumah begitu kamera tiba di pintu; keluar lagi kalau kamera mundur jauh
-    const enterAt = ROAD_LENGTH - CAMERA.stopBeforeDoor - 0.5;
-    if (!home.current && m.init && camDist.current >= enterAt) {
-      home.current = newHome(
-        g.position.x,
-        g.position.y - hopOffset(it),
-        g.position.z,
-      );
-    } else if (home.current && camDist.current < enterAt - 4) {
-      home.current = null;
-      m.d = ROAD_LENGTH - 0.5;
-      m.v = 0;
-      yaw.current = null;
-    }
-    const hm = home.current;
     const ptrSpeed =
       lastPointer.current.distanceTo(pointer) / Math.max(dt, 0.001);
     stepInteraction(it, dt, ptrSpeed);
-    // mulai diusap: kucing yang sedang jalan berhenti (yang tidur tetap tidur sambil mendengkur)
-    const pettingNow = it.petting > 0.5;
-    if (
-      pettingNow &&
-      !wasPetting.current &&
-      home.current &&
-      !home.current.sleepy
-    )
-      reactHome(home.current);
-    wasPetting.current = pettingNow;
-    if (it.leaveNow) {
-      it.leaveNow = false;
-      if (home.current) leaveHome(home.current);
-    }
 
     let px: number;
     let py: number;
     let pz: number;
     let target: number;
     let ground: number;
-    if (hm) {
-      camera.getWorldDirection(fwd);
-      const fl = Math.hypot(fwd.x, fwd.z) || 1;
-      stepHome(hm, dt, {
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z,
-        fx: fwd.x / fl,
-        fz: fwd.z / fl,
-      });
-      const sp = Math.abs(hm.speed);
-      m.v = hm.speed;
-      m.walk = smoothstep(0.08, 0.5, sp);
-      m.run = smoothstep(2.6, 3.8, sp);
-      m.phase += sp * CAT.stride * dt;
-      m.stillFor = sp < 0.05 ? m.stillFor + dt : 0;
-      if (hm.sleepy && hm.mode === "idle")
-        m.stillFor = Math.max(m.stillFor, 21);
-      px = hm.x;
-      py = hm.y + hopOffset(it);
-      pz = hm.z;
-      target = hm.yaw;
-      ground = hm.ground;
-    } else {
+    {
       stepMotion(m, camDist.current, dt);
-      const p = roadPointAt(m.d);
+      m.d = Math.min(m.d, ROUTE_LENGTH);
+      const p = routePointAt(m.d);
       px = p.x;
       pz = p.z;
-      ground = groundHeight(p.x, p.z);
+      ground = walkHeight(p.x, p.z);
       py = ground + hopOffset(it);
       target = Math.atan2(-p.tz * m.dir, p.tx * m.dir);
     }
-    // miring badan mengikuti tangga (hidung naik saat mendaki, turun saat menuruni)
-    const pitchT = hm
-      ? STAIR_SLOPE * 0.85 * Math.sin(hm.yaw) * hm.stair + hm.tilt
-      : 0;
-    pitch.current += (pitchT - pitch.current) * (1 - Math.exp(-10 * dt));
-    py +=
-      CAT.scale * homeScale.current * 0.3 * Math.abs(Math.sin(pitch.current));
     g.position.set(px, py, pz);
-    homeScale.current +=
-      ((hm ? 0.6 : 1) - homeScale.current) * (1 - Math.exp(-3 * dt));
     if (yaw.current === null) yaw.current = target;
-    yaw.current +=
-      angleDiff(target, yaw.current) * (1 - Math.exp(-(hm ? 6 : 8) * dt));
+    yaw.current += angleDiff(target, yaw.current) * (1 - Math.exp(-8 * dt));
     g.rotation.order = "YXZ";
     g.rotation.y = yaw.current;
-    g.rotation.z = pitch.current;
 
     const sh = shadow.current;
     if (sh) {
@@ -279,11 +199,10 @@ export default function Cat({
       const sy = Math.min(shadowY.current, py);
       const hop = Math.max(0, py - sy);
       const ps = pose.current;
-      const stair = hm ? hm.stair : 0;
       // bentuk ikut pose: duduk = ringkas, meringkuk = lebar, jalan = agak panjang
       const tl =
         1 - 0.28 * ps.sit - 0.2 * ps.loaf + 0.06 * m.walk + 0.1 * m.run;
-      const tw = 1 + 0.12 * ps.loaf - 0.08 * ps.sit - 0.1 * stair;
+      const tw = 1 + 0.12 * ps.loaf - 0.08 * ps.sit;
       const sz = shadowSize.current;
       sz.l += (tl - sz.l) * (1 - Math.exp(-6 * dt));
       sz.w += (tw - sz.w) * (1 - Math.exp(-6 * dt));
@@ -292,28 +211,16 @@ export default function Cat({
       const grow = 1 + hop * 0.5;
       sh.position.set(px, sy + 0.02, pz);
       sh.rotation.y = yaw.current;
-      sh.scale.set(
-        sz.l * fall * grow * homeScale.current,
-        1,
-        sz.w * fall * grow * homeScale.current,
-      );
-      if (shadowMat.current)
-        shadowMat.current.opacity =
-          (hm ? 0.55 : 0.4) * fall * fall * (1 - 0.25 * stair);
+      sh.scale.set(sz.l * fall * grow, 1, sz.w * fall * grow);
+      if (shadowMat.current) shadowMat.current.opacity = 0.4 * fall * fall;
     }
-    g.scale.setScalar(CAT.scale * homeScale.current);
+    g.scale.setScalar(CAT.scale);
 
-    // lentera kucing terang di luar; di dalam rumah diredupkan supaya cahaya lampu rumah yang berperan
-    homeK.current += ((hm ? 1 : 0) - homeK.current) * (1 - Math.exp(-2.5 * dt));
-    // dan hanya menyala di malam hari: siang hari intensitasnya 0 (lampu tetap ada supaya shader tidak dikompilasi ulang)
     if (selfLight.current) {
-      selfLight.current.intensity =
-        CAT.lanternLight * (1 - 0.8 * homeK.current) * night;
-      selfLight.current.distance = 7 - 3.5 * homeK.current;
+      selfLight.current.intensity = CAT.lanternLight * night;
+      selfLight.current.distance = 7;
     }
-    if (selfGlow.current)
-      selfGlow.current.opacity =
-        CAT.lanternGlow * (1 - 0.73 * homeK.current) * night;
+    if (selfGlow.current) selfGlow.current.opacity = CAT.lanternGlow * night;
 
     // kursor bergerak -> kucing melihat ke arah kursor; kalau tidak, ke kamera
     if (lastPointer.current.distanceTo(pointer) > 0.002) {
@@ -332,7 +239,7 @@ export default function Cat({
       g.position.y,
       g.position.z,
       yaw.current,
-      CAT.scale * homeScale.current * 0.8,
+      CAT.scale * 0.8,
       aim.x,
       aim.y,
       aim.z,
@@ -352,13 +259,6 @@ export default function Cat({
     if (petNow && !meowing.current.pet) meow("pet", Math.max(near, 0.6));
     meowing.current.idle = idleNow;
     meowing.current.pet = petNow;
-    if (hm) {
-      const fun = funPose(hm) as Record<string, number>;
-      for (const k of Object.keys(fun)) {
-        const key = k as keyof typeof targetPose;
-        targetPose[key] = Math.max(targetPose[key], fun[k]);
-      }
-    }
     applyInteraction(targetPose, it);
     approachPose(pose.current, targetPose, dt, poseVel.current);
     writePose(UNI, pose.current);
@@ -374,21 +274,15 @@ export default function Cat({
       Math.min(1, yawRate * 0.25 * (0.35 + 0.65 * m.walk)),
     );
     bend.current += (bendT - bend.current) * (1 - Math.exp(-9 * dt));
-    squash.current +=
-      ((hm ? hm.squash : 0) - squash.current) * (1 - Math.exp(-16 * dt));
-    const sleepy = !!hm && hm.sleepy && hm.mode === "idle";
     UNI.uBend.value = bend.current;
-    UNI.uSquash.value = squash.current;
-    UNI.uBreath.value =
-      Math.sin(t * (sleepy ? 1.7 : 2.8)) *
-      (1 - 0.6 * m.walk) *
-      (sleepy ? 1.5 : 1);
+    UNI.uSquash.value = 0;
+    UNI.uBreath.value = Math.sin(t * 2.8) * (1 - 0.6 * m.walk);
 
     UNI.uT.value = t;
     UNI.uPhase.value = m.phase;
     UNI.uWalk.value = m.walk;
     UNI.uRun.value = m.run;
-    UNI.uAmp.value = 0.4 + 0.25 * m.run + (hm ? 0.12 * hm.stair : 0);
+    UNI.uAmp.value = 0.4 + 0.25 * m.run;
     UNI.uTail.value = reduceMotion ? 0.2 : 0.7 - 0.2 * m.walk;
   });
 
@@ -447,16 +341,11 @@ export default function Cat({
                 : lp && lp.y < 0.25
                   ? "paws"
                   : "body";
-          const hm = home.current;
-          const r = pet(it, performance.now() / 1000, {
+          pet(it, performance.now() / 1000, {
             region,
-            sleepy: !!hm && hm.sleepy && hm.mode === "idle",
+            sleepy: false,
           });
           motion.current.stillFor = 0;
-          if (hm) {
-            reactHome(hm);
-            if (r === "zoomies") dashHome(hm);
-          }
         }}
       >
         <pointLight

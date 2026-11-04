@@ -3,8 +3,8 @@ import { journey } from "@/content/world";
 // Angka scroll dan kamera. Ubah di sini kalau perjalanan terasa terlalu cepat, lambat, atau tinggi.
 
 export const SCROLL = {
-  height: "1500vh", // panjang halaman perjalanan; makin besar, makin pelan
-  roadShare: 0.5, // bagian scroll untuk berjalan di luar; sisanya berkeliling di dalam rumah
+  height: "1600vh", // panjang halaman perjalanan; makin besar, makin pelan (sasaran 3-5 menit)
+  roadShare: 0.5, // progress tempat kabut dan cahaya sudah sampai keadaan akhir (dipakai TimeOfDay)
   smooth: 2.2, // makin kecil, kamera makin lamban mengikuti scroll
   smoothReduced: 8, // dipakai kalau pengunjung memilih gerak berkurang
 };
@@ -13,10 +13,8 @@ export const CAMERA = {
   eye: 1.7, // tinggi mata di atas tanah (m)
   lookAhead: 10, // kamera menatap titik sekian meter di depan jalan
   lookHeight: 0.9, // tinggi titik tatap (m), supaya kucing masuk bingkai
-  doorHeight: 1.7, // tinggi titik tatap saat sampai di pintu (m)
-  stopBeforeDoor: 7, // kamera berhenti sekian meter sebelum pintu
+  stopBeforeEnd: 7, // kamera berhenti sekian meter sebelum ujung jalur (kucing menunggu di depan)
   fov: 52,
-  fovIndoorBoost: 8, // sudut pandang melebar di dalam rumah, ruangnya sempit
   fovPortrait: 66, // layar sempit (HP berdiri)
   sway: 0.25, // goyang kamera mengikuti mouse (0 = mati)
   bob: 0.02, // naik-turun halus supaya terasa bernapas

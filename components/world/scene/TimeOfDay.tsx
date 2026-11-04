@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 import { LIGHT } from "../config/light";
-import { HOUSE } from "../config/world";
+import { START } from "../config/world";
 import { SCROLL } from "../config/scroll";
 import { lerp, smoothstep } from "../core/math";
 import { DAY_LIGHT, dayState, tickDay } from "../core/dayCycle";
@@ -61,7 +61,7 @@ export default function TimeOfDay({
     [],
   );
 
-  // bayangan fokus di rumah + pekarangan + ujung jalan; low = mati
+  // bayangan fokus di sekitar kamera (digeser tiap frame); low = mati
   const shadowOn = quality !== "low";
   const mapSize = quality === "high" && !mobile ? 2048 : 1024;
   const SHADOW_HALF =
@@ -71,17 +71,13 @@ export default function TimeOfDay({
     const v = new THREE.Vector3(...LIGHT.moon.position)
       .normalize()
       .multiplyScalar(180);
-    return [HOUSE.x + v.x, HOUSE.padY + v.y, HOUSE.z + v.z] as [
-      number,
-      number,
-      number,
-    ];
+    return [START.x + v.x, v.y, START.z + v.z] as [number, number, number];
   }, []);
   const { scene: sc, gl } = useThree();
   useEffect(() => {
     const m = moon.current;
     if (!m) return;
-    m.target.position.set(HOUSE.x, HOUSE.padY, HOUSE.z);
+    m.target.position.set(START.x, 0, START.z);
     sc.add(m.target);
     // PCF soft default sering terlalu blur di map 1024; radius kecil lebih tajam
     if (m.shadow) {

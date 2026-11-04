@@ -13,7 +13,6 @@ import {
 } from "../../config/cat";
 import { getBlob } from "../../core/glow";
 import { clamp, smoothstep } from "../../core/math";
-import { roadX } from "../../path/road";
 import { groundHeight, lakeDist } from "../../terrain/heightmap";
 import { newBehavior, stepBehavior } from "./catBehavior";
 import { gazeTo } from "./catGaze";
@@ -38,12 +37,12 @@ type Spot = { x: number; z: number; r: number };
 
 // Urutan = prioritas menurut kualitas grafis. Yang pertama paling dekat titik awal perjalanan.
 const SPOTS: Spot[] = [
-  { x: roadX(54) + 5, z: 54, r: 7 }, // bukit awal, dekat gerbang
-  { x: 38, z: 12, r: 8 }, // halaman dusun padang
-  { x: -26, z: 46, r: 6 }, // dekat pondok bukit
-  { x: roadX(-110) + 8, z: -112, r: 5 }, // halaman rumah, dekat pintu
-  { x: -49, z: -53, r: 7 }, // halaman rumah jamur
-  { x: roadX(-34) - 5, z: -34, r: 6 }, // tepi jalan sebelum hutan
+  { x: 14, z: 108, r: 7 }, // bukit Gerbang Waktu
+  { x: -34, z: 40, r: 8 }, // tepi desa luar
+  { x: -62, z: -45, r: 6 }, // dekat kedai desa
+  { x: -14, z: -262, r: 6 }, // kota, dekat pasar
+  { x: 150, z: -325, r: 5 }, // halaman rumah kita
+  { x: -28, z: -130, r: 6 }, // padang sebelum gerbang kerajaan
 ];
 
 const valid = (x: number, z: number) =>

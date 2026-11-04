@@ -15,36 +15,20 @@ import {
 import { Canvas, useThree } from "@react-three/fiber";
 import Boot from "./Boot";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
+import Castle from "../chapters/castle/Castle";
+import City from "../chapters/city/City";
+import Palace from "../chapters/palace/Palace";
+import Home from "../chapters/home/Home";
+import type { HouseState } from "../chapters/home/houseState";
+import Village from "../chapters/village/Village";
+import RuneCircle from "../chapters/RuneCircle";
 import Cat from "../fauna/cat/Cat";
-import { AMBIENT } from "../config/ambient";
 import { CAMERA } from "../config/scroll";
-import type { ContentItem } from "../house/content/contentLayout";
-import type { DeskState } from "../house/content/deskLayout";
+import LakeMist from "../lake/LakeMist";
 import LakeWords from "../lake/LakeWords";
+import Pier from "../lake/Pier";
 import ShoreMarker from "../lake/ShoreMarker";
 import { newFocus, type Wish } from "../lake/wish";
-import Door from "../house/Door";
-import GateDoors from "../village/GateDoors";
-import Yard from "../house/Yard";
-import Exterior from "../house/Exterior";
-import Smoke from "../house/Smoke";
-import Birds from "../fauna/Birds";
-import Fireflies from "../effects/Fireflies";
-import LakeMist from "../effects/LakeMist";
-import Forest from "../flora/Forest";
-import Landmarks from "../village/Landmarks";
-import Castle from "../village/Castle";
-import Palace from "../village/Palace";
-import CityProps from "../village/CityProps";
-import Pier from "../village/Pier";
-import Sheep from "../fauna/Sheep";
-import Guards from "../folk/Guards";
-import SkyLanterns from "../effects/SkyLanterns";
-import Streetlamps from "../village/Streetlamps";
-import Undergrowth from "../flora/Undergrowth";
-import Village from "../village/Village";
-import PathMesh from "../path/PathMesh";
-import SidePaths from "../path/SidePaths";
 import Sky from "../sky/Sky";
 import Ground from "../terrain/Ground";
 import Splash from "../terrain/Splash";
@@ -54,24 +38,11 @@ import SoundDriver from "./SoundDriver";
 import TimeOfDay from "./TimeOfDay";
 
 // Bagian yang belum terlihat di awal perjalanan dimuat belakangan, setelah layar
-// loading selesai: isi rumah, naga, ikan, penduduk, dan kucing liar. Modulnya
-// (termasuk unduhan modelnya) baru diambil saat komponennya dipasang.
-const Dragons = dynamic(() => import("../fauna/dragon/Dragons"), {
-  ssr: false,
-});
+// loading selesai: ikan dan kucing liar. Modulnya baru diambil saat komponennya dipasang.
 const StrayCats = dynamic(() => import("../fauna/cat/StrayCats"), {
   ssr: false,
 });
-const Fish = dynamic(() => import("../fauna/Fish"), { ssr: false });
-const Spearmen = dynamic(() => import("../folk/Spearmen"), { ssr: false });
-const Villagers = dynamic(() => import("../folk/Villagers"), { ssr: false });
-const Interior = dynamic(() => import("../house/rooms/Interior"), {
-  ssr: false,
-});
-const Content = dynamic(() => import("../house/content/Content"), {
-  ssr: false,
-});
-const Stairs = dynamic(() => import("../house/Stairs"), { ssr: false });
+const Fish = dynamic(() => import("../lake/Fish"), { ssr: false });
 
 // Kalau sebuah model gagal dimuat (kucing, pohon), dunia tetap tampil tanpa model itu.
 class SafeBoundary extends Component<
@@ -174,20 +145,22 @@ function ShadowGovernor() {
   return null;
 }
 
-// Merakit seluruh dunia luar, termasuk bagian luar rumah. Isi rumah ada di house/rooms.
+// Merakit seluruh dunia. Tiap bab nanti punya komponennya sendiri di chapters/<bab>/
+// dan dipasang di bagian "bab" di bawah.
 export default function WorldScene({
   progress,
   quality,
   mobile,
   reduceMotion,
   active,
-  writings,
-  photos,
-  onOpen,
-  desk,
   wish,
   shore,
   onEnterShore,
+  house,
+  onEnterHouse,
+  books,
+  onSpot,
+  onTip,
   onReady,
 }: {
   progress: MutableRefObject<number>;
@@ -195,17 +168,18 @@ export default function WorldScene({
   mobile: boolean;
   reduceMotion: boolean;
   active: boolean;
-  writings: ContentItem[];
-  photos: ContentItem[];
-  onOpen: (href: string) => void;
-  desk: MutableRefObject<DeskState>;
   wish: MutableRefObject<Wish>;
   shore: MutableRefObject<boolean>;
   onEnterShore: () => void;
+  house: MutableRefObject<HouseState>;
+  onEnterHouse: () => void;
+  books: number;
+  onSpot: (id: string) => void;
+  onTip: (id: string | null) => void;
   onReady: () => void;
 }) {
   const camDist = useRef(0);
-  const indoor = useRef(0);
+  const indoor = useRef(0); // 0 di luar, 1 di dalam rumah (diatur CameraRig)
   const focus = useRef(newFocus());
 
   // Resolusi dipilih Boot lewat uji singkat saat loading, lalu dikunci.
@@ -215,8 +189,8 @@ export default function WorldScene({
   const refresh = useRef(60);
   const skip = useRef(1);
 
-  // Semua bagian (rumah, penghuni, kucing liar) dipasang langsung di balik layar loading.
-  // Boot menunggu semuanya selesai, lalu kompilasi shader dan unggah ke GPU.
+  // Ikan dan kucing liar dipasang di balik layar loading; Boot menunggu keduanya selesai,
+  // lalu kompilasi shader dan unggah ke GPU.
   const [lateParts, setLateParts] = useState(0);
   const markLate = useCallback(() => setLateParts((n) => n + 1), []);
   const lateDone = lateParts >= 2;
@@ -230,7 +204,8 @@ export default function WorldScene({
   return (
     <Canvas
       dpr={dpr}
-      camera={{ fov: CAMERA.fov, near: 0.1, far: 700, position: [0, 50, 160] }}
+      camera={{ fov: CAMERA.fov, near: 0.1, far: 1600, position: [4, 12, 140] }}
+      style={{ touchAction: "pan-y" }}
       gl={{
         // MSAA selalu hidup, kecuali HP berlayar sangat rapat (sudah halus tanpa itu)
         antialias: !(mobile && tiers[0] >= 2),
@@ -268,91 +243,61 @@ export default function WorldScene({
       <CameraRig
         progress={progress}
         camDist={camDist}
-        indoor={indoor}
         shore={shore}
         focus={focus}
-        desk={desk}
+        house={house}
+        indoor={indoor}
         reduceMotion={reduceMotion}
       />
-
       <SoundDriver indoor={indoor} />
+
+      {/* dunia dasar */}
       <Sky />
       <Ground quality={quality} />
       <Water />
       <Splash />
+
+      {/* bab: danau (bab lain menyusul di chapters/) */}
       <LakeMist quality={quality} reduceMotion={reduceMotion} />
       <LakeWords wish={wish} focus={focus} reduceMotion={reduceMotion} />
       <ShoreMarker progress={progress} shore={shore} onEnter={onEnterShore} />
-      <PathMesh />
-      <SidePaths />
-      <SafeBoundary>
-        <Suspense fallback={null}>
-          <Forest quality={quality} />
-        </Suspense>
-      </SafeBoundary>
-      <Undergrowth quality={quality} />
       <Pier />
-      <Village />
-      <Landmarks reduceMotion={reduceMotion} />
-      <Castle />
-      <Palace />
-      <CityProps />
-      <Sheep reduceMotion={reduceMotion} />
+
+      {/* bab: desa luar */}
+      <Village quality={quality} />
+
+      {/* bab: kastil */}
+      <Castle quality={quality} />
+
+      {/* bab: kota dalam kastil */}
+      <City quality={quality} />
+
+      {/* bab: istana */}
+      <Palace quality={quality} />
+
+      {/* bab: rumah kita */}
+      <Home
+        quality={quality}
+        reduceMotion={reduceMotion}
+        house={house}
+        indoor={indoor}
+        onEnter={onEnterHouse}
+        books={books}
+        onSpot={onSpot}
+        onTip={onTip}
+      />
+
+      {/* bab: Gerbang Waktu */}
       <SafeBoundary>
         <Suspense fallback={null}>
-          <Guards
-            amount={AMBIENT.guards[quality]}
-            reduceMotion={reduceMotion}
-          />
+          <RuneCircle />
         </Suspense>
       </SafeBoundary>
-
-      <Exterior />
-      <Yard />
-      <Streetlamps
-        amount={AMBIENT.lamps[quality]}
-        reduceMotion={reduceMotion}
-      />
-      <Smoke amount={AMBIENT.smoke[quality]} reduceMotion={reduceMotion} />
-      {!reduceMotion && <Birds amount={AMBIENT.birds[quality]} />}
-      <SkyLanterns
-        amount={AMBIENT.lanterns[quality]}
-        reduceMotion={reduceMotion}
-      />
-      <Fireflies
-        amount={AMBIENT.fireflies[quality]}
-        indoor={indoor}
-        reduceMotion={reduceMotion}
-      />
-      <GateDoors progress={progress} />
-      <Door progress={progress} />
 
       <SafeBoundary onSettle={markLate}>
         <Suspense fallback={null}>
           <Settled onSettle={markLate} />
           <Fish quality={quality} reduceMotion={reduceMotion} />
-          <Spearmen
-            amount={AMBIENT.spearmen[quality]}
-            reduceMotion={reduceMotion}
-          />
-          <Villagers
-            amount={AMBIENT.villagers[quality]}
-            reduceMotion={reduceMotion}
-          />
-          <Stairs />
-          <Content
-            writings={writings}
-            photos={photos}
-            onOpen={onOpen}
-            desk={desk}
-            reduceMotion={reduceMotion}
-          />
-          <Interior
-            indoor={indoor}
-            quality={quality}
-            reduceMotion={reduceMotion}
-          />
-          {!reduceMotion && <Dragons quality={quality} />}
         </Suspense>
       </SafeBoundary>
 

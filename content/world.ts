@@ -2,19 +2,14 @@
 export const journey = {
   title: "Pulang",
   // Urutannya = urutan muncul saat scroll. Waktu muncul diatur di components/world/config/scroll.ts.
-  lines: [
-    "Kapan terakhir kamu pulang?",
-    "Biar gak sendirian, ada cuking yang nemenin.",
-    "Coba tengok sebentar.",
-    "Sebenarnya, kamu selalu punya tempat pulang",
-  ],
+  lines: ["", "", "", ""],
   loading: "Menyiapkan jalan pulang",
-  hint: "Scroll untuk berjalan · seret untuk melihat sekeliling",
+  hint: "Scroll",
   backToPath: "Kembali ke jalan",
   houseNavLabel: "Isi rumah",
   menuLabel: "Menu",
   libraryLink: "Perpustakaan",
-  darkroomLink: "Kamar gelap",
+  darkroomLink: "Kamar",
 } as const;
 
 export const record = {

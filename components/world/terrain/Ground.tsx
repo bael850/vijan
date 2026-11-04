@@ -3,17 +3,17 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
-import { WORLD } from "../config/world";
+import { CASTLE, WORLD } from "../config/world";
 import { fbm, noise, smoothstep } from "../core/math";
 import { PALETTE } from "../core/palette";
 import { applyGrain } from "../core/grain";
-import { roadX } from "../path/road";
-import { groundHeight, lakeDist } from "./heightmap";
+import { routeDist } from "../core/route";
+import { castleDist, groundHeight, lakeDist } from "./heightmap";
 
 const SEGMENTS: Record<GraphicsQuality, [number, number]> = {
-  low: [80, 90],
-  medium: [130, 150],
-  high: [170, 190],
+  low: [120, 120],
+  medium: [200, 200],
+  high: [280, 280],
 };
 
 // Tanah: hijau berlapis seperti sapuan kuas (garis-garis miring), pantai berpasir tipis.
@@ -36,9 +36,10 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
     const c = new THREE.Color();
 
     for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
+      const x = pos.getX(i) + WORLD.centerX;
       const z = pos.getZ(i) + WORLD.centerZ;
       const y = groundHeight(x, z);
+      pos.setX(i, x);
       pos.setZ(i, z);
       pos.setY(i, y);
 
@@ -57,7 +58,16 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
       c.lerp(teal, smoothstep(0.2, 0.0, n) * 0.35);
       c.lerp(rock, smoothstep(16, 34, y) * 0.5);
       c.lerp(beach, (1 - smoothstep(0.98, 1.1, lakeDist(x, z))) * 0.8); // pasir pantai
-      c.lerp(sand, (1 - smoothstep(2.0, 5, Math.abs(x - roadX(z)))) * 0.25);
+      c.lerp(sand, (1 - smoothstep(2.0, 5, routeDist(x, z))) * 0.3);
+      // lantai kota: batu; parit: gelap kehijauan
+      const cd = castleDist(x, z);
+      c.lerp(rock, (1 - smoothstep(-2, 4, cd)) * 0.45);
+      c.lerp(
+        teal,
+        smoothstep(CASTLE.moatIn - 1, CASTLE.moatIn + 2, cd) *
+          (1 - smoothstep(CASTLE.moatOut - 2, CASTLE.moatOut, cd)) *
+          0.5,
+      );
 
       col[i * 3] = c.r;
       col[i * 3 + 1] = c.g;

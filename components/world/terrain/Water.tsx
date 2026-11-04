@@ -3,7 +3,8 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { HOUSE, LAKE, WATER_Y } from "../config/world";
+import { CASTLE, HOUSE, LAKE, WATER_Y } from "../config/world";
+import { PIER } from "../lake/pierLayout";
 import { LIGHT } from "../config/light";
 import { PALETTE } from "../core/palette";
 import { dayState, tickDay } from "../core/dayCycle";
@@ -43,9 +44,14 @@ const REFLECTIONS: {
   k: number;
   color: string;
 }[] = [
-  { at: shoreAnchor(192, -124), len: 40, k: 0.9, color: "#ffe9b0" }, // mercusuar
-  { at: shoreAnchor(187, -81), len: 28, k: 0.6, color: "#ffb85a" }, // gubuk seberang danau
-  { at: shoreAnchor(HOUSE.x, HOUSE.z), len: 26, k: 0.5, color: "#e9eefa" }, // rumah utama
+  {
+    at: shoreAnchor(CASTLE.east.x, CASTLE.east.z),
+    len: 40,
+    k: 0.9,
+    color: "#ffe9b0",
+  }, // gerbang timur kastil
+  { at: shoreAnchor(PIER.x0, PIER.z), len: 28, k: 0.6, color: "#ffb85a" }, // lentera dermaga
+  { at: shoreAnchor(HOUSE.x, HOUSE.z), len: 26, k: 0.5, color: "#e9eefa" }, // rumah kita
 ];
 
 const VERT = /* glsl */ `
