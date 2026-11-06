@@ -13,7 +13,7 @@ import { LAKE, WATER_Y } from "../config/world";
 const LAYERS: Record<GraphicsQuality, number> = { low: 1, medium: 2, high: 3 };
 const HEIGHTS = [0.5, 1.3, 2.3]; // tinggi di atas permukaan air (m)
 const OPACITY = [0.5, 0.4, 0.3]; // kepekatan tiap lapis
-const MARGIN = 25; // kabut sedikit melewati tepi danau (m)
+const SPREAD = 1.35; // bidang kabut sekian kali elips dasar, supaya menutup teluk dan tonjolan danau
 
 const VERT = /* glsl */ `
   varying vec3 vW;
@@ -92,8 +92,8 @@ export default function LakeMist({
 
   const geo = useMemo(() => {
     const g = new THREE.PlaneGeometry(
-      (LAKE.rx + MARGIN) * 2,
-      (LAKE.rz + MARGIN) * 2,
+      LAKE.rx * SPREAD * 2,
+      LAKE.rz * SPREAD * 2,
     );
     g.rotateX(-Math.PI / 2);
     return g;

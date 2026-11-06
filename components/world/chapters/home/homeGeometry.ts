@@ -1,14 +1,18 @@
 import * as THREE from "three";
 import { FACE } from "../../config/city";
 import {
+  BALCONY,
+  BEDROOM,
   HOME,
   LANTERN,
   PETALS,
+  PLAN,
   STAIR,
   STEPS,
   TREE,
   VOID,
   YARD,
+  type Partition,
 } from "../../config/home";
 import { HOUSE } from "../../config/world";
 import { box, cyl, frame } from "../village/villageBag";
@@ -94,7 +98,7 @@ export const local = (x: number, y: number, z: number) =>
 // Titik penting di dunia.
 export const ANCHORS = {
   treeTrunk: new THREE.Vector3(TREE.x, GROUND, TREE.z),
-  treeTop: new THREE.Vector3(TREE.x, GROUND + 9 * TREE.scale, TREE.z),
+  treeTop: new THREE.Vector3(TREE.x, GROUND + TREE.height, TREE.z),
 };
 
 // Ruang dalam rumah, untuk tur kamera.
@@ -110,7 +114,7 @@ export const INTERIOR = {
 export const DOOR = {
   at: local(0, FL + 1.3, HOME.d / 2 + 0.1),
   yaw,
-  slide: 1.2,
+  slide: 1.15,
   leaf: 1.3,
   w: 1.26,
   h: 2.55,
@@ -207,17 +211,18 @@ function wall(
     piece(key, s, e, 0, o.y0);
     piece(key, s, e, o.y1, hgt);
     const fd = t + 0.1;
+    // kusen: dua tiang penuh, palang atas dan bawah hanya di antaranya (tanpa tumpang tindih, supaya tidak berkedip)
     piece("metal", s, s + fb, o.y0, o.y1, fd);
     piece("metal", e - fb, e, o.y0, o.y1, fd);
-    piece("metal", s, e, o.y1 - fb, o.y1, fd);
+    piece("metal", s + fb, e - fb, o.y1 - fb, o.y1, fd);
     if (!o.door) {
       // ambang jendela dari batu, menonjol sedikit di kedua sisi
       piece("stone", s - 0.12, e + 0.12, o.y0 - 0.06, o.y0, t + 0.24);
-      piece("metal", s, e, o.y0, o.y0 + fb, fd);
+      piece("metal", s + fb, e - fb, o.y0, o.y0 + fb, fd);
       const n = Math.max(1, Math.round(o.w / 1.8));
       for (let i = 1; i < n; i++) {
         const x = s + (o.w * i) / n;
-        piece("metal", x - 0.03, x + 0.03, o.y0, o.y1, fd - 0.04);
+        piece("metal", x - 0.03, x + 0.03, o.y0 + fb, o.y1 - fb, fd - 0.04);
       }
       piece("glass", s + fb, e - fb, o.y0 + fb, o.y1 - fb, 0.04);
     }
@@ -283,6 +288,125 @@ export function cutRects(base: Rect, holes: Rect[]): Rect[] {
   return rects.filter((r) => r[1] - r[0] > 1e-3 && r[3] - r[2] > 1e-3);
 }
 
+// Sekat dalam rumah: dinding plester dengan lis kayu di kedua sisi, pintu berupa bukaan berkusen kayu.
+// base = tinggi dasar sekat, off = tinggi permukaan lantai dari base (lantai bawah: 0,25; atas: 0).
+function partition(
+  bag: Bag,
+  p: Partition,
+  base: number,
+  hgt: number,
+  off: number,
+) {
+  const t = PLAN.t;
+  const put = (
+    k: Key,
+    a0: number,
+    a1: number,
+    y0: number,
+    y1: number,
+    th: number,
+    fixed: number,
+  ) => {
+    if (a1 - a0 < 1e-3 || y1 - y0 < 1e-3) return;
+    const cy = base + (y0 + y1) / 2;
+    add(
+      bag,
+      k,
+      p.axis === "z"
+        ? box(a1 - a0, y1 - y0, th, (a0 + a1) / 2, cy, fixed)
+        : box(th, y1 - y0, a1 - a0, fixed, cy, (a0 + a1) / 2),
+      M,
+    );
+  };
+  const doors = [...p.doors].sort((u, v) => u.c - u.w / 2 - (v.c - v.w / 2));
+  const solid: [number, number][] = [];
+  let cur = p.a;
+  for (const d of doors) {
+    solid.push([cur, d.c - d.w / 2]);
+    cur = d.c + d.w / 2;
+  }
+  solid.push([cur, p.b]);
+  for (const [s0, s1] of solid) {
+    put("plaster", s0, s1, 0, hgt, t, p.at);
+    for (const sd of [-1, 1])
+      put(
+        "wood",
+        s0 + 0.05,
+        s1 - 0.05,
+        off,
+        off + 0.12,
+        0.03,
+        p.at + sd * (t / 2 + 0.015),
+      );
+  }
+  for (const sd of [-1, 1])
+    put("wood", p.a, p.b, hgt - 0.1, hgt, 0.05, p.at + sd * (t / 2 + 0.025));
+  for (const d of doors) {
+    const s0 = d.c - d.w / 2;
+    const s1 = d.c + d.w / 2;
+    const top = off + (d.h ?? 2.3);
+    put("plaster", s0, s1, top, hgt, t, p.at);
+    // kusen kayu: tiang menjorok sedikit ke bukaan (menutup ujung dinding), ambang atas lebih tebal sedikit
+    // dan tiang berhenti di bawahnya, supaya tidak ada bidang sebidang yang berkedip
+    put("wood", s0 - 0.05, s0 + 0.02, off, top - 0.06, t + 0.06, p.at);
+    put("wood", s1 - 0.02, s1 + 0.05, off, top - 0.06, t + 0.06, p.at);
+    put("wood", s0 - 0.05, s1 + 0.05, top - 0.06, top, t + 0.08, p.at);
+  }
+}
+
+// Sekat kamar lantai atas: dinding plester dengan lis kayu di kedua sisi, pintu di sekat selatan.
+function buildBedroom(bag: Bag) {
+  const { x0, x1, z0, z1, t, door } = BEDROOM;
+  const base = F2;
+  const hh = HOME.upper.h - 0.02;
+  const I = M;
+  const part = (
+    k: Key,
+    ax0: number,
+    ax1: number,
+    y0: number,
+    y1: number,
+    th: number,
+    along: "x" | "z",
+    fixed: number,
+  ) => {
+    if (ax1 - ax0 < 1e-3 || y1 - y0 < 1e-3) return;
+    const cy = base + (y0 + y1) / 2;
+    add(
+      bag,
+      k,
+      along === "x"
+        ? box(ax1 - ax0, y1 - y0, th, (ax0 + ax1) / 2, cy, fixed)
+        : box(th, y1 - y0, ax1 - ax0, fixed, cy, (ax0 + ax1) / 2),
+      I,
+    );
+  };
+  // sekat timur (sepanjang z di x = x1), polos
+  part("plaster", z0, z1, 0, hh, t, "z", x1);
+  for (const s of [-1, 1]) {
+    part("wood", z0, z1, 0, 0.12, 0.03, "z", x1 + s * (t / 2 + 0.015));
+    part("wood", z0, z1, hh - 0.1, hh, 0.05, "z", x1 + s * (t / 2 + 0.025));
+  }
+  // sekat selatan (sepanjang x di z = z1), dengan pintu
+  const d0 = door.c - door.w / 2;
+  const d1 = door.c + door.w / 2;
+  part("plaster", x0, d0, 0, hh, t, "x", z1);
+  part("plaster", d1, x1, 0, hh, t, "x", z1);
+  part("plaster", d0, d1, door.h, hh, t, "x", z1);
+  for (const s of [-1, 1]) {
+    const o = z1 + s * (t / 2 + 0.015);
+    part("wood", x0, d0 - 0.05, 0, 0.12, 0.03, "x", o);
+    part("wood", d1 + 0.05, x1, 0, 0.12, 0.03, "x", o);
+    part("wood", x0, x1, hh - 0.1, hh, 0.05, "x", o);
+  }
+  // kusen pintu
+  // tiang menjorok sedikit ke bukaan dan berhenti di bawah ambang; ambang di bawah dinding atas pintu
+  // dan sedikit lebih tebal (tanpa bidang sebidang yang berkedip)
+  part("metal", d0 - 0.05, d0 + 0.02, 0, door.h - 0.05, t + 0.06, "x", z1);
+  part("metal", d1 - 0.02, d1 + 0.05, 0, door.h - 0.05, t + 0.06, "x", z1);
+  part("metal", d0 - 0.05, d1 + 0.05, door.h - 0.05, door.h, t + 0.08, "x", z1);
+}
+
 export function buildHome(bag: Bag) {
   const { w, d, h, slab, terrace, eave } = HOME;
   const U = HOME.upper;
@@ -342,10 +466,11 @@ export function buildHome(bag: Bag) {
     h,
     t,
     [
-      { c: -9.5, w: 2.6, y0: 1.1, y1: 2.9 },
-      { c: -4.0, w: 2.2, y0: 1.1, y1: 2.9 },
+      { c: -9.5, w: 2.6, y0: 1.1, y1: 2.9 }, // Perpustakaan
+      { c: -4.0, w: 2.2, y0: 1.1, y1: 2.9 }, // Perpustakaan
+      { c: 1.0, w: 2.6, y0: 1.1, y1: 2.9 }, // Dapur
     ],
-    { inward: 1, skip: [[-1.7, 2.5]] },
+    { inward: 1 },
   );
   // sisi kiri (selatan, menghadap jalur): satu jendela besar di belakang, sisanya dinding kartu kontak
   wall(
@@ -357,7 +482,10 @@ export function buildHome(bag: Bag) {
     F,
     h,
     t,
-    [{ c: -4.6, w: 2.8, y0: 0.9, y1: 2.9 }],
+    [
+      { c: -4.6, w: 2.8, y0: 0.9, y1: 2.9 }, // Perpustakaan
+      { c: 3.0, w: 2.8, y0: 0.9, y1: 2.9 }, // Ruang Kerja
+    ],
     { inward: 1 },
   );
   // sisi kanan (utara): dua jendela, dinding album di tengah
@@ -371,8 +499,9 @@ export function buildHome(bag: Bag) {
     h,
     t,
     [
-      { c: -5.2, w: 1.8, y0: 0.9, y1: 2.9 },
-      { c: 4.6, w: 2.8, y0: 0.6, y1: 3.0 },
+      { c: -5.5, w: 1.6, y0: 0.9, y1: 2.9 }, // Lorong Tangga
+      { c: -2.4, w: 2.4, y0: 0.9, y1: 2.9 }, // Ruang Makan
+      { c: 4.6, w: 2.8, y0: 0.6, y1: 3.0 }, // Ruang Tamu
     ],
     { inward: -1 },
   );
@@ -441,8 +570,8 @@ export function buildHome(bag: Bag) {
     uh,
     ut,
     [
-      { c: 1.0, w: 4.2, y0: 0.15, y1: 2.9 },
-      { c: 7.6, w: 5.2, y0: 0.15, y1: 2.9 },
+      { c: -0.8, w: 4.0, y0: 0.15, y1: 2.9 }, // Ruang Baca
+      { c: 7.6, w: 5.2, y0: 0.15, y1: 2.9 }, // Jalan Depan dan Jalan Timur
     ],
     { inward: -1 },
   );
@@ -456,8 +585,16 @@ export function buildHome(bag: Bag) {
     F2,
     uh,
     ut,
-    [{ c: 6.4, w: 2.0, y0: 1.5, y1: 2.8 }],
-    { inward: 1, skip: [[-2.9, 1.7]] },
+    [
+      { c: 6.4, w: 2.0, y0: 1.5, y1: 2.8 },
+      {
+        c: BEDROOM.window.c,
+        w: BEDROOM.window.w,
+        y0: BEDROOM.window.y0,
+        y1: BEDROOM.window.y1,
+      },
+    ],
+    { inward: 1 },
   );
   // kiri: pintu kaca ke teras atap dan satu jendela
   wall(
@@ -470,7 +607,13 @@ export function buildHome(bag: Bag) {
     uh,
     ut,
     [
-      { c: -3.0, w: 2.8, y0: 0, y1: 2.7 },
+      {
+        c: BALCONY.door.c,
+        w: BALCONY.door.w,
+        y0: 0,
+        y1: BALCONY.door.h,
+        door: true,
+      },
       { c: 6.4, w: 2.2, y0: 0.5, y1: 2.8 },
     ],
     { inward: 1 },
@@ -502,6 +645,15 @@ export function buildHome(bag: Bag) {
     I,
   );
   add(bag, "plaster", box(rw - 0.2, 0.18, rd - 0.2, rx, ry + 0.44, rz), I);
+
+  buildBedroom(bag);
+
+  // ── sekat ruangan ──
+  for (const p of PLAN.ground) partition(bag, p, F, h - 0.02, 0.25);
+  for (const p of PLAN.upper) partition(bag, p, F2, uh - 0.02, 0);
+  // lantai pembeda: batu di Foyer, paving di Dapur
+  add(bag, "stone", box(4.8, 0.03, 3.1, 0, F + 0.25 + 0.005, 5.15), I);
+  add(bag, "paving", box(6.8, 0.03, 6.1, 1.0, F + 0.25 + 0.005, -3.65), I);
 
   // ── tangga di sepanjang dinding belakang ──
   const n = STAIR.steps;
@@ -770,66 +922,73 @@ function limb(
 }
 
 // Sakura: batang meliuk, dahan, dan gumpalan bunga merah muda tiga nada.
-export function buildTree(bag: Bag, seg: number, groundPetals: number) {
+export function buildTree(
+  bag: Bag,
+  seg: number,
+  groundPetals: number,
+  canopy = true, // false: batang dan tajuk dari model glb, di sini hanya kelopak di tanah
+) {
   const s = TREE.scale;
   const base = new THREE.Vector3(TREE.x, GROUND, TREE.z);
   const P = (x: number, y: number, z: number) =>
     new THREE.Vector3(x * s, y * s, z * s).add(base);
   const I = new THREE.Matrix4();
-  const sg = Math.max(6, seg - 4);
-  add(
-    bag,
-    "bark",
-    limb(P(0, -0.3, 0), P(0.4, 2.4, 0.2), 0.62 * s, 0.46 * s, sg),
-    I,
-  );
-  add(
-    bag,
-    "bark",
-    limb(P(0.4, 2.4, 0.2), P(0.2, 4.7, 0.5), 0.46 * s, 0.34 * s, sg),
-    I,
-  );
-  const tips = [
-    P(-3.2, 6.6, -0.9),
-    P(3.4, 6.3, 1.2),
-    P(0.8, 6.0, -3.4),
-    P(-0.6, 5.8, 3.2),
-  ];
-  const froms = [
-    P(0.3, 3.6, 0.3),
-    P(0.3, 4.0, 0.3),
-    P(0.2, 4.7, 0.4),
-    P(0.2, 4.4, 0.4),
-  ];
-  tips.forEach((t, i) =>
-    add(bag, "bark", limb(froms[i], t, 0.26 * s, 0.1 * s, 6), I),
-  );
-
   const r = prng(TREE.seed);
-  const centers = [
-    ...tips.map((t) => t.clone().add(new THREE.Vector3(0, 0.6 * s, 0))),
-    P(0.3, 7.4, 0.2),
-  ];
-  for (let i = 0; i < TREE.blobs; i++) {
-    const c =
-      i < centers.length
-        ? centers[i]
-        : P((r() - 0.5) * 9, 6.2 + r() * 2.4, (r() - 0.5) * 9);
-    const rad = (1.6 + r() * 1.0) * s;
-    const g = new THREE.IcosahedronGeometry(rad, 1);
-    const p = g.attributes.position;
-    const salt = r() * 100;
-    for (let k = 0; k < p.count; k++) {
-      const x = p.getX(k),
-        y = p.getY(k),
-        z = p.getZ(k);
-      const h =
-        Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + salt) * 43758.5453;
-      const j = 1 + (h - Math.floor(h) - 0.5) * 0.28;
-      p.setXYZ(k, x * j, y * j * 0.85, z * j);
+  if (canopy) {
+    const sg = Math.max(6, seg - 4);
+    add(
+      bag,
+      "bark",
+      limb(P(0, -0.3, 0), P(0.4, 2.4, 0.2), 0.62 * s, 0.46 * s, sg),
+      I,
+    );
+    add(
+      bag,
+      "bark",
+      limb(P(0.4, 2.4, 0.2), P(0.2, 4.7, 0.5), 0.46 * s, 0.34 * s, sg),
+      I,
+    );
+    const tips = [
+      P(-3.2, 6.6, -0.9),
+      P(3.4, 6.3, 1.2),
+      P(0.8, 6.0, -3.4),
+      P(-0.6, 5.8, 3.2),
+    ];
+    const froms = [
+      P(0.3, 3.6, 0.3),
+      P(0.3, 4.0, 0.3),
+      P(0.2, 4.7, 0.4),
+      P(0.2, 4.4, 0.4),
+    ];
+    tips.forEach((t, i) =>
+      add(bag, "bark", limb(froms[i], t, 0.26 * s, 0.1 * s, 6), I),
+    );
+
+    const centers = [
+      ...tips.map((t) => t.clone().add(new THREE.Vector3(0, 0.6 * s, 0))),
+      P(0.3, 7.4, 0.2),
+    ];
+    for (let i = 0; i < TREE.blobs; i++) {
+      const c =
+        i < centers.length
+          ? centers[i]
+          : P((r() - 0.5) * 9, 6.2 + r() * 2.4, (r() - 0.5) * 9);
+      const rad = (1.6 + r() * 1.0) * s;
+      const g = new THREE.IcosahedronGeometry(rad, 1);
+      const p = g.attributes.position;
+      const salt = r() * 100;
+      for (let k = 0; k < p.count; k++) {
+        const x = p.getX(k),
+          y = p.getY(k),
+          z = p.getZ(k);
+        const h =
+          Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + salt) * 43758.5453;
+        const j = 1 + (h - Math.floor(h) - 0.5) * 0.28;
+        p.setXYZ(k, x * j, y * j * 0.85, z * j);
+      }
+      g.translate(c.x, c.y, c.z);
+      add(bag, `blossom${i % 3}` as Key, g, I);
     }
-    g.translate(c.x, c.y, c.z);
-    add(bag, `blossom${i % 3}` as Key, g, I);
   }
 
   // kelopak di tanah di bawah sakura

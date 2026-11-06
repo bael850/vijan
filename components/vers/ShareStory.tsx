@@ -91,7 +91,7 @@ async function drawStory(
     }
   }
 
-  const displayFont = getFontFamily("--font-display", "Georgia, serif");
+  const displayFont = getFontFamily("--font-display", "system-ui, sans-serif");
   const sansFont = getFontFamily("--font-sans", "system-ui, sans-serif");
 
   // Background — gradasi navy gelap senada tema situs (lihat app/globals.css).
@@ -119,7 +119,7 @@ async function drawStory(
   ctx.save();
   ctx.globalAlpha = 0.07;
   ctx.fillStyle = "#f2f3f5";
-  ctx.font = `italic 800 210px ${displayFont}`;
+  ctx.font = `800 210px ${displayFont}`;
   ctx.translate(PAD - 10, 330);
   ctx.rotate((-2 * Math.PI) / 180);
   ctx.fillText(post.tipe, 0, 0);

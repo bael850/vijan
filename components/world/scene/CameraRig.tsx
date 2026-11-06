@@ -4,15 +4,18 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { CAMERA, FREELOOK, SCROLL } from "../config/scroll";
+import { BALCONY, WALK } from "../config/home";
 import { SHORE } from "../config/shore";
 import { WATER_Y } from "../config/world";
 import { clamp, smoothstep } from "../core/math";
 import { ROUTE_LENGTH, routePointAt } from "../core/route";
 import type { HouseState } from "../chapters/home/houseState";
-import { PORCH, tourAt } from "../chapters/home/houseTour";
+import { PORCH, walkCamera } from "../chapters/home/houseTour";
+import { spawnWalk, stepWalk } from "../chapters/home/houseWalk";
 import type { Focus } from "../lake/wish";
 import { walkHeight } from "../terrain/heightmap";
 
+const SCOPE_FOV = 16; // sudut pandang lewat teleskop (derajat)
 const UP = new THREE.Vector3(0, 1, 0);
 // damp: mendekati target dengan laju k, tidak bergantung frame rate
 const damp = (cur: number, target: number, k: number, dt: number) =>
@@ -51,8 +54,12 @@ export default function CameraRig({
     fk: 0, // 0 = tatap ke depan, 1 = tatap tulisan di danau
     lastP: 0,
     ak: 0, // 0 = di jalan, 1 = di teras rumah
-    t: 0, // posisi tur di dalam rumah, sudah dihaluskan
-    lastT: 0,
+    wy: 0, // arah pandang di dalam rumah (yaw), sudah dihaluskan
+    wp: 0, // mendongak di dalam rumah (pitch), sudah dihaluskan
+    wyT: 0, // sasaran yaw dari seretan
+    wpT: 0,
+    touch: false,
+    scoped: false,
     fov: CAMERA.fov,
   });
   const drag = useRef({ on: false, x: 0, y: 0, moved: 0, id: -1 });
@@ -89,6 +96,14 @@ export default function CameraRig({
       d.moved += Math.abs(dx) + Math.abs(dy);
       if (d.moved < FREELOOK.dragThreshold) return;
       const st = s.current;
+      if (house.current.mode === "in") {
+        // di dalam rumah: menoleh bebas ke segala arah, tidak kembali sendiri
+        // saat mengintip, seretan dibuat pelan karena sudut pandangnya sempit
+        const sens = WALK.sens * (house.current.scope ? 0.3 : 1);
+        st.wyT += dx * sens;
+        st.wpT = clamp(st.wpT + dy * sens, -WALK.maxPitch, WALK.maxPitch);
+        return;
+      }
       st.yawT = clamp(
         st.yawT + dx * FREELOOK.sensitivity,
         -FREELOOK.maxYaw,
@@ -115,7 +130,7 @@ export default function CameraRig({
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
     };
-  }, [gl]);
+  }, [gl, house]);
 
   useFrame(({ clock, pointer }, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -162,10 +177,16 @@ export default function CameraRig({
 
     // ── rumah: mampir ke teras, lalu tur di dalam ──────────
     const hs = house.current;
+    if (hs.mode !== "in") hs.scope = false;
     if (hs.snap) {
       st.ak = hs.mode === "out" ? 0 : 1;
       st.yawT = st.pitchT = st.yaw = st.pitch = 0;
-      st.t = hs.tour;
+      if (hs.mode === "in") {
+        spawnWalk(hs.walk);
+        hs.move.push = 0;
+        st.wy = st.wyT = hs.walk.yaw;
+        st.wp = st.wpT = hs.walk.pitch;
+      }
       hs.snap = false;
     }
     st.ak = damp(st.ak, hs.mode === "out" ? 0 : 1, reduceMotion ? 6 : 1.7, dt);
@@ -175,8 +196,35 @@ export default function CameraRig({
       tmp.pos.y += Math.sin(st.ak * Math.PI) * 1.2;
       tmp.look.lerp(PORCH.look, k);
     }
-    st.t = damp(st.t, hs.tour, 2.6, dt);
-    if (hs.mode === "in") tourAt(st.t, tmp.pos, tmp.look);
+    // Jalan bebas di dalam rumah: maju, mundur, geser, dan menoleh ke mana saja.
+    if (hs.mode === "in") {
+      const mv = hs.move;
+      // teleskop: berdiri di belakang lensa menghadap danau; gerak atau Esc untuk turun
+      if (hs.scope && !st.scoped) {
+        st.scoped = true;
+        const w = hs.walk;
+        w.x = BALCONY.eye.x;
+        w.z = BALCONY.eye.z;
+        w.vx = w.vz = 0;
+        w.level = "u";
+        mv.push = 0;
+        st.wy = st.wyT = w.yaw = 0;
+        st.wp = st.wpT = w.pitch = 0.02;
+      }
+      if (
+        hs.scope &&
+        (Math.abs(mv.fwd) + Math.abs(mv.side) > 0.1 || Math.abs(mv.push) > 0.05)
+      )
+        hs.scope = false;
+      if (!hs.scope) st.scoped = false;
+      st.wyT += mv.turn * WALK.turn * dt * (hs.scope ? 0.3 : 1);
+      st.wy = damp(st.wy, st.wyT, WALK.look, dt);
+      st.wp = damp(st.wp, st.wpT, WALK.look, dt);
+      hs.walk.yaw = st.wy;
+      hs.walk.pitch = st.wp;
+      if (!hs.scope) stepWalk(hs.walk, mv, dt);
+      walkCamera(hs.walk, tmp.pos, tmp.look);
+    }
     indoor.current = damp(indoor.current, hs.mode === "in" ? 1 : 0, 3, dt);
 
     // ── tatap tulisan di danau setelah dilepas ─────────────
@@ -192,11 +240,14 @@ export default function CameraRig({
     cam.lookAt(tmp.look);
 
     // ── geser pandangan: seret + goyang halus mengikuti mouse ──
-    const moving =
-      Math.abs(progress.current - st.lastP) > 0.00002 ||
-      Math.abs(hs.tour - st.lastT) > 0.00002;
+    const moving = Math.abs(progress.current - st.lastP) > 0.00002;
     st.lastP = progress.current;
-    st.lastT = hs.tour;
+    // di dalam rumah layar sentuh dipakai penuh untuk menoleh (tanpa scroll halaman)
+    const inside = hs.mode === "in";
+    if (inside !== st.touch) {
+      st.touch = inside;
+      gl.domElement.style.touchAction = inside ? "none" : "";
+    }
     if (drag.current.on && drag.current.moved >= FREELOOK.dragThreshold)
       st.idle = 0;
     else st.idle += dt;
@@ -216,14 +267,15 @@ export default function CameraRig({
     }
     st.yaw = damp(st.yaw, st.yawT, FREELOOK.smooth, dt);
     st.pitch = damp(st.pitch, st.pitchT, FREELOOK.smooth, dt);
-    const sway = reduceMotion ? 0 : CAMERA.sway * 0.12;
+    const sway = reduceMotion || inside ? 0 : CAMERA.sway * 0.12;
     cam.rotateOnWorldAxis(UP, st.yaw - pointer.x * sway);
     cam.rotateX(st.pitch + pointer.y * sway * 0.5);
 
     // ── sudut pandang ──────────────────────────────────────
     const portrait = size.width / size.height < 0.8;
-    const fovT =
-      (portrait ? CAMERA.fovPortrait : CAMERA.fov) + SHORE.fovBoost * st.sk;
+    const fovT = hs.scope
+      ? SCOPE_FOV
+      : (portrait ? CAMERA.fovPortrait : CAMERA.fov) + SHORE.fovBoost * st.sk;
     st.fov = damp(st.fov, fovT, 4, dt);
     if (Math.abs(cam.fov - st.fov) > 0.01) {
       cam.fov = st.fov;

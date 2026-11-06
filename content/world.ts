@@ -48,6 +48,7 @@ export const desk = {
   },
   tips: {
     album: (n: number) => (n > 0 ? `Album foto · ${n} foto` : "Album foto"),
+    scope: "Teleskop · intip danau (Esc untuk turun)",
     cvWriter: "CV Penulis (PDF)",
     cvMarketing: "CV Digital Marketing (PDF)",
     contact: (label: string) => label,
@@ -70,6 +71,7 @@ export const loader = {
   files: {
     kucing: "Kucing",
     "pohon-maple": "Pohon maple",
+    sakura: "Pohon sakura",
     ksatria: "Ksatria penjaga",
     biarawan: "Penduduk desa",
     prajurit: "Prajurit",

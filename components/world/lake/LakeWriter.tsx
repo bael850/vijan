@@ -74,17 +74,17 @@ export default function LakeWriter({
           filter: folded ? "blur(8px)" : "blur(0px)",
         }}
         transition={{ duration: folded ? 0.9 : 0.6, ease: "easeOut" }}
-        className={`group relative w-full max-w-xl overflow-hidden rounded-[26px] bg-[#0a1226]/35 px-5 py-2.5 opacity-85 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-[#ffe9a8]/15 md:backdrop-blur-sm transition-[box-shadow,opacity,background-color,--tw-ring-color] duration-500 hover:opacity-100 focus-within:bg-[#0a1226]/60 focus-within:opacity-100 focus-within:ring-[#ffe9a8]/40 ${
+        className={`group relative w-full max-w-xl overflow-hidden rounded-[26px] bg-[#080d22]/35 px-5 py-2.5 opacity-85 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-[#fbdc8a]/15 md:backdrop-blur-sm transition-[box-shadow,opacity,background-color,--tw-ring-color] duration-500 hover:opacity-100 focus-within:bg-[#080d22]/60 focus-within:opacity-100 focus-within:ring-[#fbdc8a]/40 ${
           interactive ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#ffe9a8]/60 to-transparent"
+          className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#fbdc8a]/60 to-transparent"
         />
-        <div className="relative flex max-h-0 items-center gap-3 overflow-hidden text-[10px] uppercase tracking-[0.35em] text-[#ffe9a8]/55 opacity-0 transition-all duration-500 group-focus-within:mb-1 group-focus-within:max-h-5 group-focus-within:opacity-100">
+        <div className="relative flex max-h-0 items-center gap-3 overflow-hidden text-[10px] uppercase tracking-[0.35em] text-[#fbdc8a]/55 opacity-0 transition-all duration-500 group-focus-within:mb-1 group-focus-within:max-h-5 group-focus-within:opacity-100">
           <span>{lake.eyebrow}</span>
-          <span className="h-px flex-1 bg-gradient-to-r from-[#ffe9a8]/25 to-transparent" />
+          <span className="h-px flex-1 bg-gradient-to-r from-[#fbdc8a]/25 to-transparent" />
         </div>
 
         <div className="relative flex items-end gap-3">
@@ -101,11 +101,11 @@ export default function LakeWriter({
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) release();
             }}
             style={{ outline: "none" }}
-            className="relative block min-h-[1.9rem] flex-1 resize-none bg-transparent py-1 text-[1.05rem] leading-snug text-[#fff3e0] caret-[#ffe9a8] placeholder:italic placeholder:text-[#fff3e0]/35"
+            className="relative block min-h-[1.9rem] flex-1 resize-none bg-transparent py-1 text-[1.05rem] leading-snug text-[#f3ecd6] caret-[#fbdc8a] placeholder:italic placeholder:text-[#f3ecd6]/35"
           />
           <div className="flex shrink-0 items-center gap-3 pb-0.5">
             {near && (
-              <span className="text-[11px] tabular-nums text-[#ffb866]/80">
+              <span className="text-[11px] tabular-nums text-[#f5c04a]/80">
                 {text.length}/{MAX}
               </span>
             )}
@@ -115,7 +115,7 @@ export default function LakeWriter({
               onClick={release}
               disabled={empty}
               aria-label={lake.release}
-              className="flex items-center gap-2 rounded-full bg-gradient-to-b from-[#ffeab0] to-[#f0b062] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[#1b1226] shadow-[0_6px_20px_-6px_rgba(255,190,110,0.6)] transition-all hover:brightness-110 active:scale-95 disabled:bg-none disabled:bg-[#fff3e0]/5 disabled:text-[#fff3e0]/30 disabled:shadow-none sm:px-4"
+              className="flex items-center gap-2 rounded-full bg-gradient-to-b from-[#fbdc8a] to-[#f5c04a] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[#0e1530] shadow-[0_6px_20px_-6px_rgba(255,190,110,0.6)] transition-all hover:brightness-110 active:scale-95 disabled:bg-none disabled:bg-[#f3ecd6]/5 disabled:text-[#f3ecd6]/30 disabled:shadow-none sm:px-4"
             >
               <span className="hidden sm:inline">{lake.release}</span>
               <svg
@@ -134,7 +134,7 @@ export default function LakeWriter({
           </div>
         </div>
 
-        <div className="relative max-h-0 overflow-hidden text-[12px] italic text-[#fff3e0]/45 opacity-0 transition-all duration-500 group-focus-within:mt-1 group-focus-within:max-h-5 group-focus-within:opacity-100">
+        <div className="relative max-h-0 overflow-hidden text-[12px] italic text-[#f3ecd6]/45 opacity-0 transition-all duration-500 group-focus-within:mt-1 group-focus-within:max-h-5 group-focus-within:opacity-100">
           {lake.freeNote}
         </div>
       </motion.div>
@@ -146,7 +146,7 @@ export default function LakeWriter({
         transition={{ duration: 0.8, delay: folded ? 1.6 : 0 }}
         tabIndex={open && folded ? 0 : -1}
         onClick={unfold}
-        className={`absolute bottom-0 flex items-center gap-2 rounded-full bg-[#0a1226]/55 px-5 py-2 text-[11px] uppercase tracking-[0.25em] text-[#ffe9a8] ring-1 ring-inset ring-[#ffe9a8]/30 md:backdrop-blur-md transition-colors hover:bg-[#ffe9a8]/10 ${
+        className={`absolute bottom-0 flex items-center gap-2 rounded-full bg-[#080d22]/55 px-5 py-2 text-[11px] uppercase tracking-[0.25em] text-[#fbdc8a] ring-1 ring-inset ring-[#fbdc8a]/30 md:backdrop-blur-md transition-colors hover:bg-[#fbdc8a]/10 ${
           open && folded ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >

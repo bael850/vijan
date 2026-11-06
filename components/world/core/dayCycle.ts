@@ -54,10 +54,24 @@ export const DAY_LIGHT = {
   fog: "#bccfdc", // abu-biru netral, tidak lagi hijau-susu
   hemiSky: "#cfe4ff",
   hemiGround: "#5f7a4a",
-  hemi: 0.6, // lebih rendah = bayangan siang lebih tegas
+  hemi: 0.8, // lebih rendah = bayangan siang lebih tegas, lebih tinggi = lebih lembut
   sun: "#fff0cf",
   sunWarm: "#ff9a55",
-  sunIntensity: 2.4,
+  sunIntensity: 2.1,
+
+  // Warna matahari menurut ketinggiannya (0 = di cakrawala, 0.85 = tepat di atas): merah-jingga -> keemasan -> putih hangat
+  sunStops: [
+    [0.0, "#ff6a30"],
+    [0.12, "#ff9a55"],
+    [0.3, "#ffd29a"],
+    [0.6, "#fff0cf"],
+  ] as [number, string][],
+  sunLowFactor: 0.4, // kekuatan matahari tepat di cakrawala dibanding saat tinggi (1 = sama)
+  // Langit dan tanah saat senja/fajar: cahaya pantulan jadi kemerahan lembut, bayangan ikut hangat
+  duskHemiSky: "#e9a58f",
+  duskHemiGround: "#7a5a45",
+  duskFog: "#d08a6c",
+  duskFogMix: 0.55, // 0 = kabut tidak berubah, 1 = penuh warna senja pada puncak senja
 };
 
 export const dayState = {

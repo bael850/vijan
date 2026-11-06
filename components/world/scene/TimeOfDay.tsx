@@ -10,6 +10,7 @@ import { SCROLL } from "../config/scroll";
 import { lerp, smoothstep } from "../core/math";
 import { DAY_LIGHT, dayState, tickDay } from "../core/dayCycle";
 import { groundHeight } from "../terrain/heightmap";
+import { setShadowFocus, shadowActorNear } from "../core/shadowBus";
 
 // Bayangan mengikuti kamera: kotak bayangan selebar 2 x SHADOW_HALF, digeser ke depan SHADOW_LEAD
 const SHADOW_HALF_BASE = 60; // medium/low/mobile
@@ -36,7 +37,16 @@ export default function TimeOfDay({
   const to = useMemo(() => new THREE.Color(LIGHT.fog.colorEnd), []);
   const col = useMemo(() => new THREE.Color(), []);
   const dayFog = useMemo(() => new THREE.Color(DAY_LIGHT.fog), []);
-  const dusk = useMemo(() => new THREE.Color("#c98a6a"), []);
+  const dusk = useMemo(() => new THREE.Color(DAY_LIGHT.duskFog), []);
+  const duskHemiSky = useMemo(() => new THREE.Color(DAY_LIGHT.duskHemiSky), []);
+  const duskHemiGround = useMemo(
+    () => new THREE.Color(DAY_LIGHT.duskHemiGround),
+    [],
+  );
+  const sunStops = useMemo(
+    () => DAY_LIGHT.sunStops.map(([e, c]) => ({ e, c: new THREE.Color(c) })),
+    [],
+  );
   const hemiNightSky = useMemo(() => new THREE.Color(LIGHT.hemi.sky), []);
   const hemiNightGround = useMemo(() => new THREE.Color(LIGHT.hemi.ground), []);
   const hemiDaySky = useMemo(() => new THREE.Color(DAY_LIGHT.hemiSky), []);
@@ -45,8 +55,6 @@ export default function TimeOfDay({
     [],
   );
   const moonCol = useMemo(() => new THREE.Color(LIGHT.moon.color), []);
-  const sunCol = useMemo(() => new THREE.Color(DAY_LIGHT.sun), []);
-  const sunWarm = useMemo(() => new THREE.Color(DAY_LIGHT.sunWarm), []);
   const tmp = useMemo(
     () => ({
       fwd: new THREE.Vector3(),
@@ -56,6 +64,9 @@ export default function TimeOfDay({
       up: new THREE.Vector3(),
       last: new THREE.Vector3(1e9, 0, 0),
       lastDir: new THREE.Vector3(),
+      drawP: new THREE.Vector3(1e9, 0, 0), // letak pusat bayangan saat peta terakhir digambar
+      drawDir: new THREE.Vector3(),
+      drawT: 0,
       n: 0,
     }),
     [],
@@ -102,7 +113,7 @@ export default function TimeOfDay({
 
     col.copy(from).lerp(to, k);
     col.lerp(dayFog, dl);
-    col.lerp(dusk, twi * 0.3);
+    col.lerp(dusk, twi * DAY_LIGHT.duskFogMix);
     scene.background = col;
     const fog = scene.fog as THREE.Fog | null;
     if (fog) {
@@ -113,30 +124,44 @@ export default function TimeOfDay({
     if (hemi.current) {
       const hn = lerp(LIGHT.hemi.startIntensity, LIGHT.hemi.endIntensity, k);
       hemi.current.intensity = lerp(hn, DAY_LIGHT.hemi, dl) * dim;
-      hemi.current.color.copy(hemiNightSky).lerp(hemiDaySky, dl);
-      hemi.current.groundColor.copy(hemiNightGround).lerp(hemiDayGround, dl);
+      hemi.current.color
+        .copy(hemiNightSky)
+        .lerp(hemiDaySky, dl)
+        .lerp(duskHemiSky, twi * 0.6);
+      hemi.current.groundColor
+        .copy(hemiNightGround)
+        .lerp(hemiDayGround, dl)
+        .lerp(duskHemiGround, twi * 0.6);
     }
     // satu cahaya terarah: matahari kalau lebih tinggi dari bulan, kalau tidak bulan
     const m = moon.current;
     if (m) {
       const useSun = dayState.sun.y > dayState.moon.y;
       const d = useSun ? dayState.sun : dayState.moon;
+      // matahari memudar tepat di cakrawala, dan lebih lemah saat rendah (sore keemasan, bukan silau)
+      const e = dayState.sun.y;
       const sunI =
-        DAY_LIGHT.sunIntensity * smoothstep(-0.02, 0.22, dayState.sun.y);
+        DAY_LIGHT.sunIntensity *
+        smoothstep(-0.04, 0.05, e) *
+        lerp(DAY_LIGHT.sunLowFactor, 1, smoothstep(0.0, 0.4, e));
       const moonI =
         lerp(LIGHT.moon.startIntensity, LIGHT.moon.endIntensity, k) *
         smoothstep(-0.02, 0.22, dayState.moon.y) *
         (1 - dl);
       m.intensity = (useSun ? sunI : moonI) * dim;
       if (useSun) {
-        m.color
-          .copy(sunWarm)
-          .lerp(sunCol, smoothstep(0.1, 0.5, dayState.sun.y));
+        // warna mengikuti ketinggian lewat daftar titik warna
+        let i = 0;
+        while (i < sunStops.length - 1 && e > sunStops[i + 1].e) i++;
+        const a = sunStops[i];
+        const b = sunStops[Math.min(i + 1, sunStops.length - 1)];
+        const u = b.e > a.e ? smoothstep(a.e, b.e, e) : 1;
+        m.color.copy(a.c).lerp(b.c, u);
       } else {
         m.color.copy(moonCol);
       }
-      // dijaga agar tidak terlalu rendah (0.13): sore tetap punya bayangan panjang, tapi tidak lewat dari kotak bayangan
-      const dy = Math.max(d.y, 0.13);
+      // dijaga agar tidak terlalu rendah (0.09): sore tetap punya bayangan panjang, tapi tidak lewat dari kotak bayangan
+      const dy = Math.max(d.y, 0.09);
       const dir = tmp.dir.set(d.x, dy, d.z).normalize();
 
       // pusat bayangan = titik di depan kamera (bukan terkunci di rumah)
@@ -157,6 +182,13 @@ export default function TimeOfDay({
         .addScaledVector(tmp.right, Math.round(pa / texel) * texel - pa)
         .addScaledVector(tmp.up, Math.round(pb / texel) * texel - pb);
 
+      // Bayangan menyesuaikan sudut cahaya: makin rendah matahari/bulan, bias naik (anti bintik di atap miring),
+      // tepi makin lembut, dan bayangan sedikit lebih tipis karena cahaya langit lebih dominan.
+      const low = 1 - smoothstep(0.1, 0.55, d.y);
+      m.shadow.normalBias = texel * lerp(1.3, 3.2, low);
+      m.shadow.radius = (quality === "high" ? 2.2 : 1.5) * lerp(1, 1.8, low);
+      m.shadow.intensity = useSun ? lerp(0.92, 0.7, low) : 0.8;
+
       m.target.position.copy(tmp.p);
       m.target.updateMatrixWorld();
       m.position.copy(tmp.p).addScaledVector(dir, 180);
@@ -165,8 +197,32 @@ export default function TimeOfDay({
       // biaya per frame jadi rata. Matriks bayangan ikut diperbarui bersamaan dengan petanya,
       // jadi bayangan tidak bergeser-geser di antara dua pembaruan.
       tmp.n += 1;
-      if (tmp.n % (quality === "high" && !mobile ? 2 : 3) === 0) {
+      // selagi ada naga di dekat kotak bayangan: gambar ulang tiap frame supaya bayangannya semulus badannya
+      setShadowFocus(
+        tmp.p.x,
+        tmp.p.z,
+        SHADOW_HALF * 1.42,
+        -dir.x / dir.y,
+        -dir.z / dir.y,
+      );
+      const nearDragon = shadowActorNear();
+      // Kamera diam dan tidak ada naga di dekat: peta bayangan cukup digambar ulang 10 kali per detik
+      // (untuk kucing dan siklus hari), bukan tiap 2 frame. Frame berat selang-seling pun hilang.
+      // Kamera bergerak: tetap tiap 2-3 frame seperti sebelumnya.
+      const now = performance.now();
+      const moved =
+        tmp.p.distanceToSquared(tmp.drawP) > 1e-4 ||
+        tmp.dir.distanceToSquared(tmp.drawDir) > 4e-6;
+      const every = quality === "high" && !mobile ? 2 : 3;
+      if (
+        (nearDragon && (every === 2 || tmp.n % 2 === 0)) ||
+        (moved && tmp.n % every === 0) ||
+        (!moved && now - tmp.drawT > 100)
+      ) {
         gl.shadowMap.needsUpdate = true;
+        tmp.drawP.copy(tmp.p);
+        tmp.drawDir.copy(tmp.dir);
+        tmp.drawT = now;
       }
       tmp.last.copy(tmp.p);
       tmp.lastDir.copy(tmp.dir);

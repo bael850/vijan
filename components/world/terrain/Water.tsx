@@ -9,6 +9,7 @@ import { LIGHT } from "../config/light";
 import { PALETTE } from "../core/palette";
 import { dayState, tickDay } from "../core/dayCycle";
 import { groundHeight } from "./heightmap";
+import { lakeShorePoint } from "./lakeShape";
 
 // warna pantulan langit siang (dipadukan dengan malam lewat dayState.daylight)
 const DAY_SKY = new THREE.Color("#5aa0e0");
@@ -19,21 +20,21 @@ const SUN_GLOW = new THREE.Color("#ffe3a0");
 // Angka air. Ubah di sini kalau terlalu tenang / terlalu ganas / terlalu terang.
 const WATER = {
   chop: 1.0, // kekuatan gelombang (0 = kaca, 1.5 = berombak)
+  swell: 1.0, // tinggi gelombang besar yang benar-benar menaikturunkan permukaan (0 = rata)
+  shoreWaves: 1.0, // kekuatan ombak yang datang ke pantai (0 = tidak ada)
+  gust: 1.0, // kekuatan bercak riak ditiup angin dan buih putih kecil (0 = tidak ada)
   glitter: 1.0, // kilau bulan dan bintang di permukaan
   foam: 1.0, // busa di tepian
   bright: 1.0, // pengali terang seluruh air
   encode: true, // true = warna air dikonversi seperti benda lain (tone mapping + sRGB), supaya cocok dengan tanah dan kabut. Kalau air terasa terlalu pucat/terang, coba false.
-  maxDepth: 8, // kedalaman (m) yang dikodekan di tekstur
+  maxDepth: 16, // kedalaman (m) yang dikodekan di tekstur (disimpan akar kuadratnya, jadi tepian tetap halus)
   texW: 256, // resolusi peta kedalaman
 };
 
 // Titik di garis pantai terdekat dari sebuah sumber cahaya di darat. Pantulannya mulai dari sini
 // dan memanjang ke arah kamera.
 function shoreAnchor(lx: number, lz: number): [number, number] {
-  const vx = (lx - LAKE.x) / LAKE.rx;
-  const vz = (lz - LAKE.z) / LAKE.rz;
-  const l = Math.hypot(vx, vz) || 1;
-  return [LAKE.x + (vx / l) * LAKE.rx, LAKE.z + (vz / l) * LAKE.rz];
+  return lakeShorePoint(lx - LAKE.x, lz - LAKE.z);
 }
 
 // Pantulan lampu di air: [x, z di tepi danau, panjang (m), kekuatan, warna].
@@ -55,9 +56,34 @@ const REFLECTIONS: {
 ];
 
 const VERT = /* glsl */ `
+  uniform float uTime;
+  uniform float uChop;
+  uniform float uSwell;
+  uniform sampler2D uDepth;
+  uniform vec4 uBox;
+  uniform float uMaxDepth;
   varying vec3 vWorld;
+
+  // tinggi satu gelombang (kemiringan x panjang gelombang / 2pi), sama dengan yang dipakai di fragment
+  float swell(vec2 p, vec2 d, float lam, float slope) {
+    float k = 6.2831853 / lam;
+    float w = sqrt(9.8 * k);
+    return slope * lam / 6.2831853 * sin(dot(d, p) * k - uTime * w);
+  }
+
   void main() {
     vec4 w = modelMatrix * vec4(position, 1.0);
+    vec2 uv = vec2((w.x - uBox.x) / (uBox.z - uBox.x),
+                   (w.z - uBox.y) / (uBox.w - uBox.y));
+    float dq = texture2D(uDepth, uv).r;
+    float depth = dq * dq * uMaxDepth;
+    // di tepian airnya tenang, makin ke tengah makin tinggi; dari jauh diratakan
+    float amp = smoothstep(0.05, 1.8, depth);
+    float far = 1.0 - smoothstep(200.0, 380.0, length(cameraPosition - w.xyz));
+    float h = swell(w.xz, vec2(0.96, 0.28), 22.0, 0.050)
+            + swell(w.xz, vec2(0.74, -0.67), 13.0, 0.045)
+            + swell(w.xz, vec2(0.28, 0.96), 7.5, 0.040);
+    w.y += h * uChop * uSwell * amp * far;
     vWorld = w.xyz;
     gl_Position = projectionMatrix * viewMatrix * w;
   }
@@ -89,6 +115,10 @@ const FRAG = /* glsl */ `
   uniform float uTwi;
   uniform vec2 uSunXZ;
   uniform float uLampK;
+  uniform float uDay;
+  uniform float uShoreWaves;
+  uniform float uGust;
+  uniform vec2 uTexel;
   uniform vec4 uRefl[3];
   uniform vec3 uReflCol[3];
   varying vec3 vWorld;
@@ -115,7 +145,12 @@ const FRAG = /* glsl */ `
     return d * (slope * fade) * cos(dot(d, p) * k - uTime * w);
   }
 
-  vec3 waterNormal(vec2 p, float dist) {
+  // gerombolan angin: bercak air yang beriak, di antaranya air lebih licin. Bergeser pelan.
+  float gustMask(vec2 p) {
+    return smoothstep(0.36, 0.70, vnoise(p * 0.016 + vec2(uTime * 0.03, -uTime * 0.02)));
+  }
+
+  vec3 waterNormal(vec2 p, float dist, float sd, vec2 inward, float gust) {
     vec2 g = vec2(0.0);
     g += wave(p, vec2(0.96, 0.28), 22.0, 0.050, dist);
     g += wave(p, vec2(0.74, -0.67), 13.0, 0.045, dist);
@@ -123,19 +158,29 @@ const FRAG = /* glsl */ `
     g += wave(p, vec2(-0.55, 0.83), 4.2, 0.030, dist);
     g += wave(p, vec2(0.87, -0.50), 2.3, 0.022, dist);
     g *= uChop;
-    // riak halus yang bergeser pelan ke dua arah
+    // ombak yang datang ke pantai: barisan sejajar garis pantai, makin dekat makin jelas, tidak rata di sepanjang pantai
+    float shoreAmp = smoothstep(95.0, 16.0, sd) * smoothstep(0.0, 5.0, sd)
+                   * (1.0 - smoothstep(70.0, 200.0, dist));
+    if (shoreAmp > 0.0) {
+      float ph = sd * 0.58 + uTime * 1.25 + vnoise(p * 0.05) * 2.0;
+      float vary = 0.55 + 0.45 * vnoise(p * 0.035 + vec2(0.0, uTime * 0.04));
+      g += inward * cos(ph) * 0.075 * shoreAmp * vary * uShoreWaves * uChop;
+      g += inward * cos(ph * 2.3 + 1.7) * 0.025 * shoreAmp * vary * uShoreWaves * uChop;
+    }
+    // riak halus yang bergeser pelan ke dua arah; di bercak angin jauh lebih jelas
+    float gk = 0.55 + 1.15 * gust * uGust;
     float e = 0.35;
-    if (dist < 70.0) {
+    if (dist < 90.0) {
       vec2 q = p * 1.7 + vec2(uTime * 0.15, -uTime * 0.10);
       float n0 = vnoise(q);
       g += vec2(vnoise(q + vec2(e, 0.0)) - n0, vnoise(q + vec2(0.0, e)) - n0) / e
-           * 0.055 * uChop * (1.0 - smoothstep(10.0, 70.0, dist));
+           * 0.075 * gk * uChop * (1.0 - smoothstep(14.0, 90.0, dist));
     }
-    if (dist < 36.0) {
+    if (dist < 46.0) {
       vec2 q2 = p * 4.6 + vec2(-uTime * 0.09, uTime * 0.13);
       float m0 = vnoise(q2);
       g += vec2(vnoise(q2 + vec2(e, 0.0)) - m0, vnoise(q2 + vec2(0.0, e)) - m0) / e
-           * 0.03 * uChop * (1.0 - smoothstep(6.0, 36.0, dist));
+           * 0.045 * gk * uChop * (1.0 - smoothstep(8.0, 46.0, dist));
     }
     return normalize(vec3(-g.x, 1.0, -g.y));
   }
@@ -165,21 +210,42 @@ const FRAG = /* glsl */ `
     vec2 uv = vec2((vWorld.x - uBox.x) / (uBox.z - uBox.x),
                    (vWorld.z - uBox.y) / (uBox.w - uBox.y));
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
-    float depth = texture2D(uDepth, uv).r * uMaxDepth;
+    vec4 dt = texture2D(uDepth, uv);
+    float depth = dt.r * dt.r * uMaxDepth;
+    float sd = dt.g * 150.0; // jarak ke garis pantai (m)
+    // arah dari pantai ke tengah danau, dari selisih peta jarak
+    vec2 tx2 = uTexel * 2.0;
+    vec2 inward = vec2(
+      texture2D(uDepth, uv + vec2(tx2.x, 0.0)).g - texture2D(uDepth, uv - vec2(tx2.x, 0.0)).g,
+      texture2D(uDepth, uv + vec2(0.0, tx2.y)).g - texture2D(uDepth, uv - vec2(0.0, tx2.y)).g);
+    inward = inward / max(length(inward), 1e-4);
 
     vec3 toCam = cameraPosition - vWorld;
     float dist = length(toCam);
     vec3 V = toCam / dist;
-    vec3 N = waterNormal(vWorld.xz, dist);
+    float gust = gustMask(vWorld.xz);
+    vec3 N = waterNormal(vWorld.xz, dist, sd, inward, gust);
     // dari jauh normal makin datar supaya tidak berkilau-kilau (aliasing)
     N = normalize(mix(N, vec3(0.0, 1.0, 0.0), smoothstep(90.0, 260.0, dist)));
 
     vec3 R = reflect(-V, N);
     R.y = abs(R.y);
 
-    // warna badan air menurut kedalaman: dangkal toska terang, dalam biru pekat
-    vec3 body = mix(uMid * 1.25, uDeep, smoothstep(0.0, 3.2, depth));
+    // warna badan air menurut kedalaman: dangkal toska bening (dasar terlihat), lalu biru, lalu hampir
+    // gelap di palung. Makin dalam makin sedikit cahaya yang kembali, seperti air sungguhan.
+    vec3 shallowCol = uMid * 1.35 + vec3(0.04, 0.11, 0.07);
+    vec3 midCol = uMid * 0.82;
+    vec3 body = mix(shallowCol, midCol, smoothstep(0.0, 2.4, depth));
+    body = mix(body, uDeep, smoothstep(1.8, 7.0, depth));
+    body = mix(body, uDeep * 0.38, smoothstep(6.0, 14.0, depth));
     body += uMid * 0.10 * (N.y - 0.9) * 4.0;
+    // jaring cahaya di dasar dangkal (kaustik), bergeser pelan; hilang di air yang dalam
+    if (depth < 3.2) {
+      vec2 cp = vWorld.xz * 0.55;
+      float c1 = abs(vnoise(cp + vec2(uTime * 0.11, uTime * 0.07)) - vnoise(cp * 1.3 - vec2(uTime * 0.09, -uTime * 0.12)));
+      float web = smoothstep(0.16, 0.0, c1);
+      body += vec3(0.55, 0.75, 0.6) * web * 0.30 * exp(-depth * 1.1) * uDay * (1.0 - smoothstep(60.0, 140.0, dist));
+    }
 
     // pantulan: langit + bulan + bintang besar (pecah oleh gelombang jadi serpihan)
     vec3 refl = skyColor(R);
@@ -226,7 +292,12 @@ const FRAG = /* glsl */ `
       foam = edge * smoothstep(0.35, 0.95, lap) * (0.35 + 0.65 * nz);
       foam += (1.0 - smoothstep(0.0, 0.14, depth)) * (0.55 + 0.45 * nz);
     }
-    foam = clamp(foam * uFoam, 0.0, 1.0);
+    // buih putih kecil di puncak riak, hanya di bercak angin dan dekat kamera
+    float slopeMag = length(N.xz);
+    float cap = gust * uGust * smoothstep(0.12, 0.26, slopeMag)
+              * smoothstep(0.62, 0.88, vnoise(vWorld.xz * 0.9 + vec2(uTime * 0.25, uTime * 0.1)))
+              * (1.0 - smoothstep(50.0, 150.0, dist));
+    foam = clamp(foam * uFoam + cap * 0.7, 0.0, 1.0);
     col = mix(col, vec3(0.80, 0.90, 0.88), foam * 0.55);
 
     col *= uBright;
@@ -234,7 +305,9 @@ const FRAG = /* glsl */ `
     float fogF = smoothstep(uFog.x, uFog.y, dist) * 0.85;
     col = mix(col, uFogColor, fogF);
 
-    float alpha = max(smoothstep(0.0, 0.2, depth), foam * 0.75) * 0.96;
+    // dangkal agak bening supaya dasar pasir tampak; makin dalam makin pekat
+    float shallowA = mix(0.42, 0.97, smoothstep(0.15, 2.4, depth));
+    float alpha = max(smoothstep(0.0, 0.08, depth) * shallowA, foam * 0.75);
     gl_FragColor = vec4(col, alpha);
     ${WATER.encode ? "#include <tonemapping_fragment>\r\n    #include <colorspace_fragment>" : ""}
   }
@@ -250,22 +323,55 @@ function useDepthMap() {
     const z1 = LAKE.z + LAKE.rz * m;
     const w = WATER.texW;
     const h = Math.round((w * (z1 - z0)) / (x1 - x0));
-    const data = new Uint8Array(w * h);
+    const cell = (x1 - x0) / w; // meter per texel
+    const data = new Uint8Array(w * h * 2);
+    const dm = new Float32Array(w * h); // kedalaman (m)
+    // jarak ke garis pantai (m): dua sapuan (maju lalu mundur) menyebar dari tanah ke air
+    const sd = new Float32Array(w * h);
     for (let j = 0; j < h; j++) {
       const z = z0 + ((j + 0.5) / h) * (z1 - z0);
       for (let i = 0; i < w; i++) {
         const x = x0 + ((i + 0.5) / w) * (x1 - x0);
         const d = WATER_Y - groundHeight(x, z);
-        data[j * w + i] = Math.round(
-          Math.min(1, Math.max(0, d / WATER.maxDepth)) * 255,
+        dm[j * w + i] = d;
+        sd[j * w + i] = d > 0.02 ? 1e9 : 0;
+      }
+    }
+    const at = (i: number, j: number) =>
+      i < 0 || j < 0 || i >= w || j >= h ? 1e9 : sd[j * w + i];
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++) {
+        const k = j * w + i;
+        sd[k] = Math.min(
+          sd[k],
+          at(i - 1, j) + 1,
+          at(i, j - 1) + 1,
+          at(i - 1, j - 1) + 1.414,
+          at(i + 1, j - 1) + 1.414,
         );
       }
+    for (let j = h - 1; j >= 0; j--)
+      for (let i = w - 1; i >= 0; i--) {
+        const k = j * w + i;
+        sd[k] = Math.min(
+          sd[k],
+          at(i + 1, j) + 1,
+          at(i, j + 1) + 1,
+          at(i + 1, j + 1) + 1.414,
+          at(i - 1, j + 1) + 1.414,
+        );
+      }
+    for (let k = 0; k < w * h; k++) {
+      data[k * 2] = Math.round(
+        Math.sqrt(Math.min(1, Math.max(0, dm[k] / WATER.maxDepth))) * 255,
+      );
+      data[k * 2 + 1] = Math.round(Math.min(1, (sd[k] * cell) / 150) * 255);
     }
     const tex = new THREE.DataTexture(
       data,
       w,
       h,
-      THREE.RedFormat,
+      THREE.RGFormat,
       THREE.UnsignedByteType,
     );
     tex.minFilter = THREE.LinearFilter;
@@ -275,13 +381,17 @@ function useDepthMap() {
     tex.generateMipmaps = false;
     tex.unpackAlignment = 1;
     tex.needsUpdate = true;
-    return { tex, box: new THREE.Vector4(x0, z0, x1, z1) };
+    return {
+      tex,
+      box: new THREE.Vector4(x0, z0, x1, z1),
+      texel: new THREE.Vector2(1 / w, 1 / h),
+    };
   }, []);
 }
 
 export default function Water() {
   const mat = useRef<THREE.ShaderMaterial>(null);
-  const { tex, box } = useDepthMap();
+  const { tex, box, texel } = useDepthMap();
   const uniforms = useMemo(() => {
     const moon = new THREE.Vector3(...LIGHT.moon.position).normalize();
     return {
@@ -308,6 +418,11 @@ export default function Water() {
       uTwi: { value: 0 },
       uSunXZ: { value: new THREE.Vector2(0, -1) },
       uLampK: { value: 0 },
+      uDay: { value: 1 },
+      uSwell: { value: WATER.swell },
+      uShoreWaves: { value: WATER.shoreWaves },
+      uGust: { value: WATER.gust },
+      uTexel: { value: texel },
       uRefl: {
         value: REFLECTIONS.map(
           (r) => new THREE.Vector4(r.at[0], r.at[1], r.len, r.k),
@@ -315,7 +430,7 @@ export default function Water() {
       },
       uReflCol: { value: REFLECTIONS.map((r) => new THREE.Color(r.color)) },
     };
-  }, [tex, box]);
+  }, [tex, box, texel]);
 
   useFrame((state, dt) => {
     const m = mat.current;
@@ -333,6 +448,7 @@ export default function Water() {
     u.uTwi.value = dayState.twilight;
     u.uSunXZ.value.set(dayState.sun.x, dayState.sun.z).normalize();
     u.uLampK.value = dayState.lamps;
+    u.uDay.value = dayState.daylight;
     // kilau matahari di siang jauh lebih kuat daripada kilau bulan
     u.uGlitter.value = WATER.glitter * (1 + 1.2 * dl);
     u.uMoon.value.copy(
@@ -352,7 +468,14 @@ export default function Water() {
       position={[(box.x + box.z) / 2, WATER_Y, (box.y + box.w) / 2]}
       renderOrder={1}
     >
-      <planeGeometry args={[box.z - box.x, box.w - box.y]} />
+      <planeGeometry
+        args={[
+          box.z - box.x,
+          box.w - box.y,
+          160,
+          Math.round((160 * (box.w - box.y)) / (box.z - box.x)),
+        ]}
+      />
       <shaderMaterial
         ref={mat}
         vertexShader={VERT}

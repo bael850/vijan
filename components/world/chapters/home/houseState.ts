@@ -1,24 +1,23 @@
-import { TOUR } from "../../config/home";
-import { KNOT_U } from "./houseTour";
+import { newInput, newWalk, type Walk, type WalkInput } from "./houseWalk";
 
 export type HouseMode = "out" | "porch" | "in";
-export type HouseState = { mode: HouseMode; tour: number; snap: boolean };
+// auto = lampu mengikuti siklus siang-malam, on = dipaksa nyala, off = dipaksa mati
+export type LampMode = "auto" | "on" | "off";
+export type HouseState = {
+  mode: HouseMode;
+  snap: boolean;
+  scope: boolean; // sedang mengintip lewat teleskop balkon
+  walk: Walk; // posisi dan arah pandang pengunjung di dalam rumah
+  move: WalkInput; // masukan jalan (tombol, roda mouse, joystick)
+  lamps: LampMode; // pilihan pengunjung untuk lampu dalam rumah
+  lamp: number; // tingkat nyala lampu sekarang, 0..1 (sudah dihaluskan, dibaca lampu dan piringan plafon)
+};
 export const newHouse = (): HouseState => ({
   mode: "out",
-  tour: 0,
   snap: false,
+  scope: false,
+  walk: newWalk(),
+  move: newInput(),
+  lamps: "auto",
+  lamp: 0,
 });
-// Posisi tiap perhentian di kurva tur (titik "via" dilewati, hanya jadi jalur kamera).
-export const STOP_T = TOUR.stops
-  .map((s, i) => ({ s, i }))
-  .filter(({ s, i }) => i > 0 && !s.via)
-  .map(({ i }) => KNOT_U[i]);
-// Indeks perhentian terdekat dari posisi tur t (-1 = belum sampai perhentian pertama).
-export function nearestStop(t: number) {
-  if (t < STOP_T[0] / 2) return -1;
-  let best = 0;
-  STOP_T.forEach((v, i) => {
-    if (Math.abs(v - t) < Math.abs(STOP_T[best] - t)) best = i;
-  });
-  return best;
-}

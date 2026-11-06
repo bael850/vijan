@@ -155,63 +155,71 @@ export const SKY_FRAG = /* glsl */ `
 
     float sky = smoothstep(0.03, 0.28, e);
 
-    // dua pusaran lebar, diam (tanpa denyut), cukup untuk melengkungkan goresan
-    vec3 sd = dir;
-    sd = swirl(sd, normalize(vec3(0.20, 0.50, -0.84)), 0.75, 3.2);
-    sd = swirl(sd, normalize(vec3(0.85, 0.40, -0.35)), 0.55, -2.4);
+    // m dipakai awan siang (mulai dari e > 0.05) dan goresan malam (mulai dari e > 0.03): di bawah itu tidak berpengaruh.
+    float m = 0.0;
+    if (e > 0.03) {
+      // dua pusaran lebar, diam (tanpa denyut), cukup untuk melengkungkan goresan
+      vec3 sd = dir;
+      sd = swirl(sd, normalize(vec3(0.20, 0.50, -0.84)), 0.75, 3.2);
+      sd = swirl(sd, normalize(vec3(0.85, 0.40, -0.35)), 0.55, -2.4);
 
-    // goresan kuas: garis kontur lebar dari noise yang dilengkungkan, sangat lambat hanyutnya
-    vec3 p = sd * 2.2 + vec3(0.0, uTime * 0.004, 0.0);
-    vec3 wp = p + 0.6 * vec3(fbm(p), fbm(p + vec3(5.2, 1.3, 2.8)), fbm(p + vec3(9.1, 4.7, 1.1)));
-    float f = fbm(wp * 1.1);
-    float m = 0.5 + 0.5 * sin(f * 13.0);
-    m = smoothstep(0.15, 0.85, m);
+      // goresan kuas: garis kontur lebar dari noise yang dilengkungkan, sangat lambat hanyutnya
+      vec3 p = sd * 2.2 + vec3(0.0, uTime * 0.004, 0.0);
+      vec3 wp = p + 0.6 * vec3(fbm(p), fbm(p + vec3(5.2, 1.3, 2.8)), fbm(p + vec3(9.1, 4.7, 1.1)));
+      float f = fbm(wp * 1.1);
+      m = 0.5 + 0.5 * sin(f * 13.0);
+      m = smoothstep(0.15, 0.85, m);
 
-    vec3 cobalt = uBlue * 1.15;
-    vec3 crest = mix(uBlue, vec3(0.62, 0.80, 0.95), 0.55);   // biru pucat, bukan putih
-    vec3 stroke = mix(uDeep * 0.7, cobalt, smoothstep(0.1, 0.7, m));
-    stroke = mix(stroke, crest, smoothstep(0.78, 1.0, m) * 0.45);
-    // makin ke puncak makin gelap dan pekat, memberi kedalaman
-    stroke *= mix(1.0, 0.62, smoothstep(0.25, 1.0, e));
-    col = mix(col, stroke, sky * 0.9);
-
-    // bintang kecil: sedikit dan halus
-    float fade = smoothstep(0.1, 0.42, e);
-    vec3 starCol = mix(vec3(1.0, 0.93, 0.78), uGlow, 0.5);
-    float st = starLayer(dir, 55.0, 0.07, 1.0, 0.0) * 0.6
-             + starLayer(dir + 3.7, 17.0, 0.06, 1.0, 0.2) * 0.8;
-    col += starCol * st * fade * uStars * night * night;
-
-    // bintang besar: inti emas + cincin cahaya lembut yang diam, napasnya sangat pelan
-    for (int i = 0; i < 9; i++) {
-      vec3 P = bigStarPos(i);
-      float fi = float(i);
-      float rad = 0.045 + 0.03 * h21(vec2(fi, 3.0));
-      float ph = fi * 1.9;
-      float s = length(dir - P);
-      float core = exp(-s * s / (rad * rad * 0.03));
-      float halo = exp(-s * s / (rad * rad) * 1.2);
-      float rings = 0.55 + 0.45 * cos(s / rad * 9.0 + ph);
-      float breathe = 0.94 + 0.06 * sin(uTime * 0.35 + ph);
-      vec3 gold = vec3(1.0, 0.86, 0.50);
-      col += (gold * core * 1.2 + mix(uGlow, vec3(0.75, 0.88, 1.0), 0.35) * rings * halo * 0.30) * breathe * fade * uStars * night * night;
+      vec3 cobalt = uBlue * 1.15;
+      vec3 crest = mix(uBlue, vec3(0.62, 0.80, 0.95), 0.55);   // biru pucat, bukan putih
+      vec3 stroke = mix(uDeep * 0.7, cobalt, smoothstep(0.1, 0.7, m));
+      stroke = mix(stroke, crest, smoothstep(0.78, 1.0, m) * 0.45);
+      // makin ke puncak makin gelap dan pekat, memberi kedalaman
+      stroke *= mix(1.0, 0.62, smoothstep(0.25, 1.0, e));
+      col = mix(col, stroke, sky * 0.9);
     }
 
-    // bulan sabit emas + lingkaran cahaya yang diam
-    vec3 M = normalize(uMoon);
-    vec3 moonAcc = vec3(0.0);
-    vec3 M2 = normalize(M + vec3(0.03, 0.018, 0.0));
-    float disc = smoothstep(0.9980, 0.9988, dot(dir, M));
-    float cut = smoothstep(0.9980, 0.9988, dot(dir, M2));
-    moonAcc += uGlow * 1.25 * clamp(disc - cut, 0.0, 1.0);
-    moonAcc += uGlow * pow(max(dot(dir, M), 0.0), 60.0) * 0.12;
-    float md = length(dir - M);
-    float mrings = 0.55 + 0.45 * cos(md * 55.0);
-    float menv = exp(-md * md * 40.0);
-    moonAcc += uGlow * vec3(1.0, 0.78, 0.40) * mrings * menv * 0.22;
-    col += moonAcc * night;
+    // bagian malam (bintang, bulan, aurora): siang hari tidak terlihat sama sekali, jadi dilewati.
+    // Percabangan lewat uniform, aman untuk kartu grafis.
+    if (night > 0.004) {
+      // bintang kecil: sedikit dan halus
+      float fade = smoothstep(0.1, 0.42, e);
+      vec3 starCol = mix(vec3(1.0, 0.93, 0.78), uGlow, 0.5);
+      float st = starLayer(dir, 55.0, 0.07, 1.0, 0.0) * 0.6
+               + starLayer(dir + 3.7, 17.0, 0.06, 1.0, 0.2) * 0.8;
+      col += starCol * st * fade * uStars * night * night;
 
-    col += aurora(dir) * night * night;
+      // bintang besar: inti emas + cincin cahaya lembut yang diam, napasnya sangat pelan
+      for (int i = 0; i < 9; i++) {
+        vec3 P = bigStarPos(i);
+        float fi = float(i);
+        float rad = 0.045 + 0.03 * h21(vec2(fi, 3.0));
+        float ph = fi * 1.9;
+        float s = length(dir - P);
+        float core = exp(-s * s / (rad * rad * 0.03));
+        float halo = exp(-s * s / (rad * rad) * 1.2);
+        float rings = 0.55 + 0.45 * cos(s / rad * 9.0 + ph);
+        float breathe = 0.94 + 0.06 * sin(uTime * 0.35 + ph);
+        vec3 gold = vec3(1.0, 0.86, 0.50);
+        col += (gold * core * 1.2 + mix(uGlow, vec3(0.75, 0.88, 1.0), 0.35) * rings * halo * 0.30) * breathe * fade * uStars * night * night;
+      }
+
+      // bulan sabit emas + lingkaran cahaya yang diam
+      vec3 M = normalize(uMoon);
+      vec3 moonAcc = vec3(0.0);
+      vec3 M2 = normalize(M + vec3(0.03, 0.018, 0.0));
+      float disc = smoothstep(0.9980, 0.9988, dot(dir, M));
+      float cut = smoothstep(0.9980, 0.9988, dot(dir, M2));
+      moonAcc += uGlow * 1.25 * clamp(disc - cut, 0.0, 1.0);
+      moonAcc += uGlow * pow(max(dot(dir, M), 0.0), 60.0) * 0.12;
+      float md = length(dir - M);
+      float mrings = 0.55 + 0.45 * cos(md * 55.0);
+      float menv = exp(-md * md * 40.0);
+      moonAcc += uGlow * vec3(1.0, 0.78, 0.40) * mrings * menv * 0.22;
+      col += moonAcc * night;
+
+      col += aurora(dir) * night * night;
+    }
 
     // cakrawala bercahaya hangat tipis, di bawah cakrawala jadi gelap
     col += uGlow * 0.07 * exp(-abs(e) * 9.0);

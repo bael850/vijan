@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { WATER_Y } from "../config/world";
+import { groundHeight } from "../terrain/heightmap";
 import { BOAT, PIER } from "./pierLayout";
 
 const PLANK_W = 0.42;
@@ -36,19 +37,19 @@ export default function Pier() {
         </mesh>
       ))}
       {Array.from({ length: Math.floor(length / 3) + 1 }, (_, i) =>
-        [-1, 1].map((side) => (
-          <mesh
-            key={`${i}-${side}`}
-            position={[
-              PIER.x0 + i * 3,
-              PIER.y - 0.6,
-              PIER.z + side * (PIER.width / 2 - 0.1),
-            ]}
-          >
-            <cylinderGeometry args={[0.1, 0.12, 2.2, 6]} />
-            <meshLambertMaterial color={WOOD_DARK} />
-          </mesh>
-        )),
+        [-1, 1].map((side) => {
+          // tiang menancap ke dasar, seberapa pun dalamnya: ujung bawah 0,4 m di bawah tanah
+          const x = PIER.x0 + i * 3;
+          const z = PIER.z + side * (PIER.width / 2 - 0.1);
+          const bottom = Math.min(groundHeight(x, z) - 0.4, PIER.y - 1.7);
+          const top = PIER.y + 0.5;
+          return (
+            <mesh key={`${i}-${side}`} position={[x, (top + bottom) / 2, z]}>
+              <cylinderGeometry args={[0.1, 0.12, top - bottom, 6]} />
+              <meshLambertMaterial color={WOOD_DARK} />
+            </mesh>
+          );
+        }),
       )}
 
       <group

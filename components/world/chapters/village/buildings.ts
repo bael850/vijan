@@ -29,6 +29,13 @@ function baseY(x: number, z: number, w: number, d: number, yaw: number) {
   return lo;
 }
 
+// Letak jendela di dunia (untuk halo dan lampu malam). Diisi ulang tiap buildBuildings.
+export const WINDOW_SPOTS: { x: number; y: number; z: number }[] = [];
+const spot = (m: THREE.Matrix4, x: number, y: number, z: number) => {
+  const v = new THREE.Vector3(x, y, z).applyMatrix4(m);
+  WINDOW_SPOTS.push({ x: v.x, y: v.y, z: v.z });
+};
+
 // Jendela depan: bingkai kayu + kaca yang menyala di malam hari.
 function windowFront(
   bag: Bag,
@@ -39,6 +46,7 @@ function windowFront(
 ) {
   add(bag, "wood", box(1.15, 1.15, 0.16, x, y, z), m);
   add(bag, "glass", box(0.9, 0.9, 0.2, x, y, z + 0.02), m);
+  spot(m, x, y, z + 0.9);
 }
 function windowSide(
   bag: Bag,
@@ -49,6 +57,7 @@ function windowSide(
 ) {
   add(bag, "wood", box(0.16, 1.15, 1.15, x, y, z), m);
   add(bag, "glass", box(0.2, 0.9, 0.9, x + 0.02, y, z), m);
+  spot(m, x + (x < 0 ? -0.9 : 0.9), y, z);
 }
 
 export function cottage(bag: Bag, c: Cottage) {
@@ -177,6 +186,7 @@ export function tavern(bag: Bag) {
 }
 
 export function buildBuildings(bag: Bag) {
+  WINDOW_SPOTS.length = 0;
   for (const c of COTTAGES) cottage(bag, c);
   tavern(bag);
 }

@@ -54,7 +54,7 @@ export default function LakeIntro({
               times: [0, 0.18, 0.7, 1],
               ease: "easeOut",
             }}
-            className={`absolute -translate-x-1/2 whitespace-nowrap font-display italic text-[#fff3e0] ${
+            className={`absolute -translate-x-1/2 whitespace-nowrap font-display italic text-[#f3ecd6] ${
               w.big ? "text-3xl sm:text-5xl md:text-6xl" : "text-xl sm:text-3xl"
             }`}
             style={{ left: `${w.x}%`, top: `${w.y}%`, textShadow: GLOW }}
@@ -75,12 +75,12 @@ export default function LakeIntro({
         className="absolute inset-x-0 top-[56%] px-6 text-center"
       >
         <p
-          className="font-display text-2xl italic text-[#fff3e0] sm:text-4xl"
+          className="font-display text-2xl italic text-[#f3ecd6] sm:text-4xl"
           style={{ textShadow: GLOW }}
         >
           {lake.introLine}
         </p>
-        <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[#ffe9a8]/85">
+        <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[#fbdc8a]/85">
           {lake.introSub}
         </p>
       </motion.div>

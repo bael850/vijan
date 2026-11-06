@@ -50,7 +50,7 @@ export function GlowSprite({
 export function GlowPlane({
   position,
   size,
-  color = "#ffb866",
+  color = "#f5c04a",
   base,
   on = true,
 }: {

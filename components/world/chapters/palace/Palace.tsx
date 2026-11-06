@@ -17,8 +17,12 @@ import {
   buildPalace,
   KEYS,
   newBag,
+  palaceLights,
   type Key,
 } from "./palaceGeometry";
+import { NIGHT_GLOW as NG } from "../../config/nightGlow";
+import { addSources, GlowPoints } from "../../core/lightPool";
+import ChunkedMesh from "../../core/ChunkedMesh";
 
 const SEG: Record<GraphicsQuality, number> = { low: 10, medium: 14, high: 20 };
 
@@ -35,6 +39,25 @@ export default function Palace({ quality }: { quality: GraphicsQuality }) {
     }
     return out;
   }, [quality]);
+
+  const lights = useMemo(palaceLights, []);
+  useEffect(
+    () =>
+      addSources([
+        ...lights.torches.map((p) => ({
+          ...p,
+          color: NG.torch.color,
+          power: NG.torch.power,
+          flicker: NG.torch.flicker,
+        })),
+        ...lights.windows.map((p) => ({
+          ...p,
+          color: NG.window.color,
+          power: NG.window.power,
+        })),
+      ]),
+    [lights],
+  );
 
   const banners = useMemo(() => {
     const g = mergeGeometries(buildBanners(), false);
@@ -115,7 +138,7 @@ export default function Palace({ quality }: { quality: GraphicsQuality }) {
     <group>
       {KEYS.map((k) =>
         geo[k] ? (
-          <mesh
+          <ChunkedMesh
             key={k}
             geometry={geo[k]!}
             material={mats[k]}
@@ -125,6 +148,18 @@ export default function Palace({ quality }: { quality: GraphicsQuality }) {
         ) : null,
       )}
       <mesh geometry={banners} material={bannerMat} frustumCulled={false} />
+      <GlowPoints
+        list={lights.torches}
+        color={NG.torch.color}
+        size={NG.torch.halo}
+        base={NG.torch.haloOpacity}
+      />
+      <GlowPoints
+        list={lights.windows}
+        color={NG.window.color}
+        size={NG.window.halo * 1.6}
+        base={NG.window.haloOpacity}
+      />
     </group>
   );
 }

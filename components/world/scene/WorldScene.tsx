@@ -17,6 +17,7 @@ import Boot from "./Boot";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 import Castle from "../chapters/castle/Castle";
 import City from "../chapters/city/City";
+import { LightPool } from "../core/lightPool";
 import Palace from "../chapters/palace/Palace";
 import Home from "../chapters/home/Home";
 import type { HouseState } from "../chapters/home/houseState";
@@ -36,6 +37,9 @@ import Water from "../terrain/Water";
 import CameraRig from "./CameraRig";
 import SoundDriver from "./SoundDriver";
 import TimeOfDay from "./TimeOfDay";
+import PerfStats from "./PerfStats";
+import { perfOff, perfOffList } from "./perfOff";
+import IndoorHide from "./IndoorHide";
 
 // Bagian yang belum terlihat di awal perjalanan dimuat belakangan, setelah layar
 // loading selesai: ikan dan kucing liar. Modulnya baru diambil saat komponennya dipasang.
@@ -43,6 +47,20 @@ const StrayCats = dynamic(() => import("../fauna/cat/StrayCats"), {
   ssr: false,
 });
 const Fish = dynamic(() => import("../lake/Fish"), { ssr: false });
+
+// Naga gunung: dimuat belakangan dan tidak menahan layar loading (modelnya 1 MB).
+const MountainDragon = dynamic(() => import("../fauna/dragon/MountainDragon"), {
+  ssr: false,
+});
+
+// Wyvern: penguasa langit, dimuat belakangan juga.
+const Wyvern = dynamic(() => import("../fauna/dragon/Wyvern"), { ssr: false });
+
+// Burung: kawanan yang menghiasi langit.
+const Birds = dynamic(() => import("../fauna/bird/Birds"), { ssr: false });
+
+// Pohon dari model GLB (maple, dst), digandakan dengan variasi ukuran dan warna.
+const Trees = dynamic(() => import("../flora/Trees"), { ssr: false });
 
 // Kalau sebuah model gagal dimuat (kucing, pohon), dunia tetap tampil tanpa model itu.
 class SafeBoundary extends Component<
@@ -121,7 +139,9 @@ function FrameDriver({
         }
       }
       prev = t;
-      if (paused.current) return;
+      // tab tersembunyi: browser biasanya sudah menghentikan rAF, tapi tidak semua (webview, jendela mini);
+      // jangan menggambar apa pun selagi halaman tidak terlihat
+      if (paused.current || document.hidden) return;
       n += 1;
       if (n % skip.current === 0) advance(t / 1000);
     };
@@ -186,6 +206,10 @@ export default function WorldScene({
   const tiers = useMemo(() => makeTiers(quality, mobile), [quality, mobile]);
   const [tier, setTier] = useState(0);
   const dpr = tiers[Math.min(tier, tiers.length - 1)];
+  // MSAA mahal di kartu grafis (isi piksel naik kira-kira 4x di tepi benda). Dipilih per tingkat kualitas:
+  // rendah mati; sedang dan tinggi hidup, kecuali layar sangat rapat (render sudah 2x atau lebih, tepi sudah halus).
+  // Ini atribut konteks yang hanya terbaca saat kanvas dibuat, jadi kanvas dibuat ulang kalau pilihannya berubah.
+  const msaa = quality !== "low" && tiers[0] < 2;
   const refresh = useRef(60);
   const skip = useRef(1);
 
@@ -203,20 +227,23 @@ export default function WorldScene({
 
   return (
     <Canvas
+      key={msaa ? "msaa" : "nomsaa"}
       dpr={dpr}
       camera={{ fov: CAMERA.fov, near: 0.1, far: 1600, position: [4, 12, 140] }}
       style={{ touchAction: "pan-y" }}
       gl={{
-        // MSAA selalu hidup, kecuali HP berlayar sangat rapat (sudah halus tanpa itu)
-        antialias: !(mobile && tiers[0] >= 2),
+        antialias: msaa,
         alpha: false,
         stencil: false,
         powerPreference: "high-performance",
       }}
-      shadows={quality !== "low"}
+      shadows={quality !== "low" && !perfOff("shadow")}
       frameloop="never"
     >
       <ShadowGovernor />
+      <PerfStats
+        info={`kualitas ${quality}  |  dpr ${dpr}${mobile ? "  |  mobile" : ""}  |  tier ${tier}  |  msaa ${msaa ? "ya" : "tidak"}${perfOffList().length ? `  |  OFF ${perfOffList().join(",")}` : ""}`}
+      />
       <FrameDriver
         run={active || !booted}
         paused={paused}
@@ -252,67 +279,145 @@ export default function WorldScene({
       <SoundDriver indoor={indoor} />
 
       {/* dunia dasar */}
-      <Sky />
-      <Ground quality={quality} />
-      <Water />
-      <Splash />
+      <group userData={{ cat: "langit" }}>{!perfOff("sky") && <Sky />}</group>
+      {!perfOff("lights") && <LightPool quality={quality} />}
+      <group userData={{ cat: "tanah" }}>
+        <Ground quality={quality} />
+      </group>
+      <group userData={{ cat: "air" }}>{!perfOff("water") && <Water />}</group>
+      <group userData={{ cat: "air" }}>
+        <Splash />
+      </group>
 
       {/* bab: danau (bab lain menyusul di chapters/) */}
-      <LakeMist quality={quality} reduceMotion={reduceMotion} />
-      <LakeWords wish={wish} focus={focus} reduceMotion={reduceMotion} />
-      <ShoreMarker progress={progress} shore={shore} onEnter={onEnterShore} />
-      <Pier />
+      <group userData={{ cat: "danau" }}>
+        <LakeMist quality={quality} reduceMotion={reduceMotion} />
+      </group>
+      <group userData={{ cat: "danau" }}>
+        <LakeWords wish={wish} focus={focus} reduceMotion={reduceMotion} />
+      </group>
+      <group userData={{ cat: "danau" }}>
+        <ShoreMarker progress={progress} shore={shore} onEnter={onEnterShore} />
+      </group>
+      <group userData={{ cat: "danau" }}>
+        <Pier />
+      </group>
 
-      {/* bab: desa luar */}
-      <Village quality={quality} />
+      <IndoorHide indoor={indoor} house={house}>
+        {/* bab: desa luar */}
+        <group userData={{ cat: "desa" }}>
+          <Village quality={quality} />
+        </group>
+      </IndoorHide>
 
-      {/* bab: kastil */}
-      <Castle quality={quality} />
+      {/* pohon */}
+      <SafeBoundary>
+        <Suspense fallback={null}>
+          <Trees quality={quality} />
+        </Suspense>
+      </SafeBoundary>
 
-      {/* bab: kota dalam kastil */}
-      <City quality={quality} />
+      <IndoorHide indoor={indoor} house={house}>
+        {/* bab: kastil */}
+        <group userData={{ cat: "kastil" }}>
+          <Castle quality={quality} />
+        </group>
 
-      {/* bab: istana */}
-      <Palace quality={quality} />
+        {/* bab: kota dalam kastil */}
+        <group userData={{ cat: "kota" }}>
+          <City quality={quality} />
+        </group>
+
+        {/* bab: istana */}
+        <group userData={{ cat: "istana" }}>
+          <Palace quality={quality} />
+        </group>
+      </IndoorHide>
 
       {/* bab: rumah kita */}
-      <Home
-        quality={quality}
-        reduceMotion={reduceMotion}
-        house={house}
-        indoor={indoor}
-        onEnter={onEnterHouse}
-        books={books}
-        onSpot={onSpot}
-        onTip={onTip}
-      />
+      <group userData={{ cat: "rumah" }}>
+        <Home
+          quality={quality}
+          reduceMotion={reduceMotion}
+          house={house}
+          indoor={indoor}
+          onEnter={onEnterHouse}
+          books={books}
+          onSpot={onSpot}
+          onTip={onTip}
+        />
+      </group>
 
-      {/* bab: Gerbang Waktu */}
+      <IndoorHide indoor={indoor} house={house}>
+        {/* bab: Gerbang Waktu */}
+        <SafeBoundary>
+          <Suspense fallback={null}>
+            <group userData={{ cat: "rune" }}>
+              <RuneCircle />
+            </group>
+          </Suspense>
+        </SafeBoundary>
+      </IndoorHide>
+
+      <SafeBoundary onSettle={markLate}>
+        <Suspense fallback={null}>
+          <Settled onSettle={markLate} />
+          <group userData={{ cat: "ikan" }}>
+            <Fish quality={quality} reduceMotion={reduceMotion} />
+          </group>
+        </Suspense>
+      </SafeBoundary>
+
       <SafeBoundary>
         <Suspense fallback={null}>
-          <RuneCircle />
+          <group userData={{ cat: "kucing" }}>
+            <Cat camDist={camDist} reduceMotion={reduceMotion} />
+          </group>
         </Suspense>
       </SafeBoundary>
 
       <SafeBoundary onSettle={markLate}>
         <Suspense fallback={null}>
-          <Settled onSettle={markLate} />
-          <Fish quality={quality} reduceMotion={reduceMotion} />
-        </Suspense>
-      </SafeBoundary>
-
-      <SafeBoundary>
-        <Suspense fallback={null}>
-          <Cat camDist={camDist} reduceMotion={reduceMotion} />
-        </Suspense>
-      </SafeBoundary>
-
-      <SafeBoundary onSettle={markLate}>
-        <Suspense fallback={null}>
-          <StrayCats quality={quality} reduceMotion={reduceMotion} />
+          <group userData={{ cat: "kucing" }}>
+            <StrayCats quality={quality} reduceMotion={reduceMotion} />
+          </group>
           <Settled onSettle={markLate} />
         </Suspense>
       </SafeBoundary>
+      {/* naga dan burung: tidak digambar selagi di dalam rumah */}
+      <IndoorHide indoor={indoor} house={house} creatures>
+        <SafeBoundary>
+          <Suspense fallback={null}>
+            <group userData={{ cat: "naga" }}>
+              <MountainDragon />
+            </group>
+          </Suspense>
+        </SafeBoundary>
+
+        <SafeBoundary>
+          <Suspense fallback={null}>
+            <group userData={{ cat: "wyvern" }}>
+              <Wyvern />
+            </group>
+          </Suspense>
+        </SafeBoundary>
+
+        <SafeBoundary>
+          <Suspense fallback={null}>
+            <group userData={{ cat: "wyvern" }}>
+              <Wyvern variant={1} />
+            </group>
+          </Suspense>
+        </SafeBoundary>
+
+        <SafeBoundary>
+          <Suspense fallback={null}>
+            <group userData={{ cat: "burung" }}>
+              <Birds />
+            </group>
+          </Suspense>
+        </SafeBoundary>
+      </IndoorHide>
     </Canvas>
   );
 }

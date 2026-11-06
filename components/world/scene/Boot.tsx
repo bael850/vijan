@@ -6,6 +6,7 @@ import { useProgress } from "@react-three/drei";
 import type * as THREE from "three";
 import { loader } from "@/content/world";
 import { loadStore } from "../loading/loadStore";
+import { setCreatureCull } from "../core/creatureCull";
 
 // Nama berkas -> nama yang enak dibaca di layar loading.
 function friendly(url: string): string {
@@ -249,6 +250,12 @@ export default function Boot({
       }
     }, 120);
   }, [assetsReady, gl, scene, camera, paused]);
+
+  // naga di luar pandangan baru boleh disembunyikan setelah shader dan tekstur semuanya terunggah
+  useEffect(() => {
+    setCreatureCull(phase === "tune" || phase === "live");
+    return () => setCreatureCull(false);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "live") return;

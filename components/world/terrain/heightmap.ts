@@ -7,15 +7,22 @@ import {
   HILL,
   HOUSE,
   LAKE,
+  LAKE_BED,
   MOUNTAINS,
+  MOUNTAIN_LOOK,
+  PADS,
   PALACE,
   RIM,
   WORLD,
 } from "../config/world";
+import { lakeScale } from "./lakeShape";
 
 // Jarak ke danau dalam satuan elips: <1 = di dalam danau, 1 = garis pantai.
+// Garis pantainya tidak elips sempurna: dibentuk oleh lakeScale (teluk, tanjung, gelombang).
 export function lakeDist(x: number, z: number) {
-  return Math.hypot((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz);
+  const ex = (x - LAKE.x) / LAKE.rx;
+  const ez = (z - LAKE.z) / LAKE.rz;
+  return Math.hypot(ex, ez) / lakeScale(Math.atan2(ez, ex));
 }
 
 // Jarak ke tembok kastil (m): <0 di dalam tembok, 0 tepat di tembok, >0 di luar.
@@ -37,8 +44,79 @@ function edgeDist(x: number, z: number) {
   return Math.min(x - x0, x1 - x, z - z0, z1 - z);
 }
 
+// Punggungan: 0 di lembah, 1 di puncak lipatan, tajam di puncaknya.
+function ridged(x: number, z: number) {
+  const t = 1 - Math.abs(noise(x, z) * 2 - 1);
+  return t * t;
+}
+
+// Seberapa dalam (x,z) berada di dalam sebuah gunung: u 0 = puncak, 1 = kaki. Garis kaki gunung
+// sengaja tidak bulat: jari-jarinya bergoyang mengikuti sudut.
+function mountainU(m: (typeof MOUNTAINS)[number], x: number, z: number) {
+  const dx = x - m.x;
+  const dz = z - m.z;
+  const d = Math.hypot(dx, dz);
+  if (d > m.r * 1.3) return 9;
+  const a = Math.atan2(dz, dx);
+  const seed = m.x * 0.013 + m.z * 0.007;
+  const wob =
+    1 +
+    (noise(Math.cos(a) * 1.7 + seed, Math.sin(a) * 1.7) - 0.5) * 0.55 +
+    (noise(Math.cos(a) * 4.5 - seed, Math.sin(a) * 4.5) - 0.5) * 0.18;
+  return d / (m.r * wob);
+}
+
+// 0..1: seberapa kuat tanah ini bagian dari gunung (dipakai Ground untuk mewarnai hutan, batu, salju).
+export function mountainMask(x: number, z: number) {
+  let best = 0;
+  for (const m of MOUNTAINS) {
+    const u = mountainU(m, x, z);
+    if (u < 1) best = Math.max(best, (1 - smoothstep(0.1, 1, u)) ** 1.2);
+  }
+  return best;
+}
+
+// Tinggi tambahan dari gunung-gunung di (x, z).
+function mountainLift(x: number, z: number) {
+  const L = MOUNTAIN_LOOK;
+  let total = 0;
+  for (const m of MOUNTAINS) {
+    const u = mountainU(m, x, z);
+    if (u >= 1) continue;
+    const seed = m.x * 0.013 + m.z * 0.007;
+    const base = (1 - smoothstep(0.06, 1, u)) ** 1.5;
+    // punggungan menjalar dari puncak ke kaki (searah jari-jari), sedikit dilengkungkan
+    const ang = Math.atan2(z - m.z, x - m.x);
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    // makin jauh dari puncak makin banyak punggungan (dekat puncak sedikit, supaya tidak menusuk jadi bintang)
+    const bend = (noise(x * 0.012 + seed, z * 0.012) - 0.5) * 2.4;
+    const kb = 1.2 + 2.6 * u;
+    const ks = 2.8 + 4 * u;
+    const spurBig = ridged(ca * kb + seed + bend, sa * kb + u * 1.7 - bend);
+    const spurSmall = ridged(ca * ks - seed - bend, sa * ks + u * 2.4 + bend);
+    const crag = ridged(x * 0.05 + seed, z * 0.05 - seed);
+    // di dekat kaki gunung punggungan diredam supaya menyatu dengan padang
+    const rough = smoothstep(0.95, 0.5, u);
+    const mult =
+      0.54 +
+      (L.ridgeBig * 0.5 * spurBig +
+        L.ridgeSmall * 0.4 * spurSmall +
+        0.1 * crag) *
+        (0.35 + 0.65 * rough);
+    let c = m.h * base * mult;
+    // tebing berlapis: tinggi dibulatkan ke "anak tangga" dengan sudut halus
+    const t = c / L.strata;
+    const f = t - Math.floor(t);
+    const terr = (Math.floor(t) + smoothstep(0.3, 0.7, f)) * L.strata;
+    c = lerp(c, terr, L.strataAmt * smoothstep(0.1, 0.4, base));
+    total += c;
+  }
+  return total;
+}
+
 // Tinggi tanah di (x, z). Dipakai oleh tanah, air, kucing, kamera, dan semua bab.
-export function groundHeight(x: number, z: number) {
+function rawGround(x: number, z: number) {
   const lakeD = lakeDist(x, z);
   const dRoute = routeDist(x, z);
   const cd = castleDist(x, z);
@@ -63,13 +141,8 @@ export function groundHeight(x: number, z: number) {
   const dHill = Math.hypot(x - HILL.x, z - HILL.z);
   h += HILL.h * (1 - smoothstep(HILL.r * 0.2, HILL.r, dHill)) ** 1.4;
 
-  // Gunung-gunung jauh, lebih kasar di puncak.
-  for (const m of MOUNTAINS) {
-    const d = Math.hypot(x - m.x, z - m.z);
-    if (d > m.r) continue;
-    const bump = (1 - smoothstep(m.r * 0.08, m.r, d)) ** 1.6;
-    h += m.h * bump * (0.65 + 0.7 * fbm(x * 0.02 + 40, z * 0.02 - 17));
-  }
+  // Gunung-gunung jauh: punggungan, jurang, dan tebing berlapis (lihat mountainLift).
+  h += mountainLift(x, z);
 
   // Punggung bukit di tepi dunia.
   const ed = edgeDist(x, z);
@@ -103,8 +176,12 @@ export function groundHeight(x: number, z: number) {
     (1 - smoothstep(CASTLE.moatOut - 2, CASTLE.moatOut + 2, cd));
   h = lerp(h, CASTLE.moatY, moat);
 
-  // Cekungan danau: dasar di tengah, menyatu mulus ke pantai.
-  const basin = -4.5 * (1 - smoothstep(0, 1.06, lakeD));
+  // Cekungan danau: dasar landai di tepi (tempat berdiri dan terlihat dasarnya), lalu turun curam
+  // ke palung, dan makin dalam ke tengah. Angka kedalaman ada di LAKE_BED (config/world.ts).
+  const basin =
+    -LAKE_BED.shelf * smoothstep(1.0, LAKE_BED.shelfEnd, lakeD) -
+    LAKE_BED.drop * smoothstep(LAKE_BED.dropStart, LAKE_BED.dropEnd, lakeD) -
+    LAKE_BED.core * smoothstep(LAKE_BED.dropEnd, 0, lakeD);
   return lerp(basin, h, smoothstep(0.85, 1.25, lakeD));
 }
 
@@ -130,4 +207,38 @@ export function walkHeight(x: number, z: number) {
     smoothstep(BRIDGE_EAST.xFrom - 1, BRIDGE_EAST.xFrom + 3, x) *
     smoothstep(BRIDGE_EAST.xTo + 1, BRIDGE_EAST.xTo - 3, x);
   return Math.max(g, lerp(g, CASTLE.y, Math.max(south, east)));
+}
+
+// Tinggi sasaran tiap dataran: rata-rata tinggi asli di dalam lingkarannya (dihitung sekali).
+const padY: Record<string, number> = {};
+function padLevel(p: (typeof PADS)[number]) {
+  if (padY[p.id] !== undefined) return padY[p.id];
+  let sum = 0;
+  let n = 0;
+  for (let r = 0; r <= p.r; r += 8) {
+    const k = r === 0 ? 1 : Math.round((r / 8) * 6);
+    for (let i = 0; i < k; i++) {
+      const a = (i / k) * Math.PI * 2;
+      sum += rawGround(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r);
+      n++;
+    }
+  }
+  return (padY[p.id] = sum / n);
+}
+
+// Jarak ke tepi bagian rata dataran terdekat (m): <0 di dalam bagian rata.
+export function padDist(x: number, z: number) {
+  let d = Infinity;
+  for (const p of PADS) d = Math.min(d, Math.hypot(x - p.x, z - p.z) - p.r);
+  return d;
+}
+
+// Tinggi tanah di (x, z). Dipakai oleh tanah, air, kucing, kamera, dan semua bab.
+export function groundHeight(x: number, z: number) {
+  let h = rawGround(x, z);
+  for (const p of PADS) {
+    const t = 1 - smoothstep(p.r, p.r + p.blend, Math.hypot(x - p.x, z - p.z));
+    if (t > 0) h = lerp(h, padLevel(p), t);
+  }
+  return h;
 }

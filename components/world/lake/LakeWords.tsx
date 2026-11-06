@@ -10,6 +10,7 @@ import {
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { LAKE, WATER_Y } from "../config/world";
+import { displayFamily } from "../core/canvasFont";
 import { getGlow } from "../core/glow";
 import { clamp, smoothstep } from "../core/math";
 import { lakeDist } from "../terrain/heightmap";
@@ -63,17 +64,6 @@ const FRAG = /* glsl */ `
   }
 `;
 
-function displayFont() {
-  const el = document.createElement("span");
-  el.className = "font-display";
-  el.style.cssText =
-    "position:absolute;visibility:hidden;font-style:italic;font-weight:500";
-  document.body.appendChild(el);
-  const f = getComputedStyle(el).fontFamily;
-  el.remove();
-  return f || "Georgia, serif";
-}
-
 // Pecah teks jadi baris yang muat selebar maxW.
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
   const lines: string[] = [];
@@ -105,11 +95,11 @@ function makeCard(text: string) {
   cv.width = CW;
   cv.height = CH;
   const ctx = cv.getContext("2d")!;
-  const font = displayFont();
+  const font = displayFamily();
   let size = 150;
   let lines: string[] = [];
   for (; size >= 56; size -= 6) {
-    ctx.font = `italic 500 ${size}px ${font}`;
+    ctx.font = `500 ${size}px ${font}`;
     lines = wrap(ctx, text, CW * 0.84);
     if (lines.length * size * 1.22 <= CH * 0.82) break;
   }

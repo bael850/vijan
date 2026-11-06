@@ -5,7 +5,7 @@ import type { ContentItem } from "../../types";
 export type Spot = {
   tip: string;
   href: string;
-  kind: "page" | "file" | "link" | "mail";
+  kind: "page" | "file" | "link" | "mail" | "scope";
 };
 
 const CV = {
@@ -18,6 +18,7 @@ export function resolveSpot(
   writings: ContentItem[],
   photos: ContentItem[],
 ): Spot | null {
+  if (id === "scope") return { tip: desk.tips.scope, href: "", kind: "scope" };
   if (id === "cv-writer")
     return { tip: desk.tips.cvWriter, href: CV.writer, kind: "file" };
   if (id === "cv-marketing")

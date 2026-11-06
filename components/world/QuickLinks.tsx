@@ -47,7 +47,7 @@ export default function QuickLinks({ className = "" }: { className?: string }) {
   }, [open]);
 
   const item =
-    "block whitespace-nowrap px-4 py-2 text-[13px] text-[#fff3e0]/90 transition-colors hover:bg-[#fff3e0]/10 hover:text-[#ffb866] focus-visible:bg-[#fff3e0]/10 focus-visible:outline-none";
+    "block whitespace-nowrap px-4 py-2 text-[13px] text-[#f3ecd6]/90 transition-colors hover:bg-[#f3ecd6]/10 hover:text-[#f5c04a] focus-visible:bg-[#f3ecd6]/10 focus-visible:outline-none";
 
   return (
     <div ref={box} className={`pointer-events-auto ${className}`}>
@@ -58,7 +58,7 @@ export default function QuickLinks({ className = "" }: { className?: string }) {
         aria-haspopup="true"
         aria-label={journey.menuLabel}
         title={journey.menuLabel}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/70 text-[#fff3e0] transition-colors hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866]"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-[#f3ecd6]/25 bg-[#0e1530]/70 text-[#f3ecd6] transition-colors hover:border-[#f5c04a] hover:text-[#f5c04a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5c04a]"
       >
         <svg
           aria-hidden
@@ -80,13 +80,13 @@ export default function QuickLinks({ className = "" }: { className?: string }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-11 z-40 overflow-hidden rounded-xl border border-[#fff3e0]/20 bg-[#120d24]/95 py-1 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
+          className="absolute right-0 top-11 z-40 overflow-hidden rounded-xl border border-[#f3ecd6]/20 bg-[#0e1530]/95 py-1 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
         >
           {LINKS.map((l) => {
             const isDownload = "download" in l;
             const isInternal = l.href.startsWith("/") && !isDownload;
             const divider =
-              "divider" in l ? "mt-1 border-t border-[#fff3e0]/10 pt-3" : "";
+              "divider" in l ? "mt-1 border-t border-[#f3ecd6]/10 pt-3" : "";
             return isInternal ? (
               <Link
                 key={l.label}

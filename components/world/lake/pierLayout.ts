@@ -1,7 +1,8 @@
 // Letak dermaga dan perahu. Angka saja, tanpa gambar. Mengikuti letak danau di config/world.ts.
 import { LAKE } from "../config/world";
+import { lakeWestShoreX } from "../terrain/lakeShape";
 
-const westShore = LAKE.x - LAKE.rx; // tepi barat danau
+const westShore = lakeWestShoreX(LAKE.z + 8); // tepi barat danau di depan dermaga
 export const PIER = {
   x0: westShore - 12,
   x1: westShore + 10,

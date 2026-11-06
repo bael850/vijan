@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -12,11 +18,13 @@ import {
   TREE,
 } from "../../config/home";
 import { WAYPOINTS } from "../../config/route";
+import { HOUSE } from "../../config/world";
 import { dayState } from "../../core/dayCycle";
 import { grainMat } from "../../core/grain";
 import HomeEffects from "./HomeEffects";
 import HouseInterior from "./HouseInterior";
 import HouseParts from "./HouseParts";
+import Sakura from "./SakuraModel";
 import type { HouseState } from "./houseState";
 import {
   buildHome,
@@ -50,6 +58,10 @@ export default function Home({
   onSpot: (id: string) => void;
   onTip: (id: string | null) => void;
 }) {
+  // sakura dari glb; kalau gagal dimuat, kembali ke sakura buatan kode
+  const [modelFailed, setModelFailed] = useState(false);
+  const useModel = TREE.model.enabled && !modelFailed;
+
   const geo = useMemo(() => {
     const bag = newBag();
     // ujung batu pijakan: titik jalur bab rumah yang paling dekat
@@ -58,7 +70,13 @@ export default function Home({
     ) ?? { x: TREE.x - 8, z: TREE.z - 8 };
     buildHome(bag);
     buildYard(bag, { x: end.x, z: end.z + 2 }, SEG[quality]);
-    buildTree(bag, SEG[quality], PETALS.ground[quality]);
+    // dengan model glb: kelopak di tanah dan daun gugur dibuat SakuraModel dari kelopak asli pohon
+    buildTree(
+      bag,
+      SEG[quality],
+      useModel ? 0 : PETALS.ground[quality],
+      !useModel,
+    );
     const out = {} as Record<Key, THREE.BufferGeometry | null>;
     for (const k of KEYS) {
       const list = bag[k];
@@ -66,7 +84,7 @@ export default function Home({
       list.forEach((g) => g.dispose());
     }
     return out;
-  }, [quality]);
+  }, [quality, useModel]);
 
   const mats = useMemo(() => {
     const glow = (color: string, g: string) =>
@@ -113,6 +131,41 @@ export default function Home({
   // kelopak jatuh: satu InstancedMesh, tiap kelopak bergulir dari tajuk ke tanah lalu mulai lagi
   const count = PETALS.count[quality];
   const petals = useRef<THREE.InstancedMesh>(null);
+
+  // Isi rumah (perabot, rak, buku) hanya kelihatan dari dekat, lewat jendela dan pintu.
+  // Dari jauh (rune awal, jalan menuju kastil) tidak digambar: sekitar 350 ribu segitiga terbuang.
+  // Ada selisih jarak (110 dan 130 m) supaya tidak berkedip di batasnya.
+  const interior = useRef<THREE.Group>(null);
+  const interiorOn = useRef(true);
+  // Perabot di dalam hanya perlu membuat bayangan kalau pengunjung di dalam rumah. Dari luar, dindingnya
+  // sudah menutup, jadi peta bayangan tidak perlu ikut menggambar ratusan ribu segitiga isi rumah.
+  const castOn = useRef<boolean | null>(null);
+  const castTick = useRef(0);
+  useFrame(({ camera, gl }) => {
+    const d = Math.hypot(
+      camera.position.x - HOUSE.x,
+      camera.position.z - HOUSE.z,
+    );
+    if (interiorOn.current && d > 130) interiorOn.current = false;
+    else if (!interiorOn.current && d < 110) interiorOn.current = true;
+    const g = interior.current;
+    if (!g) return;
+    g.visible = interiorOn.current;
+    const want = indoor.current > 0.3;
+    castTick.current += 1;
+    // dicek ulang berkala juga, untuk bagian yang baru selesai dimuat
+    if (want !== castOn.current || castTick.current % 120 === 0) {
+      const changed = want !== castOn.current;
+      castOn.current = want;
+      g.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        if (m.userData.cast0 === undefined) m.userData.cast0 = m.castShadow;
+        m.castShadow = want && m.userData.cast0;
+      });
+      if (changed) gl.shadowMap.needsUpdate = true;
+    }
+  });
   const params = useMemo(() => {
     let a = 91;
     const r = () => (a = (a * 16807) % 2147483647) / 2147483647;
@@ -120,7 +173,8 @@ export default function Home({
       const ang = r() * Math.PI * 2;
       const rad = Math.sqrt(r()) * PETALS.spread;
       const speed = PETALS.fall[0] + r() * (PETALS.fall[1] - PETALS.fall[0]);
-      const h0 = 4.2 + r() * 3.4;
+      // kelopak mulai jatuh dari tajuk: 47%-85% tinggi pohon
+      const h0 = TREE.height * (0.47 + r() * 0.38);
       return {
         ox: Math.cos(ang) * rad,
         oz: Math.sin(ang) * rad,
@@ -223,21 +277,32 @@ export default function Home({
         glass={mats.glass}
         metal={mats.metal}
       />
-      <HouseInterior
-        house={house}
-        books={books}
-        onPick={onSpot}
-        onTip={onTip}
-      />
-      <HomeEffects indoor={indoor} reduceMotion={reduceMotion} />
-      <instancedMesh
-        ref={petals}
-        args={[undefined, undefined, count]}
-        frustumCulled={false}
-      >
-        <planeGeometry args={[0.16, 0.11]} />
-        <meshLambertMaterial color="#ffffff" side={THREE.DoubleSide} />
-      </instancedMesh>
+      <group ref={interior}>
+        <HouseInterior
+          house={house}
+          books={books}
+          onPick={onSpot}
+          onTip={onTip}
+        />
+      </group>
+      <HomeEffects reduceMotion={reduceMotion} />
+      {useModel && (
+        <Sakura
+          quality={quality}
+          reduceMotion={reduceMotion}
+          onFail={() => setModelFailed(true)}
+        />
+      )}
+      {!useModel && (
+        <instancedMesh
+          ref={petals}
+          args={[undefined, undefined, count]}
+          frustumCulled={false}
+        >
+          <planeGeometry args={[0.16, 0.11]} />
+          <meshLambertMaterial color="#ffffff" side={THREE.DoubleSide} />
+        </instancedMesh>
+      )}
     </group>
   );
 }

@@ -10,14 +10,17 @@ export type Cottage = {
   roof: "thatch" | "tile"; // jerami atau genteng
 };
 
+// Dusun: rumah berderet di kiri-kanan jalan, selang-seling, jarak sekitar 13 m satu sama lain, supaya terbaca sebagai
+// satu kampung (bukan rumah-rumah yang berdiri sendiri di padang). Lima rumah di lereng bawah gerbang waktu
+// (yang pertama terlihat), dua lagi dekat kedai.
 export const COTTAGES: Cottage[] = [
-  { x: -2, z: 58, w: 6, d: 5, h: 3.2, roof: "thatch" },
-  { x: -40, z: 66, w: 7, d: 5, h: 3.4, roof: "thatch" },
-  { x: -24, z: 25, w: 6, d: 5, h: 3.2, roof: "tile" },
-  { x: -74, z: 10, w: 7, d: 6, h: 3.6, roof: "thatch" },
-  { x: -30, z: -18, w: 6, d: 5, h: 3.2, roof: "thatch" },
-  { x: -80, z: -42, w: 6, d: 5, h: 3.2, roof: "tile" },
-  { x: -18, z: -62, w: 7, d: 5, h: 3.4, roof: "thatch" },
+  { x: -11, z: 58, w: 7.5, d: 6, h: 3.6, roof: "thatch" },
+  { x: -35, z: 65, w: 7, d: 6, h: 3.4, roof: "tile" },
+  { x: -22, z: 40, w: 7, d: 5.5, h: 3.4, roof: "thatch" },
+  { x: -49, z: 44, w: 8, d: 6, h: 3.8, roof: "thatch" },
+  { x: -33, z: 21, w: 7, d: 6, h: 3.5, roof: "tile" },
+  { x: -37, z: -47, w: 7, d: 5.5, h: 3.4, roof: "thatch" },
+  { x: -26, z: -74, w: 7.5, d: 6, h: 3.6, roof: "thatch" },
 ];
 
 // Kedai desa, dekat jembatan.

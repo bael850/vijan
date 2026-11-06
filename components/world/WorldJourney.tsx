@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
@@ -27,13 +28,9 @@ import LakeIntro from "./lake/LakeIntro";
 import LakeWriter from "./lake/LakeWriter";
 import { SHORE } from "./config/shore";
 import { resolveSpot } from "./chapters/home/houseSpots";
-import { HOME_FLOW, HOME_UI } from "./config/home";
-import {
-  newHouse,
-  nearestStop,
-  STOP_T,
-  type HouseMode,
-} from "./chapters/home/houseState";
+import { HOME_FLOW, WALK } from "./config/home";
+import type { WalkInput } from "./chapters/home/houseWalk";
+import { newHouse, type HouseMode } from "./chapters/home/houseState";
 import { newWish } from "./lake/wish";
 import QuickLinks from "./QuickLinks";
 import { LINES, SCROLL, TITLE } from "./config/scroll";
@@ -93,7 +90,7 @@ function Line({
       className="pointer-events-none absolute inset-x-0 bottom-[9%] px-6 text-center md:px-[8%]"
     >
       <p
-        className="mx-auto max-w-3xl font-display text-2xl font-medium italic leading-tight text-[#fff3e0] sm:text-3xl md:text-4xl"
+        className="mx-auto max-w-3xl font-display text-2xl font-medium italic leading-tight text-[#f3ecd6] sm:text-3xl md:text-4xl"
         style={{ textShadow: TEXT_SHADOW }}
       >
         {text}
@@ -104,6 +101,68 @@ function Line({
 
 // Kerangka perjalanan: panggung 3D yang menempel di layar, dan scroll yang menggerakkan kamera.
 // Semua lapisan teks pointer-events-none, supaya kucing di belakangnya tetap bisa diklik.
+// Joystick di layar sentuh untuk berjalan; seret di bagian layar lain untuk menoleh.
+function WalkPad({ move }: { move: WalkInput }) {
+  // hanya dirender di klien (setelah masuk rumah), jadi aman membaca layar langsung
+  const [touch] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches,
+  );
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const base = useRef<HTMLDivElement>(null);
+  const R = 44;
+  useEffect(() => {
+    return () => {
+      move.fwd = 0;
+      move.side = 0;
+    };
+  }, [move]);
+  if (!touch) return null;
+  const upd = (e: ReactPointerEvent) => {
+    const el = base.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    let dx = e.clientX - (r.left + r.width / 2);
+    let dy = e.clientY - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy);
+    if (d > R) {
+      dx = (dx / d) * R;
+      dy = (dy / d) * R;
+    }
+    setKnob({ x: dx, y: dy });
+    move.side = dx / R;
+    move.fwd = -dy / R;
+  };
+  const end = () => {
+    setKnob({ x: 0, y: 0 });
+    move.side = 0;
+    move.fwd = 0;
+  };
+  return (
+    <div
+      ref={base}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        upd(e);
+      }}
+      onPointerMove={(e) => {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) upd(e);
+      }}
+      onPointerUp={end}
+      onPointerCancel={end}
+      className="absolute bottom-8 left-8 z-30 h-28 w-28 touch-none rounded-full border border-[#f3ecd6]/30 bg-[#f3ecd6]/10"
+    >
+      <span
+        className="absolute left-1/2 top-1/2 block h-12 w-12 rounded-full bg-[#f3ecd6]/40"
+        style={{
+          transform: `translate(calc(-50% + ${knob.x}px), calc(-50% + ${knob.y}px))`,
+        }}
+      />
+    </div>
+  );
+}
+
 export default function WorldJourney({
   writings,
   photos,
@@ -126,7 +185,6 @@ export default function WorldJourney({
   const [house, setHouse] = useState<HouseMode>("out");
   const houseRef = useRef(newHouse());
   const [fade, setFade] = useState(false);
-  const [active, setActive] = useState(-1);
   const [tip, setTip] = useState<string | null>(null);
   const router = useRouter();
   const coveredRef = useRef(covered);
@@ -148,8 +206,6 @@ export default function WorldJourney({
     const wait = (reduceMotion ? 0.35 : HOME_FLOW.approach) * 1000;
     const f = HOME_FLOW.fade * 1000;
     h.mode = "porch";
-    h.tour = 0;
-    setActive(-1);
     setHouse("porch");
     later(() => setFade(true), wait);
     later(() => {
@@ -161,6 +217,7 @@ export default function WorldJourney({
   }
   function leaveHouse() {
     const h = houseRef.current;
+    h.scope = false;
     clearTimers();
     setFade(false);
     if (h.mode === "porch") {
@@ -190,7 +247,8 @@ export default function WorldJourney({
     const sp = resolveSpot(id, writings, photos);
     if (!sp) return;
     setTip(null);
-    if (sp.kind === "page") router.push(sp.href);
+    if (sp.kind === "scope") houseRef.current.scope = true;
+    else if (sp.kind === "page") router.push(sp.href);
     else if (sp.kind === "file") {
       const a = document.createElement("a");
       a.href = sp.href;
@@ -206,10 +264,6 @@ export default function WorldJourney({
       setTip(id ? (resolveSpot(id, writings, photos)?.tip ?? null) : null),
     [writings, photos],
   );
-  function goStop(i: number) {
-    houseRef.current.tour = STOP_T[i];
-    setActive(i);
-  }
 
   // layar loading: tampil sampai dunia siap (model termuat, frame pertama tergambar)
   const [ready, setReady] = useState(false);
@@ -273,48 +327,76 @@ export default function WorldJourney({
     };
   }, [shore]);
 
-  // di rumah scroll halaman dikunci; roda, geser jari, dan tombol panah menggerakkan tur. Esc untuk keluar.
+  // di rumah scroll halaman dikunci dan pengunjung jalan bebas: W A S D atau tombol panah, roda mouse
+  // untuk maju-mundur, Shift untuk lari, seret untuk menoleh. Esc untuk keluar.
   useEffect(() => {
     if (house === "out") return;
     const html = document.documentElement;
     const prev = html.style.overflow;
     html.style.overflow = "hidden";
     const h = houseRef.current;
-    const go = (d: number) => {
+    const m = h.move;
+    const keys = new Set<string>();
+    const any = (...n: string[]) => n.some((k) => keys.has(k));
+    const sync = () => {
+      m.fwd = (any("w", "arrowup") ? 1 : 0) - (any("s", "arrowdown") ? 1 : 0);
+      m.side = (any("d") ? 1 : 0) - (any("a") ? 1 : 0);
+      m.turn =
+        (any("arrowleft", "q") ? 1 : 0) - (any("arrowright", "e") ? 1 : 0);
+      m.run = keys.has("shift");
+    };
+    const onWheel = (e: WheelEvent) => {
       if (h.mode !== "in" || coveredRef.current) return;
-      h.tour = Math.min(1, Math.max(0, h.tour + d));
-      setActive(nearestStop(h.tour));
+      m.push += e.deltaY * WALK.wheel;
     };
-    let ty = 0;
-    const onWheel = (e: WheelEvent) => go(e.deltaY * HOME_FLOW.wheel);
-    const onTouchStart = (e: TouchEvent) => {
-      ty = e.touches[0].clientY;
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      const y = e.touches[0].clientY;
-      go((ty - y) * HOME_FLOW.touch);
-      ty = y;
-    };
-    const onKey = (e: KeyboardEvent) => {
+    const onDown = (e: KeyboardEvent) => {
       if (coveredRef.current) return;
-      if (e.key === "Escape") leaveHouse();
-      else if (["ArrowDown", "PageDown", " "].includes(e.key)) {
-        e.preventDefault();
-        go(0.06);
-      } else if (["ArrowUp", "PageUp"].includes(e.key)) {
-        e.preventDefault();
-        go(-0.06);
+      const k = e.key.toLowerCase();
+      if (k === "escape") {
+        // Esc turun dari teleskop dulu; Esc berikutnya baru keluar rumah
+        if (h.scope) h.scope = false;
+        else leaveHouse();
+        return;
+      }
+      if (
+        [
+          "w",
+          "a",
+          "s",
+          "d",
+          "q",
+          "e",
+          "shift",
+          "arrowup",
+          "arrowdown",
+          "arrowleft",
+          "arrowright",
+        ].includes(k)
+      ) {
+        if (k.startsWith("arrow")) e.preventDefault();
+        keys.add(k);
+        sync();
       }
     };
+    const onUp = (e: KeyboardEvent) => {
+      keys.delete(e.key.toLowerCase());
+      sync();
+    };
+    const onBlur = () => {
+      keys.clear();
+      sync();
+    };
     window.addEventListener("wheel", onWheel, { passive: true });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onBlur);
+      m.fwd = m.side = m.turn = m.push = 0;
+      m.run = false;
       html.style.overflow = prev;
     };
   }, [house]);
@@ -378,12 +460,12 @@ export default function WorldJourney({
         <motion.div
           aria-hidden
           style={{ opacity: topScrim }}
-          className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[#0a1226]/70 via-[#0a1226]/25 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[#080d22]/70 via-[#080d22]/25 to-transparent"
         />
         <motion.div
           aria-hidden
           style={{ opacity: bottomScrim }}
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[#0a1226]/55 via-[#0a1226]/20 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[#080d22]/55 via-[#080d22]/20 to-transparent"
         />
 
         <motion.div
@@ -394,7 +476,7 @@ export default function WorldJourney({
             initial={{ opacity: 0, y: 14 }}
             animate={entered && ready ? { opacity: 1, y: 0 } : undefined}
             transition={{ duration: 1.6, ease: "easeOut" }}
-            className="font-display text-6xl font-medium italic text-[#fff3e0] sm:text-8xl md:text-9xl"
+            className="font-display text-6xl font-medium italic text-[#f3ecd6] sm:text-8xl md:text-9xl"
             style={{ textShadow: TEXT_SHADOW }}
           >
             {TITLE}
@@ -432,7 +514,7 @@ export default function WorldJourney({
           tabIndex={away ? 0 : -1}
           aria-label={journey.backToPath}
           title={journey.backToPath}
-          className={`absolute right-[6.75rem] top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[#fff3e0]/25 bg-[#120d24]/70 text-[#fff3e0] transition-all duration-1000 hover:border-[#ffb866] hover:text-[#ffb866] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb866] sm:right-[7.5rem] sm:top-5 ${
+          className={`absolute right-[6.75rem] top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[#f3ecd6]/25 bg-[#0e1530]/70 text-[#f3ecd6] transition-all duration-1000 hover:border-[#f5c04a] hover:text-[#f5c04a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5c04a] sm:right-[7.5rem] sm:top-5 ${
             away ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
@@ -473,12 +555,12 @@ export default function WorldJourney({
           }`}
         >
           <span
-            className="px-6 text-center text-[11px] uppercase tracking-[0.25em] text-[#fff3e0]/60"
+            className="px-6 text-center text-[11px] uppercase tracking-[0.25em] text-[#f3ecd6]/60"
             style={{ textShadow: TEXT_SHADOW }}
           >
             {journey.hint}
           </span>
-          <span className="block h-8 w-px animate-pulse bg-gradient-to-b from-[#ffe9a8] to-transparent" />
+          <span className="block h-8 w-px animate-pulse bg-gradient-to-b from-[#fbdc8a] to-transparent" />
         </motion.div>
 
         <QuickLinks className="absolute right-16 top-4 z-30 sm:right-[4.75rem] sm:top-5" />
@@ -487,48 +569,33 @@ export default function WorldJourney({
           type="button"
           onClick={skip}
           tabIndex={away ? -1 : 0}
-          className={`absolute bottom-6 right-6 z-30 text-xs uppercase tracking-[0.25em] text-[#fff3e0]/40 transition-all hover:text-[#ffe9a8] ${
+          className={`absolute bottom-6 right-6 z-30 text-xs uppercase tracking-[0.25em] text-[#f3ecd6]/40 transition-all hover:text-[#fbdc8a] ${
             away ? "pointer-events-none opacity-0" : ""
           }`}
         >
           Skip
         </button>
 
+        {house === "in" && <WalkPad move={houseRef.current.move} />}
+
         <div
           className={`pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-2 transition-opacity duration-700 ${
             house === "in" ? "opacity-100" : "opacity-0"
           }`}
         >
-          <span
-            className="px-6 text-center text-[11px] uppercase tracking-[0.25em] text-[#fff3e0]/70"
-            style={{ textShadow: TEXT_SHADOW }}
-          >
-            {tip ?? (active >= 0 ? HOME_UI.stops[active] : HOME_UI.tourHint)}
-          </span>
-          <div className="pointer-events-auto flex">
-            {HOME_UI.stops.map((label, i) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => goStop(i)}
-                tabIndex={house === "in" ? 0 : -1}
-                aria-label={label}
-                title={label}
-                className="p-2"
-              >
-                <span
-                  className={`block h-2.5 w-2.5 rounded-full border border-[#fff3e0]/60 transition-colors ${
-                    active === i ? "bg-[#ffb866]" : "bg-transparent"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
+          {tip && (
+            <span
+              className="px-6 text-center text-[11px] uppercase tracking-[0.25em] text-[#f3ecd6]/70"
+              style={{ textShadow: TEXT_SHADOW }}
+            >
+              {tip}
+            </span>
+          )}
         </div>
 
         <div
           aria-hidden
-          className={`pointer-events-none absolute inset-0 z-40 bg-[#0a0814] transition-opacity ${
+          className={`pointer-events-none absolute inset-0 z-40 bg-[#080d22] transition-opacity ${
             fade ? "opacity-100" : "opacity-0"
           }`}
           style={{ transitionDuration: `${HOME_FLOW.fade * 1000}ms` }}

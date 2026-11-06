@@ -36,7 +36,7 @@ export default function Mixer() {
   );
 
   return (
-    <div className="fixed bottom-4 right-4 z-[70] w-72 space-y-1 rounded-lg border border-[#fff3e0]/25 bg-[#120d24]/85 p-3 text-[#fff3e0] backdrop-blur-md">
+    <div className="fixed bottom-4 right-4 z-[70] w-72 space-y-1 rounded-lg border border-[#f3ecd6]/25 bg-[#0e1530]/85 p-3 text-[#f3ecd6] backdrop-blur-md">
       {row("master", m.master, 1.5, (v) => sound.setMaster(v))}
       {LAYER_NAMES.map((n) =>
         row(n, m.layers[n], 1, (v) => sound.setLayer(n, v)),
@@ -45,7 +45,7 @@ export default function Mixer() {
       {row("gema dalam", m.wetIndoor, 1, (v) => sound.setWet("indoor", v))}
       <button
         type="button"
-        className="mt-1 w-full rounded border border-[#fff3e0]/25 py-1 text-xs hover:border-[#ffb866]"
+        className="mt-1 w-full rounded border border-[#f3ecd6]/25 py-1 text-xs hover:border-[#f5c04a]"
         onClick={() =>
           navigator.clipboard?.writeText(
             JSON.stringify(sound.getMix(), null, 2),

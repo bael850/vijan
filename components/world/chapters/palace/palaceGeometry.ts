@@ -80,6 +80,19 @@ function win(
   add(bag, "glass", box(gw, h - 0.3, gd, x, y, z), M);
 }
 
+// Letak obor gerbang dan jendela gerbang di dunia (untuk halo dan lampu malam).
+export function palaceLights() {
+  const { d } = KEEP;
+  const g = D.gate;
+  const front = d / 2 + g.d / 2 - 0.5 + g.d / 2;
+  const torches = [-1, 1].map((s) => {
+    const v = local(s * 3.3, FLOOR + 4.0, front + 0.9);
+    return { x: v.x, y: v.y, z: v.z };
+  });
+  const w = local(0, FLOOR + 9.5, front + 1.0);
+  return { torches, windows: [{ x: w.x, y: w.y, z: w.z }] };
+}
+
 export function buildPalace(bag: Bag, seg: number) {
   const { w, d, h } = KEEP;
   const P = FLOOR;

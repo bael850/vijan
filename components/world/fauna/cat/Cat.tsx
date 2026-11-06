@@ -25,6 +25,7 @@ import { newMotion, stepMotion } from "./catMotion";
 import { smoothstep } from "../../core/math";
 import { smoothNormals } from "./catGeometry";
 import { approachPose, newPose, writePose, type PoseVel } from "./catPose";
+import { perfOff } from "../../scene/perfOff";
 import {
   FRAG,
   FRAG_DECL,
@@ -350,6 +351,7 @@ export default function Cat({
       >
         <pointLight
           ref={selfLight}
+          visible={!perfOff("lights")}
           color="#ffc27a"
           intensity={3.5}
           distance={7}

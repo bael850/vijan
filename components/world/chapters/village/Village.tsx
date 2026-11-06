@@ -13,9 +13,12 @@ import {
 } from "../../config/village";
 import { dayState } from "../../core/dayCycle";
 import { grainMat } from "../../core/grain";
-import { buildBuildings } from "./buildings";
+import { buildBuildings, WINDOW_SPOTS } from "./buildings";
+import { NIGHT_GLOW as NG } from "../../config/nightGlow";
+import { addSources, GlowPoints } from "../../core/lightPool";
 import { buildSails, fields, mushrooms, windmillBody } from "./props";
 import { newBag, type Bag, type Key } from "./villageBag";
+import ChunkedMesh from "../../core/ChunkedMesh";
 
 const SEG: Record<GraphicsQuality, number> = { low: 10, medium: 14, high: 20 };
 
@@ -34,6 +37,7 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
   const built = useMemo(() => {
     const bag = newBag();
     buildBuildings(bag);
+    const windows = WINDOW_SPOTS.slice();
     const mill = windmillBody(bag, seg);
     buildSails(bag);
     fields(bag);
@@ -41,7 +45,7 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
     const keys = Object.keys(bag) as Key[];
     const geo = {} as Record<Key, THREE.BufferGeometry | null>;
     for (const k of keys) geo[k] = merged(bag, k);
-    return { geo, mill };
+    return { geo, mill, windows };
   }, [seg]);
 
   const mats = useMemo(() => {
@@ -98,6 +102,19 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
     [built, mats],
   );
 
+  // jendela menyala: halo + beberapa lampu titik terdekat kamera
+  useEffect(
+    () =>
+      addSources(
+        built.windows.map((p) => ({
+          ...p,
+          color: NG.window.color,
+          power: NG.window.power,
+        })),
+      ),
+    [built],
+  );
+
   const { geo } = built;
   const solid: Key[] = ["plaster", "wood", "stone", "thatch", "tile", "stem"];
   const flat: Key[] = ["wheat", "green"];
@@ -107,7 +124,7 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
     <group>
       {solid.map((k) =>
         geo[k] ? (
-          <mesh
+          <ChunkedMesh
             key={k}
             geometry={geo[k]!}
             material={mats[k as "plaster"]}
@@ -118,7 +135,7 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
       )}
       {flat.map((k) =>
         geo[k] ? (
-          <mesh
+          <ChunkedMesh
             key={k}
             geometry={geo[k]!}
             material={mats[k as "wheat"]}
@@ -127,6 +144,12 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
         ) : null,
       )}
       {geo.glass && <mesh geometry={geo.glass} material={mats.glass} />}
+      <GlowPoints
+        list={built.windows}
+        color={NG.window.color}
+        size={NG.window.halo}
+        base={NG.window.haloOpacity}
+      />
       {(["cap0", "cap1", "cap2"] as const).map((k, i) =>
         geo[k] ? (
           <mesh key={k} geometry={geo[k]!} material={mats.caps[i]} />

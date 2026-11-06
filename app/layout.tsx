@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IM_Fell_English } from "next/font/google";
+import { Nunito, Outfit } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -8,13 +8,17 @@ import { GraphicsProvider } from "@/components/providers/GraphicsProvider";
 import { site } from "@/content/site";
 import { siteUrl } from "@/lib/site-url";
 
-// Satu font untuk semuanya: IM Fell English, serif bergaya cetakan Inggris
-// lama. Cuma punya satu bobot (reguler) dan italic, jadi hierarki dibuat
-// lewat ukuran dan jarak, bukan tebal.
-const fell = IM_Fell_English({
+// Dua font sans serif. Outfit untuk judul dan penekanan (bulat, geometris, ramah);
+// Nunito untuk isi dan UI (ujung huruf lembut, enak dibaca panjang). Keduanya variabel,
+// jadi semua bobot tersedia. Outfit tidak punya italic: judul tegak saja.
+const outfit = Outfit({
   subsets: ["latin"],
-  variable: "--font-fell",
-  weight: "400",
+  variable: "--font-outfit",
+  display: "swap",
+});
+const nunito = Nunito({
+  subsets: ["latin"],
+  variable: "--font-nunito",
   style: ["normal", "italic"],
   display: "swap",
 });
@@ -30,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#17121a",
+  themeColor: "#0e1530",
   colorScheme: "dark",
 };
 
@@ -42,7 +46,7 @@ export default function RootLayout({
   modal: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={fell.variable}>
+    <html lang="id" className={`${outfit.variable} ${nunito.variable}`}>
       <body className="min-h-screen bg-paper font-sans text-ink antialiased">
         <GraphicsProvider>
           <Navbar />

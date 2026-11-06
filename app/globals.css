@@ -1,28 +1,28 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* ── Vijan · Senja ───────────────────────────────────────────
+/* ── Vijan · Starry Night ────────────────────────────────────
    Aturan dunia:
-   - Senja di kota kecil abad ke-14: ungu-abu, kayu cokelat, kabut tipis.
+   - Malam di tepi danau: biru tinta, bintang kuning, kabut tipis.
    - Kuning lampu (--lantern) HANYA untuk yang bisa diklik / disorot.
-   - Satu font saja (IM Fell English). Hierarki lewat ukuran, bukan tebal.
+   - Dua font sans serif: Outfit (judul) dan Nunito (isi).
    - Gerak pelan dan tenang. */
 :root {
-  --paper: #17121a; /* langit senja yang sudah gelap */
-  --surface: #1f1820;
-  --card: #261d26;
-  --ink: #efe3cf; /* kertas tua */
-  --muted: #a39484;
-  --line: #3a2e36;
-  --accent: #9c8fb8; /* ungu-abu senja */
-  --accent-soft: #bdb1d4;
-  --lantern: #ffb866; /* cahaya lampu: yang bisa diklik */
-  --lantern-soft: #ffd9a3;
+  --paper: #0e1530; /* biru tinta, langit malam */
+  --surface: #151e3f;
+  --card: #1c2750;
+  --ink: #f3ecd6; /* krem bintang */
+  --muted: #98a3c4;
+  --line: #2a3566;
+  --accent: #6fa8dc; /* biru langit malam */
+  --accent-soft: #a9cbee;
+  --lantern: #f5c04a; /* kuning bintang: yang bisa diklik */
+  --lantern-soft: #fbdc8a;
 
   /* Nama lama dipertahankan supaya halaman yang belum dirombak tidak error. */
   --lime: var(--lantern);
-  --sky: #2b2233;
-  --pink: #3a2a3a;
+  --sky: #1a2547;
+  --pink: #26305c;
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -44,17 +44,15 @@
   --color-sky: var(--sky);
   --color-pink: var(--pink);
 
-  /* Semua jenis huruf dialihkan ke IM Fell English. */
-  --font-sans: var(--font-fell), Georgia, serif;
-  --font-serif: var(--font-fell), Georgia, serif;
-  --font-display: var(--font-fell), Georgia, serif;
+  /* Isi dan UI: Nunito. Judul dan penekanan: Outfit. */
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
+  --font-serif: var(--font-nunito), system-ui, sans-serif;
+  --font-display: var(--font-outfit), system-ui, sans-serif;
 }
 
 html {
-  /* IM Fell berukuran kecil secara optis, jadi semua rem dinaikkan sedikit. */
-  font-size: 112.5%;
   scroll-behavior: smooth;
-  /* Font ini hanya punya satu bobot: jangan biarkan browser memalsukan tebal. */
+  /* Outfit tidak punya italic: jangan biarkan browser memiringkannya secara palsu. */
   font-synthesis: none;
 }
 
@@ -69,14 +67,18 @@ h2,
 h3,
 h4,
 h5,
-h6,
+h6 {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-weight: 500;
+}
+
 strong,
 b {
-  font-weight: 400;
+  font-weight: 700;
 }
 
 .font-display {
-  font-family: var(--font-fell), Georgia, serif;
+  font-family: var(--font-outfit), system-ui, sans-serif;
 }
 
 ::selection {
@@ -165,7 +167,7 @@ html {
 
 /* ── Isi tulisan ─────────────────────────────────────────── */
 .article-content.dropcap > p:first-child::first-letter {
-  font-family: var(--font-fell), serif;
+  font-family: var(--font-outfit), sans-serif;
   font-size: 4.5rem;
   line-height: 0.75;
   float: left;
