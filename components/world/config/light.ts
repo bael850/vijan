@@ -3,7 +3,7 @@
 
 export const LIGHT = {
   // 1.0 lebih aman untuk malam; >1.1 mudah blow highlight di atap/plaster
-  exposure: 1.0,
+  exposure: 1.12,
 
   fog: {
     colorStart: "#2b6f64",
@@ -15,26 +15,27 @@ export const LIGHT = {
   },
 
   hemi: {
-    sky: "#7fa6e0",
-    ground: "#2a5a3a",
-    // hemi terlalu kuat = bayangan jadi abu-abu, tidak gelap
-    startIntensity: 0.34,
-    endIntensity: 0.27,
+    sky: "#8fb2e8",
+    ground: "#3a6a4c",
+    // Malam harus terbaca tanpa lampu: hemi cukup kuat supaya tanah, dinding, dan atap tetap kelihatan.
+    // Kalau bayangan terasa abu-abu, turunkan sedikit.
+    startIntensity: 0.78,
+    endIntensity: 0.62,
   },
 
   // cahaya bulan: arah harus match skyShader (normalize ~ -0.39, 0.43, -0.84)
   moon: {
     color: "#ffe4a0",
-    // 2.0 terlalu terang untuk directional night; 1.15–1.35 lebih masuk akal
-    startIntensity: 1.25,
-    endIntensity: 1.05,
+    // bulan jadi sumber utama malam; 1.4–1.9 membuat bentuk bangunan jelas tanpa lampu
+    startIntensity: 1.75,
+    endIntensity: 1.45,
     position: [-190, 210, -410] as [number, number, number],
   },
 
   // fill dari belakang hanya untuk buka sedikit detail, jangan hancurkan kontras
   fill: {
     color: "#6aa0ff",
-    intensity: 0.07,
+    intensity: 0.14,
     position: [30, 50, 120] as [number, number, number],
   },
 };

@@ -37,6 +37,7 @@ import Water from "../terrain/Water";
 import CameraRig from "./CameraRig";
 import SoundDriver from "./SoundDriver";
 import TimeOfDay from "./TimeOfDay";
+import Insights from "./Insights";
 import PerfStats from "./PerfStats";
 import { perfOff, perfOffList } from "./perfOff";
 import IndoorHide from "./IndoorHide";
@@ -277,6 +278,12 @@ export default function WorldScene({
         reduceMotion={reduceMotion}
       />
       <SoundDriver indoor={indoor} />
+      <Insights
+        camDist={camDist}
+        shore={shore}
+        house={house}
+        reduceMotion={reduceMotion}
+      />
 
       {/* dunia dasar */}
       <group userData={{ cat: "langit" }}>{!perfOff("sky") && <Sky />}</group>

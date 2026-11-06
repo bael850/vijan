@@ -46,20 +46,23 @@ export type TreeDef = {
     size: [number, number];
     stray: number;
     tallBias?: number;
-  }; // tallBias: >1 = lebih banyak rumpun rendah, jarang yang tinggi
+    slim?: number;
+  }; // slim: tebaran/pohon yang tinggi dibuat selangsing ini (0 = tidak) // tallBias: >1 = lebih banyak rumpun rendah, jarang yang tinggi
 };
 
 // Maple: pohon rindang untuk desa dan padang di luar kastil menuju danau.
 export const MAPLE: TreeDef = {
   url: "/models/pohon-maple.glb",
   seed: 1301,
-  height: [7, 12.5],
-  width: [0.85, 1.2],
+  height: [5, 14.5], // muda sampai tua; tiap rumpun pohon cenderung seumur (lihat clump)
+  width: [0.8, 1.25],
   sink: 0.18,
   leafMatch: "daun|leaf",
   roundLight: 0.7,
   sway: 0.022,
   flutter: 0.003,
+  clump: { per: 4, size: [4.5, 9], stray: 0.2 }, // pohon berkelompok jadi rumpun kecil (hutan kecil), bukan tersebar rata
+  clear: { spacing: 3.4 }, // tajuk boleh bersentuhan di dalam rumpun
   tints: [
     { w: 5, rgb: [1, 1, 1] }, // asli
     { w: 3, rgb: [0.82, 1.05, 0.8] }, // hijau lebih dalam
@@ -69,19 +72,25 @@ export const MAPLE: TreeDef = {
   ],
   clusters: [
     // desa luar
-    { x: -112, z: 74, r: 30, n: 9 },
-    { x: 62, z: 86, r: 28, n: 7 },
-    { x: 74, z: -52, r: 30, n: 9 },
-    { x: -124, z: -22, r: 30, n: 9 },
-    { x: 14, z: 112, r: 22, n: 6 },
-    { x: -60, z: -90, r: 26, n: 6 },
+    { x: -112, z: 74, r: 30, n: 12 },
+    { x: 62, z: 86, r: 28, n: 9 },
+    { x: 74, z: -52, r: 30, n: 12 },
+    { x: -124, z: -22, r: 30, n: 12 },
+    { x: 14, z: 112, r: 22, n: 8 },
+    { x: -60, z: -90, r: 26, n: 8 },
+    // dalam desa: rimbun di belakang rumah, bukan di lapangan
+    { x: -16, z: 60, r: 10, n: 4 },
+    { x: -80, z: 40, r: 12, n: 4 },
+    { x: -88, z: -18, r: 12, n: 4 },
+    { x: -14, z: -80, r: 10, n: 3 },
+    { x: 22, z: -30, r: 10, n: 3 },
     // luar kastil, menuju danau
-    { x: 176, z: -250, r: 32, n: 8 },
-    { x: 170, z: -424, r: 32, n: 8 },
-    { x: 232, z: -282, r: 24, n: 5 },
-    { x: 232, z: -414, r: 24, n: 5 },
-    { x: 150, z: -192, r: 26, n: 6 },
-    { x: 150, z: -470, r: 26, n: 6 },
+    { x: 176, z: -250, r: 32, n: 10 },
+    { x: 170, z: -424, r: 32, n: 10 },
+    { x: 232, z: -282, r: 24, n: 6 },
+    { x: 232, z: -414, r: 24, n: 6 },
+    { x: 150, z: -192, r: 26, n: 8 },
+    { x: 150, z: -470, r: 26, n: 8 },
   ],
 };
 
@@ -90,14 +99,16 @@ export const MAPLE: TreeDef = {
 export const ELM: TreeDef = {
   url: "/models/pohon-elm.glb",
   seed: 4409,
-  height: [12, 18],
-  width: [0.88, 1.15],
+  height: [8.5, 19.5],
+  width: [0.85, 1.2],
   sink: 0.22,
   leafMatch: "daun|leaf",
   roundLight: 0.75,
   rootRadius: 0.035,
   chunk: 24, // satu pohon per petak, supaya versi ringan dipilih per pohon
-  meshLod: { dist: 90, keep: 0.25 },
+  // meshLod dimatikan: decimateGeometry (pengelompokan titik) menyeret sudut kartu daun jadi duri hitam yang melayang
+  // di jarak jauh (kelihatan di awal perjalanan). Hanya ada 10 elm, jadi versi penuh masih ringan. Untuk menyalakan lagi:
+  // meshLod: { dist: 90, keep: 0.25 }, tapi perbaiki dulu decimate.ts (jangan tukar posisi titik ke titik wakil).
   sway: 0.014,
   flutter: 0.0016,
   clear: {
@@ -143,7 +154,7 @@ export const GRASS: TreeDef = {
   lod: [110, 190, 270], // rumput kecil, makin jauh makin tidak terlihat bedanya dari tanah
   rootRadius: 2.2,
   soft: true,
-  clump: { per: 7, size: [4, 7.5], stray: 0.08, tallBias: 1.6 },
+  clump: { per: 7, size: [4, 7.5], stray: 0.08, tallBias: 1.6, slim: 0.4 },
   sway: 0.1,
   flutter: 0.01,
   clear: {

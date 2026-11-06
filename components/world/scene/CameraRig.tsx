@@ -21,6 +21,48 @@ const UP = new THREE.Vector3(0, 1, 0);
 const damp = (cur: number, target: number, k: number, dt: number) =>
   cur + (target - cur) * (1 - Math.exp(-k * dt));
 
+// damp untuk sudut: lewat jalan terpendek, dengan batas kecepatan putar (rad/detik)
+const dampAngle = (
+  cur: number,
+  target: number,
+  k: number,
+  dt: number,
+  max: number,
+) => {
+  const d = Math.atan2(Math.sin(target - cur), Math.cos(target - cur));
+  const step = clamp(d * (1 - Math.exp(-k * dt)), -max * dt, max * dt);
+  return cur + step;
+};
+
+// SmoothDamp (teredam kritis), dari Game Programming Gems 4. Mengembalikan [nilai baru, kecepatan baru].
+// smoothTime = kira-kira lama menyusul sasaran (detik); maxSpeed membatasi kecepatan.
+function smoothDamp(
+  cur: number,
+  target: number,
+  vel: number,
+  smoothTime: number,
+  maxSpeed: number,
+  dt: number,
+): [number, number] {
+  const st = Math.max(0.0001, smoothTime);
+  const omega = 2 / st;
+  const x = omega * dt;
+  const e = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const maxChange = maxSpeed * st;
+  const change = clamp(cur - target, -maxChange, maxChange);
+  const tgt = cur - change;
+  const temp = (vel + omega * change) * dt;
+  let v = (vel - omega * temp) * e;
+  let out = tgt + (change + temp) * e;
+  if (target - cur > 0 === out > target) {
+    out = target;
+    v = 0;
+  }
+  return [out, v];
+}
+// Pandangan dihitung dari bentuk jalur di depan kamera, bukan dari titik tatap yang tertinggal.
+const HEAD_AT = [2, 6, 10, 14, 18];
+
 // Kamera satu jalur: posisi sepanjang rute ditentukan scroll, pandangan boleh digeser
 // (seret mouse/jari) lalu pelan-pelan kembali ke depan. Di ujung rute, kamera pindah ke dermaga.
 // camDist = posisi kamera sepanjang rute (m), dibaca kucing.
@@ -61,6 +103,13 @@ export default function CameraRig({
     touch: false,
     scoped: false,
     fov: CAMERA.fov,
+    pIn: 0, // progress scroll pada frame sebelumnya
+    still: 0, // sudah berapa detik scroll diam
+    v: 0, // kecepatan progress (per detik), sudah dihaluskan dan dibatasi
+    hd: null as number | null, // arah pandang di jalur (yaw, rad), sudah dihaluskan
+    pt: 0, // kemiringan pandangan di jalur (pitch, rad), sudah dihaluskan
+    px: 0, // posisi mouse yang sudah dihaluskan (untuk goyang kamera)
+    py: 0,
   });
   const drag = useRef({ on: false, x: 0, y: 0, moved: 0, id: -1 });
   const tmp = useMemo(
@@ -138,24 +187,95 @@ export default function CameraRig({
     const cam = camera as THREE.PerspectiveCamera;
 
     // ── posisi sepanjang rute ──────────────────────────────
-    const follow = reduceMotion ? SCROLL.smoothReduced : SCROLL.smooth;
-    st.p = damp(st.p, progress.current, follow, dt);
-    const dist =
-      clamp(st.p, 0, 1) * Math.max(1, ROUTE_LENGTH - CAMERA.stopBeforeEnd);
+    // Kamera mengejar posisi scroll dengan kecepatan yang DIBATASI (CAMERA.maxSpeed) dan percepatan yang dihaluskan.
+    // Scroll kilat, tarik scrollbar, tombol End, atau lompat bab: kamera tetap terbang lewat jalur dengan
+    // kecepatan wajar, tidak melompat, tidak menyambar, dan beban gambar per frame tetap terbatas.
+    // Saat scroll aktif kamera mengikuti dengan lembut. Begitu scroll diam (sekitar 0,1 detik), laju mengejar naik pelan-pelan
+    // sampai SCROLL.settle kali lipat: kamera cepat mengerem dan tidak meluncur jauh, tanpa berhenti mendadak.
+    st.still =
+      Math.abs(progress.current - st.pIn) > 0.00001 ? 0 : st.still + dt;
+    st.pIn = progress.current;
+    const span = Math.max(1, ROUTE_LENGTH - CAMERA.stopBeforeEnd);
+    const target = clamp(progress.current, 0, 1);
+    // Pegas teredam kritis (SmoothDamp): posisi dan kecepatan berubah mulus, tidak ada lonjakan saat scroll berhenti
+    // (cara lama menaikkan "gain" mendadak ketika scroll diam, dan itu terasa sebagai dorongan maju sebelum rem).
+    // Waktu pegas memendek pelan-pelan saat scroll diam, jadi kamera berhenti lebih cepat tanpa sentakan.
+    const g = reduceMotion ? SCROLL.glideReduced : SCROLL.glide;
+    const gs = reduceMotion ? SCROLL.glideReduced : SCROLL.glideStop;
+    const smoothTime = g + (gs - g) * smoothstep(0.1, 0.7, st.still);
+    const sd = smoothDamp(
+      st.p,
+      target,
+      st.v,
+      smoothTime,
+      CAMERA.maxSpeed / span,
+      dt,
+    );
+    st.p = clamp(sd[0], 0, 1);
+    st.v = sd[1];
+    if (Math.abs(target - st.p) < 1e-6) st.v = 0;
+    const dist = st.p * span;
     camDist.current = dist;
+    const speed = Math.abs(st.v) * span; // m/detik
+    const calm = 1 - smoothstep(8, 24, speed); // 1 = pelan, 0 = ngebut
 
     const here = routePointAt(dist);
-    const ahead = routePointAt(dist + CAMERA.lookAhead);
-    const groundHere = walkHeight(here.x, here.z);
-    st.y = st.y === null ? groundHere : damp(st.y, groundHere, 8, dt);
+    // Tinggi tanah dirata-ratakan di sekitar titik (2 m ke belakang dan depan) supaya tonjolan kecil, tepi jembatan,
+    // dan ujung tanjakan tidak terasa sebagai sentakan naik-turun.
+    const smoothGround = (d: number, p = routePointAt(d)) => {
+      const a = routePointAt(d - 2);
+      const c = routePointAt(d + 2);
+      return (
+        (walkHeight(a.x, a.z) +
+          2 * walkHeight(p.x, p.z) +
+          walkHeight(c.x, c.z)) /
+        4
+      );
+    };
+    const groundHere = smoothGround(dist, here);
+    // makin kencang, penghalusan tinggi makin cepat supaya tidak tertinggal jauh dari tanah
+    st.y =
+      st.y === null ? groundHere : damp(st.y, groundHere, 7 + speed * 0.5, dt);
+    // Batas longgar (0,4 m di bawah tanah rata-rata, mata masih 1,3 m di atas tanah) supaya tidak menyentak kamera.
+    if (st.y < groundHere - 0.4) st.y = groundHere - 0.4;
     const bob = reduceMotion
       ? 0
-      : Math.sin(clock.elapsedTime * 1.3) * CAMERA.bob;
+      : Math.sin(clock.elapsedTime * 1.3) * CAMERA.bob * calm;
     tmp.pos.set(here.x, st.y + CAMERA.eye + bob, here.z);
+
+    // Arah pandang = rata-rata arah jalan di depan (bentuk jalur, bukan titik yang dikejar). Tidak ada keadaan yang bisa
+    // tertinggal jauh, jadi pandangan tidak mungkin menghadap belakang atau menunduk lurus ke tanah.
+    // Lalu dihaluskan dengan batas kecepatan putar.
+    let hx = 0;
+    let hz = 0;
+    for (const o of HEAD_AT) {
+      const q = routePointAt(dist + o);
+      hx += q.tx;
+      hz += q.tz;
+    }
+    const hdT = Math.atan2(hx, hz);
+    const aheadH = smoothGround(dist + CAMERA.lookAhead);
+    const ptT = clamp(
+      Math.atan2(
+        aheadH + CAMERA.lookHeight - (groundHere + CAMERA.eye),
+        CAMERA.lookAhead,
+      ),
+      -CAMERA.pitchMax,
+      CAMERA.pitchMax,
+    );
+    if (st.hd === null) {
+      st.hd = hdT;
+      st.pt = ptT;
+    } else {
+      const rate = reduceMotion ? 12 : CAMERA.turnSmooth;
+      st.hd = dampAngle(st.hd, hdT, rate, dt, CAMERA.turnMax);
+      st.pt = damp(st.pt, ptT, rate, dt);
+    }
+    const cp = Math.cos(st.pt);
     tmp.look.set(
-      ahead.x,
-      walkHeight(ahead.x, ahead.z) + CAMERA.lookHeight,
-      ahead.z,
+      tmp.pos.x + Math.sin(st.hd) * cp * CAMERA.lookAhead,
+      tmp.pos.y + Math.sin(st.pt) * CAMERA.lookAhead,
+      tmp.pos.z + Math.cos(st.hd) * cp * CAMERA.lookAhead,
     );
 
     // ── dermaga ────────────────────────────────────────────
@@ -267,9 +387,12 @@ export default function CameraRig({
     }
     st.yaw = damp(st.yaw, st.yawT, FREELOOK.smooth, dt);
     st.pitch = damp(st.pitch, st.pitchT, FREELOOK.smooth, dt);
-    const sway = reduceMotion || inside ? 0 : CAMERA.sway * 0.12;
-    cam.rotateOnWorldAxis(UP, st.yaw - pointer.x * sway);
-    cam.rotateX(st.pitch + pointer.y * sway * 0.5);
+    // posisi mouse dihaluskan: pointer hanya berubah saat mouse bergerak, jadi tanpa ini goyangnya berundak
+    st.px = damp(st.px, pointer.x, 6, dt);
+    st.py = damp(st.py, pointer.y, 6, dt);
+    const sway = reduceMotion || inside ? 0 : CAMERA.sway * 0.12 * calm;
+    cam.rotateOnWorldAxis(UP, st.yaw - st.px * sway);
+    cam.rotateX(st.pitch + st.py * sway * 0.5);
 
     // ── sudut pandang ──────────────────────────────────────
     const portrait = size.width / size.height < 0.8;

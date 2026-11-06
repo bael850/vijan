@@ -1,8 +1,15 @@
 import * as THREE from "three";
 import { FACE } from "../../config/city";
-import { KEEP, PALACE_COLORS as C, PALACE_DIM as D } from "../../config/palace";
+import {
+  DOME,
+  FORECOURT as FC,
+  KEEP,
+  PALACE_COLORS as C,
+  PALACE_DIM as D,
+  WING,
+} from "../../config/palace";
 import { PALACE } from "../../config/world";
-import { box, cyl, frame, prism } from "../village/villageBag";
+import { box, cyl, frame, gables, prism } from "../village/villageBag";
 
 export type Key =
   | "stone"
@@ -11,7 +18,9 @@ export type Key =
   | "dark"
   | "gold"
   | "glass"
-  | "lamp";
+  | "lamp"
+  | "leaf"
+  | "bloom";
 export const KEYS: Key[] = [
   "stone",
   "roof",
@@ -20,6 +29,8 @@ export const KEYS: Key[] = [
   "gold",
   "glass",
   "lamp",
+  "leaf",
+  "bloom",
 ];
 export type Bag = Record<Key, THREE.BufferGeometry[]>;
 export const newBag = (): Bag =>
@@ -65,6 +76,32 @@ export const ANCHORS = {
   door: local(0, FLOOR + 2.7, KEEP.d / 2 + 3.6),
 };
 
+// Setengah silinder pipih untuk lengkung jendela. Pusat lengkung di (x, y, z), sumbu sepanjang z (muka depan/belakang)
+// atau x (muka samping).
+function arch(
+  r: number,
+  thick: number,
+  x: number,
+  y: number,
+  z: number,
+  side: boolean,
+) {
+  const g = new THREE.CylinderGeometry(
+    r,
+    r,
+    thick,
+    12,
+    1,
+    false,
+    Math.PI / 2,
+    Math.PI,
+  );
+  g.rotateX(Math.PI / 2); // sumbu ke z, setengah atas (y > 0)
+  if (side) g.rotateY(Math.PI / 2);
+  g.translate(x, y, z);
+  return g;
+}
+
 function win(
   bag: Bag,
   x: number,
@@ -73,11 +110,21 @@ function win(
   side: boolean,
   w = 1.5,
   h = 2.9,
+  arched = true,
 ) {
   const [bw, bd] = side ? [0.2, w] : [w, 0.2];
   add(bag, "wood", box(bw, h, bd, x, y, z), M);
   const [gw, gd] = side ? [0.24, w - 0.3] : [w - 0.3, 0.24];
   add(bag, "glass", box(gw, h - 0.3, gd, x, y, z), M);
+  if (arched) {
+    add(bag, "wood", arch(w / 2, 0.2, x, y + h / 2, z, side), M);
+    add(
+      bag,
+      "glass",
+      arch((w - 0.3) / 2, 0.24, x, y + (h - 0.3) / 2, z, side),
+      M,
+    );
+  }
 }
 
 // Letak obor gerbang dan jendela gerbang di dunia (untuk halo dan lampu malam).
@@ -89,6 +136,12 @@ export function palaceLights() {
     const v = local(s * 3.3, FLOOR + 4.0, front + 0.9);
     return { x: v.x, y: v.y, z: v.z };
   });
+  // lampu tiang di halaman depan
+  for (const sx of [-1, 1])
+    for (const z of FC.lampZ) {
+      const v = local(sx * FC.lampX, FLOOR + 3.2, z);
+      torches.push({ x: v.x, y: v.y, z: v.z });
+    }
   const w = local(0, FLOOR + 9.5, front + 1.0);
   return { torches, windows: [{ x: w.x, y: w.y, z: w.z }] };
 }
@@ -96,63 +149,273 @@ export function palaceLights() {
 export function buildPalace(bag: Bag, seg: number) {
   const { w, d, h } = KEEP;
   const P = FLOOR;
+  const WX = w / 2 + WING.w; // tepi luar sayap (x lokal)
+  const PW = WX * 2 + 8; // lebar podium
+  const sink = D.podiumSink;
+  const slabY = G + (D.podium - sink) / 2;
 
-  // podium + pagar + tangga depan
-  add(
-    bag,
-    "stone",
-    box(
-      w + 8,
-      D.podium + D.podiumSink,
-      d + 8,
-      0,
-      G + (D.podium - D.podiumSink) / 2,
-      0,
-    ),
-    M,
-  );
-  add(bag, "stone", box(w + 8.6, 0.35, d + 8.6, 0, P - 0.17, 0), M);
-  const bz = d / 2 + 3.8;
-  const half = (w + 8) / 2;
-  const seg1 = half - 5.5;
+  // podium selebar aula + dua sayap, halaman depan, pagar
+  add(bag, "stone", box(PW, D.podium + sink, d + 8, 0, slabY, 0), M);
+  add(bag, "stone", box(PW + 0.6, 0.35, d + 8.6, 0, P - 0.17, 0), M);
+  const edgeZ = d / 2 + 4;
+  const fcMid = edgeZ + FC.d / 2;
+  add(bag, "stone", box(FC.w, D.podium + sink, FC.d, 0, slabY, fcMid), M);
+  add(bag, "stone", box(FC.w + 0.6, 0.35, FC.d + 0.6, 0, P - 0.17, fcMid), M);
+  const bz = edgeZ - 0.2;
+  const half = PW / 2;
+  const gap = FC.w / 2;
+  const seg1 = half - gap;
   for (const s of [-1, 1]) {
     add(
       bag,
       "stone",
-      box(seg1, 0.9, 0.4, s * (5.5 + seg1 / 2), P + 0.45, bz),
+      box(seg1, 0.9, 0.4, s * (gap + seg1 / 2), P + 0.45, bz),
       M,
     );
     add(bag, "stone", box(0.4, 0.9, d + 8, s * (half - 0.2), P + 0.45, 0), M);
+    // pagar sisi halaman
+    add(bag, "stone", box(0.4, 0.9, FC.d, s * (gap - 0.2), P + 0.45, fcMid), M);
   }
-  add(bag, "stone", box(w + 8, 0.9, 0.4, 0, P + 0.45, -(d / 2 + 3.8)), M);
+  add(bag, "stone", box(PW, 0.9, 0.4, 0, P + 0.45, -edgeZ), M);
+  // tangga di ujung halaman, turun ke jalan bukit
+  const stairZ = edgeZ + FC.d;
   for (let k = 0; k < 4; k++) {
     const hk = 0.3 * (k + 1);
+    const th = hk + 1.2; // ditanam ke tanah supaya tidak ada celah
     add(
       bag,
       "stone",
-      box(11, hk, 1.1, 0, G + hk / 2, d / 2 + 4.55 + (3 - k) * 1.1),
+      box(
+        FC.stairW,
+        th,
+        1.1,
+        0,
+        G + hk - th / 2,
+        stairZ + 0.55 + (3 - k) * 1.1,
+      ),
       M,
     );
   }
 
-  // aula utama: dinding, pita kayu, jendela dua baris, atap biru
+  // taman halaman: dua petak berpagar batu, pagar tanaman, bunga, pohon bulat
+  const bed = FC.bed;
+  for (const s of [-1, 1]) {
+    const bx = s * bed.x;
+    const bzc = fcMid;
+    add(bag, "stone", box(bed.w, 0.4, bed.d, bx, P + 0.2, bzc), M);
+    add(bag, "leaf", box(bed.w - 0.8, 0.7, bed.d - 0.8, bx, P + 0.7, bzc), M);
+    for (const dx of [-1, 1])
+      for (const dz of [-1, 1]) {
+        const tx = bx + dx * (bed.w / 2 - 0.9);
+        const tz = bzc + dz * (bed.d / 2 - 0.9);
+        add(bag, "wood", cyl(0.08, 0.1, 1.0, 5, tx, P + 1.0, tz), M);
+        add(
+          bag,
+          "leaf",
+          new THREE.SphereGeometry(0.75, 8, 6).translate(tx, P + 1.95, tz),
+          M,
+        );
+      }
+    for (let i = -2; i <= 2; i++)
+      add(
+        bag,
+        "bloom",
+        new THREE.SphereGeometry(0.2, 6, 4).translate(
+          bx + i * 1.2,
+          P + 1.12,
+          bzc,
+        ),
+        M,
+      );
+  }
+  // lampu tiang
+  for (const sx of [-1, 1])
+    for (const z of FC.lampZ) {
+      const x = sx * FC.lampX;
+      add(bag, "dark", cyl(0.09, 0.14, 3.0, 6, x, P + 1.5, z), M);
+      add(bag, "dark", box(0.5, 0.12, 0.5, x, P + 3.0, z), M);
+      add(bag, "lamp", box(0.34, 0.5, 0.34, x, P + 3.3, z), M);
+    }
+  // kolonade di kedua tepi halaman: tiang, balok, tutup
+  const colH = 4.2;
+  const zs = FC.colZ;
+  const z0 = zs[0] - 0.8;
+  const z1 = zs[zs.length - 1] + 0.8;
+  for (const s of [-1, 1]) {
+    const x = s * FC.colX;
+    for (const z of zs) {
+      add(bag, "stone", box(1.0, 0.4, 1.0, x, P + 0.2, z), M);
+      add(bag, "stone", cyl(0.34, 0.4, colH, seg, x, P + 0.4 + colH / 2, z), M);
+      add(bag, "stone", box(0.9, 0.3, 0.9, x, P + 0.4 + colH + 0.15, z), M);
+    }
+    add(
+      bag,
+      "wood",
+      box(0.8, 0.45, z1 - z0, x, P + 0.4 + colH + 0.52, (z0 + z1) / 2),
+      M,
+    );
+    add(
+      bag,
+      "gold",
+      box(0.9, 0.1, z1 - z0 + 0.1, x, P + 0.4 + colH + 0.8, (z0 + z1) / 2),
+      M,
+    );
+  }
+
+  // aula utama: dinding, pita kayu, jendela lengkung dua baris, atap biru
   add(bag, "stone", box(w, h, d, 0, P + h / 2, 0), M);
   add(bag, "wood", box(w + 0.5, 0.6, d + 0.5, 0, P + h - 0.3, 0), M);
   add(bag, "wood", box(w + 0.4, 0.4, d + 0.4, 0, P + 0.2, 0), M);
-  for (const y of [P + 4.4, P + 9.4]) {
-    for (const x of [-12, -7.5, 7.5, 12]) win(bag, x, y, d / 2 + 0.1, false);
-    for (const x of [-12, -7, -2, 2, 7, 12])
+  for (const y of [P + 4.4, P + 10]) {
+    for (const x of [-11, -6, 6, 11]) win(bag, x, y, d / 2 + 0.1, false);
+    for (const x of [-11, -8, 8, 11]) {
       win(bag, x, y, -d / 2 - 0.1, false);
-    for (const z of [-5, 0, 5])
-      for (const s of [-1, 1]) win(bag, s * (w / 2 + 0.1), y, z, true);
+    }
   }
-  add(bag, "roof", prism(w + 2.4, d + 2.4, D.hallRoof), here(P + h));
+  add(bag, "roof", prism(w + 2.4, d + 2.4, D.hallRoof, false), here(P + h));
+  add(bag, "stone", gables(w + 2.4, d + 2.4, D.hallRoof), here(P + h));
   add(
     bag,
     "gold",
     box(w + 2.4, 0.25, 0.35, 0, P + h + D.hallRoof + 0.05, 0),
     M,
   );
+
+  // kubah di atas punggung atap: tabung berjendela, bola setengah, cincin dan puncak emas
+  {
+    const topY = P + h + D.hallRoof;
+    const baseY = topY - 2.2;
+    const dh = DOME.drum + 2.2;
+    add(
+      bag,
+      "stone",
+      cyl(DOME.r, DOME.r + 0.2, dh, seg, 0, baseY + dh / 2, 0),
+      M,
+    );
+    add(
+      bag,
+      "wood",
+      cyl(DOME.r + 0.4, DOME.r + 0.4, 0.4, seg, 0, topY + DOME.drum - 0.2, 0),
+      M,
+    );
+    add(
+      bag,
+      "roof",
+      new THREE.SphereGeometry(
+        DOME.r + 0.3,
+        seg,
+        8,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI / 2,
+      ).translate(0, topY + DOME.drum, 0),
+      M,
+    );
+    const rr = DOME.r + 0.05;
+    for (const a of [0, 1, 2, 3]) {
+      const ang = (a * Math.PI) / 2 + Math.PI / 4;
+      const gx = Math.cos(ang) * rr;
+      const gz = Math.sin(ang) * rr;
+      const g = box(0.9, 1.9, 0.24, 0, 0, 0);
+      g.rotateY(-ang + Math.PI / 2);
+      g.translate(gx, topY + 1.0, gz);
+      add(bag, "glass", g, M);
+    }
+    const top = topY + DOME.drum + DOME.r + 0.3;
+    add(
+      bag,
+      "gold",
+      cyl(DOME.r * 0.38, DOME.r * 0.38, 0.35, 10, 0, top - 0.05, 0),
+      M,
+    );
+    add(
+      bag,
+      "gold",
+      new THREE.SphereGeometry(0.55, 8, 6).translate(0, top + 0.5, 0),
+      M,
+    );
+    add(bag, "gold", cyl(0.05, 0.1, 2.0, 5, 0, top + 1.6, 0), M);
+  }
+
+  // sayap kiri-kanan: dinding, atap pelana, jendela lengkung, serambi bertiang di depan
+  for (const s of [-1, 1]) {
+    const xc = s * (w / 2 + WING.w / 2);
+    const wh = WING.h;
+    const fz = WING.d / 2;
+    add(bag, "stone", box(WING.w, wh, WING.d, xc, P + wh / 2, 0), M);
+    add(
+      bag,
+      "wood",
+      box(WING.w + 0.4, 0.5, WING.d + 0.4, xc, P + wh - 0.25, 0),
+      M,
+    );
+    add(bag, "wood", box(WING.w + 0.3, 0.4, WING.d + 0.3, xc, P + 0.2, 0), M);
+    add(
+      bag,
+      "roof",
+      prism(WING.w + 1.6, WING.d + 1.8, WING.roof, false),
+      here(P + wh).multiply(new THREE.Matrix4().makeTranslation(xc, 0, 0)),
+    );
+    add(
+      bag,
+      "stone",
+      gables(WING.w + 1.6, WING.d + 1.8, WING.roof),
+      here(P + wh).multiply(new THREE.Matrix4().makeTranslation(xc, 0, 0)),
+    );
+    add(
+      bag,
+      "gold",
+      box(WING.w + 1.6, 0.2, 0.3, xc, P + wh + WING.roof + 0.05, 0),
+      M,
+    );
+    // muka depan: jendela bawah di balik serambi, jendela atas
+    for (const x of [21.5, 24.5]) {
+      win(bag, s * x, P + 3.0, fz + 0.1, false, 1.5, 2.6);
+      win(bag, s * x, P + 7.2, fz + 0.1, false, 1.4, 2.0, false);
+    }
+    // belakang
+    for (const x of [18.5, 23.5]) {
+      win(bag, s * x, P + 4.4, -fz - 0.1, false);
+    }
+    // ujung luar
+    for (const z of [-2.5, 2.5]) win(bag, s * (WX + 0.1), P + 4.4, z, true);
+    // serambi: tiang, balok, atap datar
+    const cols = WING.arcade.cols;
+    const ch = WING.arcade.h;
+    const az = fz + 1.5; // sumbu tiang
+    for (const cx of cols) {
+      add(bag, "stone", box(1.0, 0.4, 1.0, s * cx, P + 0.2, az), M);
+      add(
+        bag,
+        "stone",
+        cyl(0.36, 0.42, ch - 0.7, seg, s * cx, P + 0.4 + (ch - 0.7) / 2, az),
+        M,
+      );
+      add(bag, "stone", box(0.9, 0.3, 0.9, s * cx, P + ch - 0.25, az), M);
+    }
+    const ax0 = cols[0] - 0.8;
+    const ax1 = cols[cols.length - 1] + 0.8;
+    add(
+      bag,
+      "wood",
+      box(ax1 - ax0, 0.5, 0.7, s * ((ax0 + ax1) / 2), P + ch + 0.1, az),
+      M,
+    );
+    add(
+      bag,
+      "stone",
+      box(
+        ax1 - ax0 + 0.3,
+        0.25,
+        3.2,
+        s * ((ax0 + ax1) / 2),
+        P + ch + 0.45,
+        fz + 1.4,
+      ),
+      M,
+    );
+  }
 
   // empat menara sudut: badan, cincin, atap kerucut, bola emas, tiang
   const { r, h: th, roof } = D.tower;

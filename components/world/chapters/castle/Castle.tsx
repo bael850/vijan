@@ -3,7 +3,12 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
-import { CASTLE_COLORS, GATE, MOAT_WATER, WALL } from "../../config/castle";
+import {
+  bridgeLamps,
+  CASTLE_COLORS,
+  GATE,
+  MOAT_WATER,
+} from "../../config/castle";
 import { NIGHT_GLOW as NG } from "../../config/nightGlow";
 import { CASTLE } from "../../config/world";
 import { addSources, GlowPoints } from "../../core/lightPool";
@@ -14,9 +19,9 @@ import ChunkedMesh from "../../core/ChunkedMesh";
 
 // Obor di kiri-kanan dua gerbang, sisi luar dan dalam tembok.
 function gateTorches() {
-  const gw = GATE.width / 2 + 1.1;
-  const T = WALL.thick / 2 + 0.7;
-  const y = CASTLE.y + 6;
+  const gw = GATE.width / 2 + 1.4;
+  const T = 6.35;
+  const y = CASTLE.y + 7;
   const S = CASTLE.z + CASTLE.hd;
   const E = CASTLE.x + CASTLE.hw;
   const gx = CASTLE.gate.x;
@@ -44,6 +49,7 @@ export default function Castle({ quality }: { quality: GraphicsQuality }) {
     [],
   );
   const torches = useMemo(gateTorches, []);
+  const lamps = useMemo(bridgeLamps, []);
   useEffect(
     () =>
       addSources(
@@ -56,9 +62,30 @@ export default function Castle({ quality }: { quality: GraphicsQuality }) {
       ),
     [torches],
   );
+  useEffect(
+    () =>
+      addSources(
+        lamps.map((p) => ({
+          ...p,
+          color: NG.lamp.color,
+          power: NG.lamp.power,
+        })),
+      ),
+    [lamps],
+  );
   const stone = useMemo(() => grainMat(CASTLE_COLORS.stone, "stone"), []);
   const roof = useMemo(() => grainMat(CASTLE_COLORS.roof, "roof"), []);
   const wood = useMemo(() => grainMat(CASTLE_COLORS.wood, "wood"), []);
+  const paving = useMemo(() => grainMat(CASTLE_COLORS.paving, "stone"), []);
+  const dark = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: CASTLE_COLORS.dark,
+        roughness: 0.8,
+        metalness: 0.4,
+      }),
+    [],
+  );
   const waterMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
@@ -76,10 +103,14 @@ export default function Castle({ quality }: { quality: GraphicsQuality }) {
       parts.stone.dispose();
       parts.roof.dispose();
       parts.wood.dispose();
+      parts.dark.dispose();
+      parts.paving.dispose();
+      paving.dispose();
+      dark.dispose();
       water.dispose();
       waterMat.dispose();
     },
-    [parts, water, waterMat],
+    [parts, water, waterMat, dark, paving],
   );
 
   return (
@@ -102,6 +133,13 @@ export default function Castle({ quality }: { quality: GraphicsQuality }) {
         castShadow
         receiveShadow
       />
+      <ChunkedMesh
+        geometry={parts.dark}
+        material={dark}
+        castShadow
+        receiveShadow
+      />
+      <ChunkedMesh geometry={parts.paving} material={paving} receiveShadow />
       <mesh geometry={water} material={waterMat} />
       {torches.map((p, i) => (
         <NightBasic
@@ -111,9 +149,26 @@ export default function Castle({ quality }: { quality: GraphicsQuality }) {
           off="#3a2a1a"
           position={[p.x, p.y, p.z]}
         >
-          <boxGeometry args={[0.35, 0.55, 0.35]} />
+          <boxGeometry args={[0.6, 0.95, 0.6]} />
         </NightBasic>
       ))}
+      {lamps.map((p, i) => (
+        <NightBasic
+          key={`l${i}`}
+          night="#ffcf80"
+          day="#3a2a1a"
+          off="#3a2a1a"
+          position={[p.x, p.y, p.z]}
+        >
+          <boxGeometry args={[0.55, 0.75, 0.55]} />
+        </NightBasic>
+      ))}
+      <GlowPoints
+        list={lamps}
+        color={NG.lamp.color}
+        size={NG.lamp.halo}
+        base={NG.lamp.haloOpacity}
+      />
       <GlowPoints
         list={torches}
         color={NG.torch.color}

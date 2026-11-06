@@ -51,6 +51,9 @@ export const LAKE_SHAPE = {
 
 // Titik awal perjalanan: lingkaran rune di puncak bukit.
 export const START = { x: 4, z: 130 };
+// Tinggi tanah di titik awal (m). Dulu sekitar 35 m karena bukit awal ditumpuk punggung tepi dunia, terlalu tinggi untuk pembuka.
+// Tanah di sekitar START dirata ke tinggi ini (rata di radius 26 m, menyatu ke tanah asli sampai radius 85 m).
+export const START_Y = 20;
 
 // Bukit awal (Gerbang Waktu).
 export const HILL = { x: 4, z: 120, r: 70, h: 14 };
@@ -72,13 +75,21 @@ export const CASTLE = {
 
 // Jembatan di atas parit depan gerbang utama. Tanah di sini tetap cekung (parit),
 // tinggi jalan kaki dipaksa setinggi lantai kota lewat walkHeight().
-export const BRIDGE = { x: 0, halfWidth: 4, zFrom: -148, zTo: -168 };
+export const BRIDGE = { x: 0, halfWidth: 6, zFrom: -148, zTo: -168 };
+
+// Tanjakan landai (causeway) dari tanah ke ujung luar tiap jembatan, supaya dek jembatan, tanah, dan kamera
+// menyatu. length = panjang tanjakan ke luar (m), side = lebar tanjakan di kiri-kanan jembatan (m).
+export const BRIDGE_RAMP = { length: 40, side: 16 };
 
 // Jembatan di atas parit depan gerbang timur (memanjang di sumbu x, z = tengah jembatan).
-export const BRIDGE_EAST = { z: -316, halfWidth: 6, xFrom: 130, xTo: 155 };
+export const BRIDGE_EAST = { z: -315, halfWidth: 6, xFrom: 130, xTo: 155 };
 
 // Bukit istana di dalam kastil, sisi utara.
 export const PALACE = { x: 40, z: -365, r: 48, top: 9 };
+
+// Alun-alun kota di kaki barat bukit istana: tanahnya dirata setinggi lantai kota, r = bagian rata,
+// blend = lebar peralihan ke lereng bukit.
+export const PLAZA = { x: -14, z: -346, r: 19, blend: 10 };
 
 // Rumah kita: di atas bukit kecil di luar gerbang timur, menghadap danau.
 export const HOUSE = { x: 205, z: -345, padY: 3, padRadius: 32 };

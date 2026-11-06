@@ -1,14 +1,21 @@
 import * as THREE from "three";
 
 // Alat bantu perakit geometri kota: kumpulkan bagian per bahan, lalu gabung jadi satu mesh per bahan.
-export { box, cyl, frame, prism } from "../village/villageBag";
+export { box, cyl, frame, gables, prism } from "../village/villageBag";
 
 export type Key =
   | "plaster"
+  | "plasterB"
+  | "plasterC"
   | "wood"
   | "stone"
   | "tile"
   | "thatch"
+  | "slate"
+  | "paving"
+  | "gold"
+  | "green"
+  | "royal"
   | "cloth"
   | "iron"
   | "awning0"
@@ -24,10 +31,17 @@ export type Key =
 
 export const KEYS: Key[] = [
   "plaster",
+  "plasterB",
+  "plasterC",
   "wood",
   "stone",
   "tile",
   "thatch",
+  "slate",
+  "paving",
+  "gold",
+  "green",
+  "royal",
   "cloth",
   "iron",
   "awning0",

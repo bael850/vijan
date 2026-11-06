@@ -1,4 +1,18 @@
-import { COTTAGES, FIELDS, MILL, TAVERN } from "../config/village";
+import {
+  BANNERS,
+  BENCHES,
+  CART,
+  COTTAGES,
+  FIELDS,
+  HAYSTACKS,
+  LAMPS,
+  MILL,
+  MUSHROOMS,
+  SCARECROWS,
+  STALLS,
+  TAVERN,
+  WELL,
+} from "../config/village";
 import { HOUSE, START, WATER_Y, WORLD } from "../config/world";
 import { PIER } from "../lake/pierLayout";
 import { FLORA, type TreeDef } from "../config/flora";
@@ -36,6 +50,23 @@ function rng(seed: number) {
   };
 }
 
+// Pernik desa yang tidak boleh tertimpa pohon atau rumput: [x, z, jari-jari bebas (m)].
+const PROPS: [number, number, number][] = [
+  [WELL.x, WELL.z, 6.5],
+  [CART.x, CART.z, 3],
+  ...STALLS.map((p): [number, number, number] => [p.x, p.z, 3.2]),
+  ...BENCHES.map((p): [number, number, number] => [p.x, p.z, 2]),
+  ...LAMPS.map((p): [number, number, number] => [p.x, p.z, 1.6]),
+  ...BANNERS.map((p): [number, number, number] => [p.x, p.z, 2.2]),
+  ...HAYSTACKS.map((p): [number, number, number] => [p.x, p.z, p.r + 1.6]),
+  ...SCARECROWS.map((p): [number, number, number] => [p.x, p.z, 2]),
+  ...MUSHROOMS.clusters.map((p): [number, number, number] => [
+    p.x,
+    p.z,
+    MUSHROOMS.spread + 1.5,
+  ]),
+];
+
 // Apakah titik ini boleh ditanami? (bukan jalur, kastil, air, rumah, bangunan desa, ladang)
 function allowed(x: number, z: number, def: TreeDef) {
   const A = { ...FLORA.avoid, ...def.clear };
@@ -63,6 +94,8 @@ function allowed(x: number, z: number, def: TreeDef) {
   )
     return false;
   if (Math.hypot(x - MILL.x, z - MILL.z) < 7 + bm) return false;
+  for (const [px, pz, pr] of PROPS)
+    if (Math.hypot(x - px, z - pz) < pr + (def.soft ? 0 : 1.5)) return false;
   for (const f of FIELDS)
     if (
       Math.abs(x - f.x) < f.w / 2 + bm / 2 &&
@@ -165,7 +198,7 @@ export function scatter(
       // Tebaran tinggi dibuat lebih ramping (lebar model ikut tinggi), supaya tidak jadi bantalan raksasa.
       const w =
         (def.width[0] + (def.width[1] - def.width[0]) * wk) *
-        (tall >= 0 ? 1 - 0.4 * t : 1);
+        (tall >= 0 ? 1 - (cl?.slim ?? 0) * t : 1);
       // Mengakar: ambil tanah paling rendah di sekeliling batang, lalu tanam sedikit lebih dalam.
       // Di lereng, sisi atas batang terkubur dan sisi bawahnya tetap menyentuh tanah.
       const rad = (def.rootRadius ?? baseRadius * 1.1) * h * w;

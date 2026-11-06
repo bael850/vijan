@@ -26,7 +26,7 @@ import ChunkedMesh from "../../core/ChunkedMesh";
 
 const SEG: Record<GraphicsQuality, number> = { low: 10, medium: 14, high: 20 };
 
-// Bab 5, istana: aula, empat menara sudut, gerbang berlonceng, menara utama, dan panji berkibar.
+// Bab 5, istana: aula berkubah, dua sayap berserambi, empat menara sudut, gerbang berlonceng, menara utama, halaman bertaman, dan panji berkibar.
 export default function Palace({ quality }: { quality: GraphicsQuality }) {
   const geo = useMemo(() => {
     const bag = newBag();
@@ -85,6 +85,8 @@ export default function Palace({ quality }: { quality: GraphicsQuality }) {
       }),
       glass: emissive(C.glass, C.glassGlow),
       lamp: emissive("#3a2a14", C.lamp),
+      leaf: new THREE.MeshLambertMaterial({ color: C.leaf }),
+      bloom: new THREE.MeshLambertMaterial({ color: C.bloom }),
     } as Record<Key, THREE.Material>;
   }, []);
   const bannerMat = useMemo(
@@ -128,12 +130,13 @@ export default function Palace({ quality }: { quality: GraphicsQuality }) {
       for (const g of Object.values(geo)) g?.dispose();
       banners.dispose();
       bannerMat.dispose();
-      for (const k of ["gold", "glass", "lamp"] as Key[]) mats[k].dispose();
+      for (const k of ["gold", "glass", "lamp", "leaf", "bloom"] as Key[])
+        mats[k].dispose();
     },
     [geo, banners, bannerMat, mats],
   );
 
-  const flat: Key[] = ["glass", "lamp"];
+  const flat: Key[] = ["glass", "lamp", "bloom"];
   return (
     <group>
       {KEYS.map((k) =>

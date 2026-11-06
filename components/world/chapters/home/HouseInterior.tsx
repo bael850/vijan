@@ -19,6 +19,7 @@ import {
 
 import { cutRects, DOOR, INTERIOR } from "./homeGeometry";
 import type { HouseState } from "./houseState";
+import WallArt from "./WallArt";
 
 const FL = INTERIOR.floorY;
 type P = [number, number, number];

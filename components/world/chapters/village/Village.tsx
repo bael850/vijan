@@ -13,10 +13,13 @@ import {
 } from "../../config/village";
 import { dayState } from "../../core/dayCycle";
 import { grainMat } from "../../core/grain";
-import { buildBuildings, WINDOW_SPOTS } from "./buildings";
+import { buildBuildings, CHIMNEY_SPOTS, WINDOW_SPOTS } from "./buildings";
+import VillageFx from "./VillageFx";
 import { NIGHT_GLOW as NG } from "../../config/nightGlow";
 import { addSources, GlowPoints } from "../../core/lightPool";
-import { buildSails, fields, mushrooms, windmillBody } from "./props";
+import { buildSails, commons, fields, mushrooms, windmillBody } from "./props";
+import { nature } from "./nature";
+import { paths } from "./paths";
 import { newBag, type Bag, type Key } from "./villageBag";
 import ChunkedMesh from "../../core/ChunkedMesh";
 
@@ -37,15 +40,19 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
   const built = useMemo(() => {
     const bag = newBag();
     buildBuildings(bag);
-    const windows = WINDOW_SPOTS.slice();
+    commons(bag);
+    nature(bag);
+    paths(bag);
     const mill = windmillBody(bag, seg);
+    const windows = WINDOW_SPOTS.slice();
+    const chimneys = CHIMNEY_SPOTS.slice();
     buildSails(bag);
     fields(bag);
     mushrooms(bag, Math.max(8, seg - 4));
     const keys = Object.keys(bag) as Key[];
     const geo = {} as Record<Key, THREE.BufferGeometry | null>;
     for (const k of keys) geo[k] = merged(bag, k);
-    return { geo, mill, windows };
+    return { geo, mill, windows, chimneys };
   }, [seg]);
 
   const mats = useMemo(() => {
@@ -55,6 +62,10 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
       emissiveIntensity: WINDOW_GLOW.day,
       roughness: 0.3,
     });
+    const dirtMat = grainMat(C.dirt, "ground");
+    dirtMat.polygonOffset = true;
+    dirtMat.polygonOffsetFactor = -2;
+    dirtMat.polygonOffsetUnits = -2;
     const caps = MUSHROOMS.colors.map(
       (col) =>
         new THREE.MeshStandardMaterial({
@@ -74,6 +85,12 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
       wheat: grainMat(C.wheat, "ground"),
       green: grainMat(C.green, "ground"),
       stem: grainMat(C.stem, "plaster"),
+      dirt: dirtMat,
+      bushA: grainMat(C.bushA, "ground"),
+      bushB: grainMat(C.bushB, "ground"),
+      bloomA: grainMat(C.bloomA, "ground"),
+      bloomB: grainMat(C.bloomB, "ground"),
+      bloomC: grainMat(C.bloomC, "ground"),
       sailWood: grainMat(C.wood, "wood"),
       sailCloth: grainMat(C.fabric, "fabric", true),
       glass,
@@ -116,8 +133,20 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
   );
 
   const { geo } = built;
-  const solid: Key[] = ["plaster", "wood", "stone", "thatch", "tile", "stem"];
-  const flat: Key[] = ["wheat", "green"];
+  const solid: Key[] = [
+    "plaster",
+    "wood",
+    "stone",
+    "thatch",
+    "tile",
+    "stem",
+    "bushA",
+    "bushB",
+    "bloomA",
+    "bloomB",
+    "bloomC",
+  ];
+  const flat: Key[] = ["dirt", "wheat", "green"];
   const rAt = MILL.rBase - (MILL.rBase - MILL.rTop) * (MILL.hubY / MILL.h);
 
   return (
@@ -155,6 +184,7 @@ export default function Village({ quality }: { quality: GraphicsQuality }) {
           <mesh key={k} geometry={geo[k]!} material={mats.caps[i]} />
         ) : null,
       )}
+      <VillageFx quality={quality} chimneys={built.chimneys} />
       <group position={[MILL.x, 0, MILL.z]} rotation={[0, MILL.yaw, 0]}>
         <group
           ref={sails}

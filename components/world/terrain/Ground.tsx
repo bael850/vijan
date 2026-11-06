@@ -29,6 +29,8 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
     const light = new THREE.Color(PALETTE.grassLight);
     const yellow = new THREE.Color(PALETTE.grassYellow);
     const teal = new THREE.Color(PALETTE.teal);
+    const olive = new THREE.Color("#8a9a3a"); // padang kering zaitun
+    const shade = new THREE.Color("#245a48"); // padang teduh kebiruan
     const rock = new THREE.Color(PALETTE.rock);
     const sand = new THREE.Color(PALETTE.path);
     // pasir pantai lebih terang daripada tanah jalan
@@ -57,19 +59,38 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
       const z = pos.getZ(i);
       const y = pos.getY(i);
 
-      // sapuan kuas: pita diagonal yang bergelombang oleh noise
-      const stroke =
+      // sapuan kuas: dua arah pita yang saling bercampur, kekuatannya berubah-ubah per daerah
+      // (ada hamparan bergaris tegas, ada yang hampir polos), supaya tidak terlihat seperti kain bergaris
+      const strokeA =
         Math.sin((x * 0.7 + z * 0.4) * 0.35 + noise(x * 0.05, z * 0.05) * 6) *
           0.5 +
         0.5;
+      const strokeB =
+        Math.sin(
+          (x * 0.25 - z * 0.75) * 0.3 + noise(x * 0.04 + 9, z * 0.04) * 7,
+        ) *
+          0.5 +
+        0.5;
+      const mixAB = smoothstep(0.35, 0.65, noise(x * 0.015 + 21, z * 0.015));
+      const strokeRaw = strokeA + (strokeB - strokeA) * mixAB;
+      const amp =
+        0.25 +
+        0.75 * smoothstep(0.3, 0.7, noise(x * 0.012 + 40, z * 0.012 - 7));
+      const stroke = 0.5 + (strokeRaw - 0.5) * amp;
       const n = fbm(x * 0.06, z * 0.06);
+      // petak padang lebar: ada yang kekuningan-zaitun, ada yang lebih teduh
+      const meadow = noise(x * 0.018 + 90, z * 0.018 - 30);
       c.copy(deep).lerp(mid, n);
-      c.lerp(light, smoothstep(0.45, 0.9, stroke) * 0.55);
+      c.lerp(light, smoothstep(0.45, 0.9, stroke) * 0.4);
       c.lerp(
         yellow,
         smoothstep(0.62, 0.95, n) * smoothstep(0.5, 1, stroke) * 0.5,
       );
+      c.lerp(olive, smoothstep(0.55, 0.85, meadow) * 0.4);
+      c.lerp(shade, smoothstep(0.42, 0.15, meadow) * 0.3);
       c.lerp(teal, smoothstep(0.2, 0.0, n) * 0.35);
+      // bintik halus per titik, supaya hamparan tidak licin
+      c.multiplyScalar(0.95 + noise(x * 0.9 + 3, z * 0.9 - 5) * 0.1);
       c.lerp(rock, smoothstep(16, 34, y) * 0.5);
 
       // gunung: hutan di kaki, lalu batu, kerikil di lereng, salju di puncak
@@ -146,5 +167,31 @@ export default function Ground({ quality }: { quality: GraphicsQuality }) {
     return m;
   }, []);
 
-  return <mesh geometry={geo} material={mat} receiveShadow />;
+  return (
+    <>
+      <mesh geometry={geo} material={mat} receiveShadow />
+      <Apron />
+    </>
+  );
+}
+
+// Alas di luar tepi dunia: tanah berhenti di batas dunia, dan dari tempat yang tinggi bagian luarnya tampak bolong
+// (warna di bawah cakrawala langit). Bidang besar ini di bawah tepi terendah tanah (di bawah dasar danau, sekitar -15 m, jadi tidak pernah menutupi tanah), ikut berkabut,
+// jadi bagian luar tidak pernah kosong. Tepi dunia sendiri tetap tersembunyi di balik punggung bukit dan kabut.
+function Apron() {
+  const mat = useMemo(() => {
+    const m = new THREE.MeshLambertMaterial({ color: "#1f4a3c" });
+    return m;
+  }, []);
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[WORLD.centerX, -20, WORLD.centerZ]}
+      material={mat}
+      frustumCulled={false}
+      renderOrder={-1}
+    >
+      <planeGeometry args={[9000, 9000]} />
+    </mesh>
+  );
 }

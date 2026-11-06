@@ -3,6 +3,7 @@ import { routeDist } from "../core/route";
 import {
   BRIDGE,
   BRIDGE_EAST,
+  BRIDGE_RAMP,
   CASTLE,
   HILL,
   HOUSE,
@@ -12,7 +13,10 @@ import {
   MOUNTAIN_LOOK,
   PADS,
   PALACE,
+  PLAZA,
   RIM,
+  START,
+  START_Y,
   WORLD,
 } from "../config/world";
 import { lakeScale } from "./lakeShape";
@@ -151,6 +155,10 @@ function rawGround(x: number, z: number) {
     (1 - smoothstep(0, RIM.width, ed)) *
     (0.55 + 0.9 * noise(x * 0.02, z * 0.02));
 
+  // Titik awal: tanahnya dirata ke START_Y supaya pembuka tidak terlalu tinggi, lingkaran rune dapat tanah datar.
+  const dStart = Math.hypot(x - START.x, z - START.z);
+  h = lerp(h, START_Y, 1 - smoothstep(26, 85, dStart));
+
   // Pekarangan rumah rata, lalu bukit kecilnya.
   const dHouse = Math.hypot(x - HOUSE.x, z - HOUSE.z);
   h = lerp(
@@ -168,6 +176,14 @@ function rawGround(x: number, z: number) {
     h,
     PALACE.top,
     (1 - smoothstep(PALACE.r * 0.45, PALACE.r, dPal)) * (cd < 0 ? 1 : 0),
+  );
+
+  // Alun-alun kota: dasar rata di kaki bukit istana.
+  const dPlaza = Math.hypot(x - PLAZA.x, z - PLAZA.z);
+  h = lerp(
+    h,
+    CASTLE.y,
+    (1 - smoothstep(PLAZA.r, PLAZA.r + PLAZA.blend, dPlaza)) * (cd < 0 ? 1 : 0),
   );
 
   // Parit di sekeliling tembok.
@@ -233,6 +249,17 @@ export function padDist(x: number, z: number) {
   return d;
 }
 
+// 0..1: seberapa kuat tanah ini ditarik ke tinggi lantai kota oleh tanjakan jembatan.
+// 1 tepat di ujung luar jembatan, turun halus ke tanah asli sejauh BRIDGE_RAMP.length.
+function rampWeight(t: number, u: number, hw: number) {
+  const R = BRIDGE_RAMP;
+  return (
+    smoothstep(-5.5, -3, t) *
+    (1 - smoothstep(0, R.length, t)) *
+    (1 - smoothstep(hw + 2, hw + R.side, u))
+  );
+}
+
 // Tinggi tanah di (x, z). Dipakai oleh tanah, air, kucing, kamera, dan semua bab.
 export function groundHeight(x: number, z: number) {
   let h = rawGround(x, z);
@@ -240,5 +267,13 @@ export function groundHeight(x: number, z: number) {
     const t = 1 - smoothstep(p.r, p.r + p.blend, Math.hypot(x - p.x, z - p.z));
     if (t > 0) h = lerp(h, padLevel(p), t);
   }
-  return h;
+  const w = Math.max(
+    rampWeight(z - BRIDGE.zFrom, Math.abs(x - BRIDGE.x), BRIDGE.halfWidth),
+    rampWeight(
+      x - BRIDGE_EAST.xTo,
+      Math.abs(z - BRIDGE_EAST.z),
+      BRIDGE_EAST.halfWidth,
+    ),
+  );
+  return w > 0 ? lerp(h, CASTLE.y, w) : h;
 }

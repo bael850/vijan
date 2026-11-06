@@ -5,13 +5,26 @@ import { journey } from "@/content/world";
 export const SCROLL = {
   height: "1600vh", // panjang halaman perjalanan; makin besar, makin pelan (sasaran 3-5 menit)
   roadShare: 0.5, // progress tempat kabut dan cahaya sudah sampai keadaan akhir (dipakai TimeOfDay)
-  smooth: 2.2, // makin kecil, kamera makin lamban mengikuti scroll
+  smooth: 4, // makin kecil, kamera makin lamban mengikuti scroll (dan makin lama meluncur setelah scroll berhenti)
+  settle: 2.5, // pengali kecepatan mengejar begitu scroll berhenti: kamera cepat 'mengerem' tapi tetap halus (1 = tanpa)
   smoothReduced: 8, // dipakai kalau pengunjung memilih gerak berkurang
+  // Gerak kamera mengejar scroll (pegas teredam kritis). Angka = kira-kira detik untuk menyusul scroll.
+  // glide: saat scroll aktif (makin besar, makin licin tapi makin tertinggal). glideStop: setelah scroll diam, pelan-pelan beralih ke sini
+  // supaya kamera mengerem lebih cepat. Ubah di sini kalau awal jalan atau rem terasa kurang pas.
+  glide: 0.55,
+  glideStop: 0.35,
+  glideReduced: 0.25,
 };
 
 export const CAMERA = {
   eye: 1.7, // tinggi mata di atas tanah (m)
   lookAhead: 10, // kamera menatap titik sekian meter di depan jalan
+  turnSmooth: 5, // makin besar, pandangan makin cepat mengikuti arah jalan di tikungan (kecil = lebih mulus)
+  turnMax: 3.5, // batas kecepatan menoleh (rad/detik): scroll sekencang apa pun, kamera tidak menyambar
+  pitchMax: 0.3, // batas mendongak/menunduk otomatis mengikuti lereng (rad)
+  maxSpeed: 90, // batas kecepatan kamera di jalur (m/detik). Jalan santai sekitar 4 m/detik; scroll kilat atau lompat jauh
+  //              tetap terbang lewat jalur dengan kecepatan ini, jadi bangunan, bayangan, dan suara tidak kewalahan
+  accel: 18, // seberapa cepat kamera mencapai/melepas kecepatan itu (makin besar, makin tajam)
   lookHeight: 0.9, // tinggi titik tatap (m), supaya kucing masuk bingkai
   stopBeforeEnd: 7, // kamera berhenti sekian meter sebelum ujung jalur (kucing menunggu di depan)
   fov: 52,

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { ThreeElements } from "@react-three/fiber";
+import { solidRef } from "./solids";
 
 // Mesh gabungan besar (kota, desa, kastil, istana) hanya bisa di-cull semua atau tidak sama sekali,
 // termasuk di peta bayangan. Di sini geometri dibagi ke maksimal 3 x 3 petak menurut posisi segitiga.
@@ -78,7 +79,7 @@ export default function ChunkedMesh({ geometry, ...rest }: Props) {
   return (
     <>
       {parts.map((g, i) => (
-        <mesh key={i} geometry={g} {...rest} />
+        <mesh key={i} ref={solidRef} geometry={g} {...rest} />
       ))}
     </>
   );

@@ -22,6 +22,9 @@ import { house, inn } from "./houses";
 import { layoutCity } from "./layout";
 import { buildLandmarks } from "./landmarks";
 import { buildStalls } from "./stalls";
+import { buildRoads } from "./roads";
+import { buildProps } from "./props";
+import { buildPlaza, buildTrees } from "./plaza";
 import ChunkedMesh from "../../core/ChunkedMesh";
 
 // Bab 4, kota dalam kastil: pasar, pandai besi, kedai, sumur, papan pengumuman, perpustakaan,
@@ -29,11 +32,16 @@ import ChunkedMesh from "../../core/ChunkedMesh";
 export default function City({ quality }: { quality: GraphicsQuality }) {
   const { geo, lampList } = useMemo(() => {
     const bag = newBag();
-    const { houses, stalls, lamps } = layoutCity(quality);
+    const { houses, stalls, lamps, trees, props, bunting } =
+      layoutCity(quality);
     for (const h of houses) house(bag, h);
     inn(bag);
     buildStalls(bag, stalls);
     buildLandmarks(bag, lamps);
+    buildRoads(bag);
+    buildPlaza(bag);
+    buildTrees(bag, trees);
+    buildProps(bag, props, bunting);
     const out = {} as Record<Key, THREE.BufferGeometry | null>;
     for (const k of KEYS) {
       const list = bag[k];
@@ -54,10 +62,21 @@ export default function City({ quality }: { quality: GraphicsQuality }) {
     const goods = (c: string) => new THREE.MeshLambertMaterial({ color: c });
     return {
       plaster: grainMat(C.plaster, "plaster"),
+      plasterB: grainMat(C.plasterB, "plaster"),
+      plasterC: grainMat(C.plasterC, "plaster"),
       wood: grainMat(C.wood, "wood"),
       stone: grainMat(C.stone, "stone"),
       tile: grainMat(C.tile, "roof"),
       thatch: grainMat(C.thatch, "roof"),
+      slate: grainMat(C.slate, "roof"),
+      paving: grainMat(C.paving, "stone"),
+      royal: grainMat(C.royal, "fabric", true),
+      gold: new THREE.MeshStandardMaterial({
+        color: C.gold,
+        roughness: 0.35,
+        metalness: 0.6,
+      }),
+      green: new THREE.MeshLambertMaterial({ color: C.green }),
       cloth: grainMat(C.cloth, "fabric", true),
       iron: grainMat(C.iron, "stone"),
       awning0: grainMat(C.awning[0], "fabric", true),
@@ -139,6 +158,8 @@ export default function City({ quality }: { quality: GraphicsQuality }) {
         "goods0",
         "goods1",
         "goods2",
+        "gold",
+        "green",
       ] as Key[])
         mats[k].dispose();
     },

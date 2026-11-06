@@ -12,20 +12,21 @@ export const NIGHT_GLOW = {
     decay: 2,
     fade: 4, // kecepatan lampu menyala/padam saat berpindah sumber (makin besar makin cepat)
   },
-  lamp: { color: "#ffcf80", power: 26, halo: 3.2, haloOpacity: 0.85 },
-  window: { color: "#ffb860", power: 9, halo: 1.8, haloOpacity: 0.6 },
+  // Halo dibuat tipis dan kecil: lampu jadi aksen hangat, bukan sumber cahaya utama yang menyilaukan.
+  lamp: { color: "#ffcf80", power: 22, halo: 2.2, haloOpacity: 0.4 },
+  window: { color: "#ffb860", power: 8, halo: 1.3, haloOpacity: 0.3 },
   torch: {
     color: "#ff9a40",
-    power: 30,
-    halo: 3.6,
-    haloOpacity: 0.9,
+    power: 26,
+    halo: 2.4,
+    haloOpacity: 0.45,
     flicker: 0.1,
   },
   forge: {
     color: "#ff7a2a",
-    power: 40,
-    halo: 5,
-    haloOpacity: 0.9,
+    power: 36,
+    halo: 3.4,
+    haloOpacity: 0.5,
     flicker: 0.12,
   },
 };

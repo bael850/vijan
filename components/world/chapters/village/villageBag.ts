@@ -14,6 +14,12 @@ export type Key =
   | "wheat"
   | "green"
   | "stem"
+  | "dirt"
+  | "bushA"
+  | "bushB"
+  | "bloomA"
+  | "bloomB"
+  | "bloomC"
   | "cap0"
   | "cap1"
   | "cap2"
@@ -33,6 +39,12 @@ const KEYS: Key[] = [
   "wheat",
   "green",
   "stem",
+  "dirt",
+  "bushA",
+  "bushB",
+  "bloomA",
+  "bloomB",
+  "bloomC",
   "cap0",
   "cap1",
   "cap2",
@@ -110,12 +122,17 @@ export function frame(x: number, y: number, z: number, yaw: number) {
   return new THREE.Matrix4().makeRotationY(yaw).setPosition(x, y, z);
 }
 
-// Prisma atap pelana: alas di y = 0 selebar w (sumbu x) dan sedalam d (sumbu z), punggung setinggi h.
-export function prism(w: number, d: number, h: number) {
-  const a = [-w / 2, 0, -d / 2];
-  const b = [w / 2, 0, -d / 2];
-  const c = [w / 2, 0, d / 2];
-  const e = [-w / 2, 0, d / 2];
+// Prisma atap pelana: alas selebar w (sumbu x) dan sedalam d (sumbu z), punggung setinggi h.
+// Tertutup rapat: ada sisi bawah (langit-langit tritisan) supaya dari bawah atap tidak tembus pandang,
+// dan alasnya ditanam EMBED ke bawah supaya tidak ada celah cahaya di pertemuan dinding dan atap.
+// caps = false: sisi ujung segitiga tidak dibuat, dipasang terpisah lewat gables() berwarna dinding.
+export const ROOF_EMBED = 0.12;
+export function prism(w: number, d: number, h: number, caps = true) {
+  const y = -ROOF_EMBED;
+  const a = [-w / 2, y, -d / 2];
+  const b = [w / 2, y, -d / 2];
+  const c = [w / 2, y, d / 2];
+  const e = [-w / 2, y, d / 2];
   const r1 = [-w / 2, h, 0];
   const r2 = [w / 2, h, 0];
   const tris = [
@@ -131,12 +148,37 @@ export function prism(w: number, d: number, h: number) {
     b,
     r1,
     r2, // lereng belakang
-    c,
-    b,
-    r2, // sisi kanan
     a,
-    e,
-    r1, // sisi kiri
+    b,
+    c,
+    a,
+    c,
+    e, // sisi bawah
+  ];
+  if (caps) tris.push(c, b, r2, a, e, r1); // sisi ujung
+  const pos = new Float32Array(tris.flatMap((p) => p));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  g.setAttribute(
+    "uv",
+    new THREE.BufferAttribute(new Float32Array((pos.length / 3) * 2), 2),
+  );
+  return g;
+}
+
+// Dua dinding segitiga di ujung atap pelana (ukuran sama dengan prism(w, d, h)), dipasang rata di bidang ujung atap.
+// Dibuat dengan bahan dinding supaya ujung atap terbaca sebagai dinding, bukan genteng.
+export function gables(w: number, d: number, h: number) {
+  const y = -ROOF_EMBED;
+  const i = 0.015; // sedikit masuk supaya tidak berebut permukaan dengan atap
+  const tris = [
+    [w / 2 - i, y, d / 2],
+    [w / 2 - i, y, -d / 2],
+    [w / 2 - i, h, 0],
+    [-w / 2 + i, y, -d / 2],
+    [-w / 2 + i, y, d / 2],
+    [-w / 2 + i, h, 0],
   ];
   const pos = new Float32Array(tris.flatMap((p) => p));
   const g = new THREE.BufferGeometry();
