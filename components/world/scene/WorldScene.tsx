@@ -239,7 +239,7 @@ export default function WorldScene({
         stencil: false,
         powerPreference: "high-performance",
       }}
-      shadows={quality !== "low" && !perfOff("shadow")}
+      shadows={false}
       frameloop="never"
     >
       <ShadowGovernor />
