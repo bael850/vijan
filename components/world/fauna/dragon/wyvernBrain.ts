@@ -1,4 +1,5 @@
 import { WYVERN, WYVERN_VARIANTS } from "../../config/wyvern";
+import { CASTLE } from "../../config/world";
 
 // Otak wyvern: murni hitungan. Fase: perch -> takeoff -> soar -> approach -> land -> settle -> perch.
 // Terbang memakai "titik bidik": wyvern selalu membelok ke titik di depan pada lintasan angka 8,
@@ -44,6 +45,8 @@ export type WBrain = {
     vz: number;
   } | null;
   settleTo: { x: number; z: number } | null;
+  wp: { x: number; z: number; i: number } | null; // sudut kastil yang sedang dibidik (null = lurus ke tujuan)
+  wpPassed: number; // sudut yang baru dilewati (tidak dipilih lagi), -1 = tidak ada
 };
 
 export const TAKEOFF_TIME = 4.63; // panjang klip takeoff (detik)
@@ -101,7 +104,75 @@ export function newWyvern(t: Terrain, variant = 0): WBrain {
     hold: 0,
     land: null,
     settleTo: null,
+    wp: null,
+    wpPassed: -1,
   };
+}
+
+// ---- Menghindari kota: kalau garis ke tujuan memotong kotak kastil (plus jarak aman), belok dulu ke sudut kotak.
+const RX0 = CASTLE.x - CASTLE.hw - WYVERN.avoid;
+const RX1 = CASTLE.x + CASTLE.hw + WYVERN.avoid;
+const RZ0 = CASTLE.z - CASTLE.hd - WYVERN.avoid;
+const RZ1 = CASTLE.z + CASTLE.hd + WYVERN.avoid;
+const CORNERS = [
+  { x: RX0 - 25, z: RZ0 - 25 },
+  { x: RX1 + 25, z: RZ0 - 25 },
+  { x: RX1 + 25, z: RZ1 + 25 },
+  { x: RX0 - 25, z: RZ1 + 25 },
+];
+const inRect = (x: number, z: number) =>
+  x > RX0 && x < RX1 && z > RZ0 && z < RZ1;
+// Liang-Barsky: apakah ruas (ax,az)-(bx,bz) memotong bagian dalam kotak?
+function hitsRect(ax: number, az: number, bx: number, bz: number) {
+  let t0 = 0,
+    t1 = 1;
+  const dx = bx - ax,
+    dz = bz - az;
+  const p = [-dx, dx, -dz, dz];
+  const q = [ax - RX0, RX1 - ax, az - RZ0, RZ1 - az];
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i] <= 0) return false;
+    } else {
+      const r = q[i] / p[i];
+      if (p[i] < 0) t0 = Math.max(t0, r);
+      else t1 = Math.min(t1, r);
+      if (t0 >= t1) return false;
+    }
+  }
+  return true;
+}
+// Radius "sudah sampai" di sudut harus lebih besar dari radius putar terkecil (cruise / turnRate, sekitar 51 m),
+// kalau tidak wyvern mengitari sudut itu tanpa pernah sampai.
+const WP_REACH = 95;
+// Titik yang dibidik: tujuan langsung, atau sudut kastil kalau garis lurus melewati kota.
+function aimAround(b: WBrain, tx: number, tz: number) {
+  if (!hitsRect(b.x, b.z, tx, tz) || inRect(b.x, b.z)) {
+    b.wp = null;
+    b.wpPassed = -1;
+    return { x: tx, z: tz };
+  }
+  if (b.wp) {
+    if (Math.hypot(b.wp.x - b.x, b.wp.z - b.z) > WP_REACH) return b.wp;
+    b.wpPassed = b.wp.i; // sampai: sudut ini selesai, cari sudut berikutnya
+    b.wp = null;
+  }
+  let bi = -1;
+  let bs = Infinity;
+  for (let i = 0; i < CORNERS.length; i++) {
+    if (i === b.wpPassed) continue;
+    const c = CORNERS[i];
+    const len =
+      Math.hypot(c.x - b.x, c.z - b.z) + Math.hypot(tx - c.x, tz - c.z);
+    const clear = !hitsRect(b.x, b.z, c.x, c.z) && !hitsRect(c.x, c.z, tx, tz);
+    const score = len + (clear ? 0 : 4000);
+    if (score < bs) {
+      bs = score;
+      bi = i;
+    }
+  }
+  b.wp = { x: CORNERS[bi].x, z: CORNERS[bi].z, i: bi };
+  return b.wp;
 }
 
 function nearestTheta(x: number, z: number) {
@@ -198,6 +269,8 @@ export function stepWyvern(b: WBrain, t: Terrain, dt: number) {
       b.timer -= dt;
       if (b.timer <= 0) {
         b.phase = "takeoff";
+        b.wp = null;
+        b.wpPassed = -1;
         b.t = 0;
         b.anim = "takeoff";
         b.theta = nearestTheta(b.x, b.z);
@@ -219,7 +292,8 @@ export function stepWyvern(b: WBrain, t: Terrain, dt: number) {
         b.phase === "takeoff"
           ? Math.min(WYVERN.cruise, 6 + b.t * 3.5)
           : WYVERN.cruise;
-      fly(b, t, dt, carrot.x, carrot.z, alt, spd, true);
+      const aim = aimAround(b, carrot.x, carrot.z);
+      fly(b, t, dt, aim.x, aim.z, alt, spd, true);
       if (b.phase === "takeoff") {
         // sampai klip lepas landas selesai, lalu mengepak sampai cukup tinggi
         if (b.t < TAKEOFF_TIME) b.anim = "takeoff";
@@ -243,7 +317,8 @@ export function stepWyvern(b: WBrain, t: Terrain, dt: number) {
       const dist = Math.hypot(p.x - b.x, p.z - b.z);
       const alt = p.y + 2 + Math.min(80, Math.max(0, (dist - 28) * 0.4));
       const spd = lerp(8, WYVERN.cruise, sstep(60, 400, dist));
-      fly(b, t, dt, p.x, p.z, alt, spd, dist > 90);
+      const aim = aimAround(b, p.x, p.z);
+      fly(b, t, dt, aim.x, aim.z, alt, spd, dist > 90);
       glide(b, dt, dist < 160);
       if (dist < 28) {
         b.phase = "land";
@@ -337,6 +412,8 @@ export function forceSoar(
   b.anim = "fly";
   b.t = 0;
   b.speed = WYVERN.cruise;
+  b.wp = null;
+  b.wpPassed = -1;
   b.theta = nearestTheta(x, z);
   b.theta0 = b.theta;
 }

@@ -5,6 +5,7 @@ import * as THREE from "three";
 export type GrainKind =
   | "plaster"
   | "wood"
+  | "deck"
   | "stone"
   | "roof"
   | "ground"
@@ -33,6 +34,23 @@ const BODY: Record<GrainKind, string> = {
     float a = gn(vec3(vWp.x*3.0+vWp.z*3.0, vWp.y*26.0, 0.0))*0.6 + gn(vWp*14.0)*0.4;
     float pl = smoothstep(0.93, 1.0, fract((vWp.x+vWp.z)*3.2));
     float k = 0.8 + a*0.35 - pl*0.28;`,
+  // kayu rumah: permukaan datar (lantai, teras, dek) berpola papan dengan sambungan ujung dan nada tiap papan beda;
+  // permukaan tegak (lis, kisi, tiang) tetap berserat biasa. Arah permukaan dibaca dari turunan posisi dunia.
+  deck: `
+    vec3 dn = normalize(cross(dFdx(vWp), dFdy(vWp)));
+    float dUp = step(0.85, abs(dn.y));
+    float dV = gn(vec3(vWp.x*3.0+vWp.z*3.0, vWp.y*26.0, 0.0))*0.6 + gn(vWp*14.0)*0.4;
+    float dVl = smoothstep(0.93, 1.0, fract((vWp.x+vWp.z)*3.2));
+    float dRow = floor(vWp.z*2.2);
+    float dOff = fract(sin(dRow*12.9898)*43758.5453);
+    float dSeam = smoothstep(0.93, 1.0, fract(vWp.z*2.2));
+    float dCol = vWp.x*0.42 + dOff;
+    float dEnd = smoothstep(0.985, 1.0, fract(dCol))*0.6;
+    float dTone = fract(sin((dRow*7.0 + floor(dCol))*78.233)*12345.6);
+    float dH = gn(vec3(vWp.x*1.5, vWp.y*20.0, vWp.z*34.0))*0.5 + gn(vWp*16.0)*0.2;
+    float kV = 0.8 + dV*0.35 - dVl*0.28;
+    float kH = 0.74 + dTone*0.2 + dH*0.3 - dSeam*0.34 - dEnd*0.3;
+    float k = mix(kV, kH, dUp);`,
   // batu: gumpalan besar dengan celah gelap
   stone: `
     float a = gn(vWp*3.0)*0.55 + gn(vWp*11.0)*0.45;

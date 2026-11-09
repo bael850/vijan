@@ -311,7 +311,7 @@ export const HOME_COLORS = {
   paving: "#b9b3a4", // paving halaman
   metal: "#262a30", // kusen jendela dan pintu
   glass: "#a9cbd8",
-  glassGlow: "#ffc878",
+  glassGlow: "#f4f6f8",
   green: "#506d3b", // pagar tanaman
   lamp: "#ffcf80",
   bark: "#4b3427",

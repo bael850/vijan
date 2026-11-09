@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DRAGON_SCALE } from "../../config/dragon";
 
 // Tapak kaki: tinggi badan mengikuti tanah di bawah kaki, bukan rata-rata tanah di sekitar badan.
 // Animasi jalan sendiri membuat telapak naik-turun sampai ~2 m tiap langkah, jadi tinggi tidak boleh
@@ -16,11 +17,11 @@ export type FootPlant = {
 
 export const FOOT_PLANT = {
   window: 3.2, // lama jendela (detik), sedikit lebih panjang dari satu siklus jalan (2,97 dtk)
-  maxLift: 8, // batas koreksi tinggi (m)
+  maxLift: 8 * DRAGON_SCALE, // batas koreksi tinggi (m)
   rise: 3, // kecepatan mengikuti saat perlu naik
   fall: 3, // kecepatan mengikuti saat perlu turun
-  emergencyRate: 8, // laju angkat darurat maksimal (m/dtk)
-  margin: 0.15, // kaki boleh tenggelam sampai segini (m) sebelum badan langsung diangkat
+  emergencyRate: 8 * DRAGON_SCALE, // laju angkat darurat maksimal (m/dtk)
+  margin: 0.15 * DRAGON_SCALE, // kaki boleh tenggelam sampai segini (m) sebelum badan langsung diangkat
 };
 
 export function makeFootPlant(root: THREE.Object3D): FootPlant {

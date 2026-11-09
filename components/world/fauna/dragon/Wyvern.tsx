@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { WYVERN, WYVERN_VARIANTS } from "../../config/wyvern";
 import { groundHeight } from "../../terrain/heightmap";
 import { gradeUpdate, makeGrade } from "../../core/creatureGrade";
+import { lookUpdate, makeLook } from "../../core/creatureLook";
 import { animDt, creatureVisible } from "../../core/creatureCull";
 import { dropShadowActor, reportShadowActor } from "../../core/shadowBus";
 import { blendLoop, closeLoop } from "./clipLoop";
@@ -82,13 +83,18 @@ function build(scene: THREE.Object3D, variant: number) {
     }
   });
   const grade = makeGrade(model);
-  return { outer, model, grade };
+  const look = makeLook(
+    WYVERN.look,
+    grade.list.map((e) => e.mat),
+  );
+  return { outer, model, grade, look };
 }
 
 // Wyvern: hinggap di puncak, terbang angka 8 mengelilingi kastil dan danau, menyambar rendah di atas air.
 // Coba cepat di URL:  ?wyvern=awal (bertengger dekat titik mulai)  atau  ?wyvern=terbang (terbang dekat titik mulai).
 export default function Wyvern({ variant = 0 }: { variant?: number }) {
   const { scene, animations } = useGLTF(WYVERN.modelUrl);
+  const gl = useThree((s) => s.gl);
   const built = useMemo(() => build(scene, variant), [scene, variant]);
   const brain = useRef(newWyvern(TERRAIN, variant));
   const cur = useRef<WAnim | null>(null);
@@ -204,7 +210,13 @@ export default function Wyvern({ variant = 0 }: { variant?: number }) {
       b.z,
       WYVERN.length * 1.1,
     );
-    gradeUpdate(built.grade, scene, camera.position.distanceTo(o.position));
+    // kabut jarak dihitung dari tepi badan terdekat, bukan dari pusat
+    gradeUpdate(
+      built.grade,
+      scene,
+      Math.max(0, camera.position.distanceTo(o.position) - WYVERN.length * 0.5),
+    );
+    lookUpdate(built.look, gl);
   });
 
   return <primitive object={built.outer} />;

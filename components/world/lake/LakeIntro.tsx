@@ -6,15 +6,15 @@ import { lake } from "@/content/world";
 // Kata-kata pembuka yang muncul tiba-tiba di tepi danau. Bukan pertanyaan dan bukan pilihan:
 // hanya suasana, dan petunjuk bahwa di sini pengunjung boleh menulis apa saja.
 const WORDS = [
-  { t: "pulang", x: 26, y: 22, big: true },
+  { t: "keluh", x: 26, y: 22, big: true },
   { t: "rindu", x: 72, y: 16, big: true },
-  { t: "yang belum selesai", x: 50, y: 31, big: false },
+  { t: "cerita", x: 50, y: 31, big: false },
   { t: "sunyi", x: 18, y: 41, big: true },
   { t: "maaf", x: 82, y: 35, big: true },
   { t: "terima kasih", x: 38, y: 14, big: false },
-  { t: "yang tak sempat terucap", x: 64, y: 45, big: false },
+  { t: "kesal", x: 64, y: 45, big: false },
   { t: "doa", x: 11, y: 24, big: true },
-  { t: "namamu", x: 52, y: 46, big: true },
+  { t: "nama", x: 52, y: 46, big: true },
 ];
 
 const START = 1.7; // detik setelah masuk tepi danau

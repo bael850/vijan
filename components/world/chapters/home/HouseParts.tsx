@@ -305,6 +305,9 @@ function EnterMarker({
 // Lampu ruangan tidak lagi punya lampu titik sendiri: mereka didaftarkan sebagai sumber "room" di kolam lampu dunia
 // (core/lightPool), jadi luar dan dalam rumah berbagi jumlah lampu yang sama. Di sini tinggal cahaya rata (ambient)
 // dan status lampu rumah.
+// Pantulan lantai kayu ke plafon dan kolong: warna lebih gelap dan hangat tipis (sekitar 35% dari cahaya atas).
+const FILL_GROUND = "#a69d8f";
+const FILL_GAIN = 0.85; // hemisfer: dinding rata-rata sekitar 0,41, lantai 0,6, plafon 0,22 (dulu 0,7 datar)
 function RoomLight({
   house,
   indoor,
@@ -312,7 +315,7 @@ function RoomLight({
   house: MutableRefObject<HouseState>;
   indoor: MutableRefObject<number>;
 }) {
-  const fill = useRef<THREE.AmbientLight>(null);
+  const fill = useRef<THREE.HemisphereLight>(null);
   const sources = useMemo<Source[]>(
     () =>
       LAMPS.map((L) => {
@@ -325,7 +328,7 @@ function RoomLight({
           x: p.x,
           y: p.y,
           z: p.z,
-          color: "#ffd9a0",
+          color: "#f4f6f8",
           power: G.room,
           room: true,
           distance: 11,
@@ -344,9 +347,18 @@ function RoomLight({
       fill.current.intensity =
         indoor.current *
         G.fill *
+        FILL_GAIN *
         (G.fillNight + (1 - G.fillNight) * dayState.daylight);
   });
-  return <ambientLight ref={fill} color="#ffe6c4" intensity={0} />;
+  // cahaya rata berarah: permukaan menghadap atas (lantai, meja) paling terang, dinding sedang, plafon dan kolong paling gelap
+  return (
+    <hemisphereLight
+      ref={fill}
+      color="#f6f6f2"
+      groundColor={FILL_GROUND}
+      intensity={0}
+    />
+  );
 }
 
 export default function HouseParts({

@@ -41,7 +41,7 @@ function draw(g: CanvasRenderingContext2D, w: number, h: number) {
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.font = `500 ${h * 0.14}px ${displayFamily()}`;
-  g.fillText("Bahan-bahan rumah ini", w / 2, h * 0.8);
+  g.fillText("Stack", w / 2, h * 0.8);
 }
 
 export default function WallArt() {

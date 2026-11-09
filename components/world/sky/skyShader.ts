@@ -29,6 +29,9 @@ export const SKY_FRAG = /* glsl */ `
   uniform vec3 uMoon;
   uniform float uDay;
   uniform float uTwi;
+  uniform float uCover;
+  uniform float uDark;
+  uniform vec2 uCloudOff;
   varying vec3 vDir;
 
   float h31(vec3 p) {
@@ -140,8 +143,70 @@ export const SKY_FRAG = /* glsl */ `
     vec3 top = vec3(0.12, 0.33, 0.70);
     vec3 c = mix(hor, mid, smoothstep(0.0, 0.35, e));
     c = mix(c, top, smoothstep(0.25, 0.9, e));
-    float cl = smoothstep(0.55, 0.95, m) * smoothstep(0.05, 0.35, dir.y) * 0.55;
+    float cl = smoothstep(0.55, 0.95, m) * smoothstep(0.05, 0.35, dir.y) * 0.22;
     return mix(c, vec3(1.0, 0.96, 0.86), cl);
+  }
+
+  // Awan 2D di bidang tinggi, dihanyutkan angin. Disapu dengan sedikit pelengkung supaya tepinya
+  // bergulung seperti sapuan kuas, bukan bulat rata. Siang: puncak terang, dasar biru keabuan.
+  // Senja: dasar jingga. Malam: perak kebiruan diterangi bulan. Badai (uDark): kelabu gelap.
+  float vn2(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x),
+               mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  float fbm2a(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+      v += a * vn2(p);
+      p = p * 2.03 + vec2(1.7, 9.2);
+      a *= 0.5;
+    }
+    return v;
+  }
+  float fbm2b(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 3; i++) {
+      v += a * vn2(p);
+      p = p * 2.03 + vec2(1.7, 9.2);
+      a *= 0.5;
+    }
+    return v;
+  }
+  vec4 cloudLayer(vec3 dir) {
+    if (dir.y < 0.01) return vec4(0.0);
+    vec2 uv = dir.xz / (dir.y + 0.14) * 0.5 + uCloudOff;
+    vec2 w = vec2(fbm2b(uv * 0.7 + 3.1), fbm2b(uv * 0.7 + 8.2)) - 0.5;
+    vec2 q = uv + w * 0.6;
+    float d = fbm2a(q * 1.2);
+    float thr = mix(0.70, 0.36, uCover);
+    float cov = smoothstep(thr, thr + 0.2, d) * smoothstep(0.015, 0.16, dir.y);
+    if (cov < 0.003) return vec4(0.0);
+
+    vec2 sdir = normalize(uSun.xz + 1e-4);
+    float d2 = fbm2b(q * 1.2 + sdir * 0.07);
+    float lit = clamp(0.55 + (d - d2) * 4.0, 0.0, 1.0);
+    float thick = smoothstep(thr, thr + 0.45, d);
+    lit *= mix(1.0, 0.72, thick * thick);
+    lit = mix(lit, floor(lit * 4.0 + 0.5) / 4.0, 0.3); // sedikit berundak, seperti goresan cat
+
+    float toward = pow(max(dot(normalize(dir.xz + 1e-4), sdir), 0.0), 2.0);
+    vec3 dayC = mix(vec3(0.56, 0.66, 0.80), vec3(1.0, 0.97, 0.90), lit);
+    dayC = mix(dayC, dayC * vec3(0.42, 0.46, 0.52), uDark);
+    dayC = mix(dayC, vec3(1.0, 0.58, 0.40) * (0.6 + 0.6 * lit), uTwi * (0.35 + 0.5 * toward) * (1.0 - uDark * 0.5));
+    float edge = smoothstep(thr, thr + 0.07, d) * (1.0 - smoothstep(thr + 0.07, thr + 0.2, d));
+    dayC += vec3(1.0, 0.90, 0.70) * edge * toward * 0.35 * (1.0 - uDark);
+
+    float mg = pow(max(dot(dir, normalize(uMoon)), 0.0), 6.0);
+    vec3 nightC = mix(vec3(0.07, 0.10, 0.18), vec3(0.28, 0.34, 0.50), lit * 0.6)
+                + vec3(0.5, 0.55, 0.7) * mg * 0.35 * lit;
+    nightC = mix(nightC, nightC * 0.6, uDark);
+
+    return vec4(mix(nightC, dayC, uDay), cov * mix(0.62, 0.94, uDay));
   }
 
   void main() {
@@ -226,13 +291,16 @@ export const SKY_FRAG = /* glsl */ `
 
     // siang: campur ke langit siang, lalu matahari + cahaya senja/fajar
     col = mix(col, daySky(dir, m), smoothstep(0.0, 1.0, uDay));
+    col *= 1.0 - 0.35 * uDark * uDay; // badai: langit menggelap
+    vec4 cl = cloudLayer(dir);
+    col = mix(col, cl.rgb, cl.a);
     float sdot = dot(dir, uSun);
     float sa = acos(clamp(sdot, -1.0, 1.0));
     vec3 sunAcc = vec3(1.0, 0.93, 0.65) * smoothstep(0.9990, 0.9995, sdot) * 2.5
                 + vec3(1.0, 0.80, 0.40) * pow(max(sdot, 0.0), 30.0) * 0.55
                 + vec3(1.0, 0.85, 0.50) * pow(max(sdot, 0.0), 6.0) * 0.12
                 + vec3(1.0, 0.85, 0.50) * (0.5 + 0.5 * cos(sa * 45.0)) * exp(-sa * sa * 30.0) * 0.16;
-    col += sunAcc * smoothstep(-0.05, 0.1, uSun.y);
+    col += sunAcc * smoothstep(-0.05, 0.1, uSun.y) * (1.0 - cl.a * 0.75);
     vec2 hd = normalize(dir.xz + 1e-4);
     vec2 sh = normalize(uSun.xz + 1e-4);
     float toward = pow(max(dot(hd, sh), 0.0), 2.0);

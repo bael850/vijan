@@ -22,8 +22,11 @@ export const CAMERA = {
   turnSmooth: 5, // makin besar, pandangan makin cepat mengikuti arah jalan di tikungan (kecil = lebih mulus)
   turnMax: 3.5, // batas kecepatan menoleh (rad/detik): scroll sekencang apa pun, kamera tidak menyambar
   pitchMax: 0.3, // batas mendongak/menunduk otomatis mengikuti lereng (rad)
-  maxSpeed: 90, // batas kecepatan kamera di jalur (m/detik). Jalan santai sekitar 4 m/detik; scroll kilat atau lompat jauh
+  maxSpeed: 45, // batas kecepatan kamera di jalur (m/detik). Jalan santai sekitar 4 m/detik; scroll kilat atau lompat jauh (dulu 90, terasa terlalu ngebut)
   //              tetap terbang lewat jalur dengan kecepatan ini, jadi bangunan, bayangan, dan suara tidak kewalahan
+  turnRate: 0.7, // batas laju putar kamera (rad/detik) di bab istana. Saat scroll kencang, kecepatan kamera dibatasi di tikungan
+  //               supaya kamera dan kucing tidak terasa ngebut. Makin kecil = makin pelan di tikungan. Jalan santai (4 m/detik) tidak terpengaruh
+  minCurveSpeed: 5, // kecepatan terendah akibat pembatas tikungan (m/detik), supaya tikungan sempit tidak terasa macet
   accel: 18, // seberapa cepat kamera mencapai/melepas kecepatan itu (makin besar, makin tajam)
   lookHeight: 0.9, // tinggi titik tatap (m), supaya kucing masuk bingkai
   stopBeforeEnd: 7, // kamera berhenti sekian meter sebelum ujung jalur (kucing menunggu di depan)

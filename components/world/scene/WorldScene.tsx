@@ -41,6 +41,7 @@ import Insights from "./Insights";
 import PerfStats from "./PerfStats";
 import { perfOff, perfOffList } from "./perfOff";
 import IndoorHide from "./IndoorHide";
+import JourneyFx from "./JourneyFx";
 
 // Bagian yang belum terlihat di awal perjalanan dimuat belakangan, setelah layar
 // loading selesai: ikan dan kucing liar. Modulnya baru diambil saat komponennya dipasang.
@@ -288,6 +289,13 @@ export default function WorldScene({
       {/* dunia dasar */}
       <group userData={{ cat: "langit" }}>{!perfOff("sky") && <Sky />}</group>
       {!perfOff("lights") && <LightPool quality={quality} />}
+      {!perfOff("fx") && (
+        <JourneyFx
+          quality={quality}
+          camDist={camDist}
+          reduceMotion={reduceMotion}
+        />
+      )}
       <group userData={{ cat: "tanah" }}>
         <Ground quality={quality} />
       </group>

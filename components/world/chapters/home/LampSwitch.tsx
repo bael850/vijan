@@ -25,6 +25,7 @@ export default function LampSwitch({
     const h = house.current;
     const v = h.mode === "in" && !h.scope;
     if (v !== visible) setVisible(v);
+    if (h.lamps !== mode) setMode(h.lamps); // ikut berubah saat lampu diklik langsung
   });
 
   useEffect(() => {

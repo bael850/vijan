@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 import { dayState } from "../../core/dayCycle";
 import { getGlowWhite } from "../../core/glow";
+import { weather } from "../../core/weather";
 import { ROUTE_LENGTH, routePointAt } from "../../core/route";
 import { groundHeight } from "../../terrain/heightmap";
 
@@ -28,7 +29,6 @@ const LEAVES: Record<GraphicsQuality, number> = {
   medium: 70,
   high: 120,
 };
-const WIND = new THREE.Vector2(0.55, 0.2); // arah angin (x, z), dipakai asap dan daun
 
 function rnd(seed: number) {
   const s = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -159,7 +159,7 @@ export default function VillageFx({
     () => ({
       uTime: { value: 0 },
       uScale: { value: 800 },
-      uWind: { value: WIND },
+      uWind: { value: weather.wind }, // angin bersama (core/weather)
     }),
     [],
   );

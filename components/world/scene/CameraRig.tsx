@@ -8,7 +8,7 @@ import { BALCONY, WALK } from "../config/home";
 import { SHORE } from "../config/shore";
 import { WATER_Y } from "../config/world";
 import { clamp, smoothstep } from "../core/math";
-import { ROUTE_LENGTH, routePointAt } from "../core/route";
+import { CHAPTER_SPANS, ROUTE_LENGTH, routePointAt } from "../core/route";
 import type { HouseState } from "../chapters/home/houseState";
 import { PORCH, walkCamera } from "../chapters/home/houseTour";
 import { spawnWalk, stepWalk } from "../chapters/home/houseWalk";
@@ -62,6 +62,13 @@ function smoothDamp(
 }
 // Pandangan dihitung dari bentuk jalur di depan kamera, bukan dari titik tatap yang tertinggal.
 const HEAD_AT = [2, 6, 10, 14, 18];
+// Rentang bab istana (m dari awal rute): pembatas kecepatan tikungan hanya aktif di sini.
+const PALACE_SPAN = (() => {
+  const c = CHAPTER_SPANS.find((x) => x.id === "istana");
+  return c
+    ? { from: c.from * ROUTE_LENGTH, to: c.to * ROUTE_LENGTH + 3 }
+    : { from: Infinity, to: -Infinity };
+})();
 
 // Kamera satu jalur: posisi sepanjang rute ditentukan scroll, pandangan boleh digeser
 // (seret mouse/jari) lalu pelan-pelan kembali ke depan. Di ujung rute, kamera pindah ke dermaga.
@@ -203,14 +210,36 @@ export default function CameraRig({
     const g = reduceMotion ? SCROLL.glideReduced : SCROLL.glide;
     const gs = reduceMotion ? SCROLL.glideReduced : SCROLL.glideStop;
     const smoothTime = g + (gs - g) * smoothstep(0.1, 0.7, st.still);
-    const sd = smoothDamp(
-      st.p,
-      target,
-      st.v,
-      smoothTime,
-      CAMERA.maxSpeed / span,
-      dt,
-    );
+    // Pembatas tikungan (hanya di bab istana): makin tajam tikungan di depan, makin rendah kecepatan maksimum kamera
+    // (laju putar <= CAMERA.turnRate). Jarak pandang ke depan membesar saat kamera ngebut, supaya rem mulai sebelum tikungan.
+    const dirSign = target >= st.p ? 1 : -1;
+    const curveLook = 12 + Math.abs(st.v) * span * 0.5;
+    const posD = st.p * span;
+    let capV = CAMERA.maxSpeed / span;
+    if (
+      posD + dirSign * curveLook >= PALACE_SPAN.from &&
+      posD <= PALACE_SPAN.to
+    ) {
+      let kMax = 0;
+      let prev = routePointAt(posD);
+      for (let o = 4; o <= curveLook; o += 4) {
+        const q = routePointAt(posD + dirSign * o);
+        let dh = Math.atan2(q.tx, q.tz) - Math.atan2(prev.tx, prev.tz);
+        while (dh > Math.PI) dh -= 2 * Math.PI;
+        while (dh < -Math.PI) dh += 2 * Math.PI;
+        kMax = Math.max(kMax, Math.abs(dh) / 4);
+        prev = q;
+      }
+      capV =
+        clamp(
+          CAMERA.turnRate / Math.max(kMax, 1e-4),
+          CAMERA.minCurveSpeed,
+          CAMERA.maxSpeed,
+        ) / span;
+      if (Math.abs(st.v) > capV)
+        st.v = Math.sign(st.v) * damp(Math.abs(st.v), capV, 6, dt);
+    }
+    const sd = smoothDamp(st.p, target, st.v, smoothTime, capV, dt);
     st.p = clamp(sd[0], 0, 1);
     st.v = sd[1];
     if (Math.abs(target - st.p) < 1e-6) st.v = 0;

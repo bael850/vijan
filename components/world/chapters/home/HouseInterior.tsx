@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -14,12 +21,20 @@ import {
   HOME_UI,
   LAMP_FIT,
   LAMPS,
+  PLAN,
   VOID,
 } from "../../config/home";
 
 import { cutRects, DOOR, INTERIOR } from "./homeGeometry";
 import type { HouseState } from "./houseState";
 import WallArt from "./WallArt";
+import FloorDecor from "./FloorDecor";
+import HomeLighting from "./HomeLighting";
+import LampClick from "./LampClick";
+import HomeTrinkets from "./HomeTrinkets";
+import StairShade from "./StairShade";
+import WallDecor from "./WallDecor";
+import WallPaintings from "./WallPaintings";
 
 const FL = INTERIOR.floorY;
 type P = [number, number, number];
@@ -272,7 +287,7 @@ function buildStatic() {
     gB(-7.13, -6.77, 6.2, 6.215, 0.765, 0.98, DARK);
     gB(-8.65, -8.55, 6.25, 6.35, 0.75, 0.77, DARK);
     gB(-8.61, -8.59, 6.29, 6.31, 0.77, 1.05, DARK);
-    gB(-8.7, -8.5, 6.2, 6.38, 1.05, 1.15, "#ffcf80");
+    gB(-8.7, -8.5, 6.2, 6.38, 1.05, 1.15, "#f4f6f8");
     rug(-9.8, -5.2, 2.6, 5.3, "#5a4632", "#b9a77a");
     lounge(-10.75, 3.0, 0.9, 0.9, "+x", "#6b7f6a", "#5c6e5b");
     table(-10.85, -10.35, 4.05, 4.55, 0.5);
@@ -289,7 +304,7 @@ function buildStatic() {
     rug(-10.2, -7.0, -4.9, -2.1, "#6b3f3f", "#c9b48a");
     lounge(-4.0, -5.8, 1.0, 0.9, "+z", "#6b7f6a", "#5c6e5b");
     gB(-3.2, -2.9, -6.2, -5.9, 0, 1.55, DARK); // tiang lampu baca
-    gB(-3.35, -2.75, -6.35, -5.75, 1.55, 1.75, "#ffcf80");
+    gB(-3.35, -2.75, -6.35, -5.75, 1.55, 1.75, "#f4f6f8");
     plant(-11.2, FL, -6.2, 1.2);
 
     // ── Dapur: lemari es, meja dapur di dinding belakang, pulau dengan dua bangku ──
@@ -340,7 +355,7 @@ function buildStatic() {
     gB(8.5, 9.1, 0.1, 0.7, 0.5, 0.55, WOOD); // meja samping
     legs4(8.5, 9.1, 0.1, 0.7, 0.5, 0.05, 0.05);
     gB(9.6, 9.65, 0.3, 0.35, 0, 1.6, DARK); // lampu lantai
-    gB(9.45, 9.8, 0.15, 0.5, 1.6, 1.8, "#ffcf80");
+    gB(9.45, 9.8, 0.15, 0.5, 1.6, 1.8, "#f4f6f8");
     plant(3.1, FL, 6.1, 1.4);
     plant(11.0, FL, 6.2, 1.2);
 
@@ -354,7 +369,7 @@ function buildStatic() {
     chair(7.8, -1.85, "-z");
     plant(4.75, FL + oy, -0.9, 1.3);
     gB(4.7, 4.75, -4.75, -4.7, 0, 1.55, DARK); // lampu lantai
-    gB(4.55, 4.9, -4.9, -4.55, 1.55, 1.75, "#ffcf80");
+    gB(4.55, 4.9, -4.9, -4.55, 1.55, 1.75, "#f4f6f8");
     gB(11.3, 11.65, -0.95, -0.6, 0, 0.5, WOOD); // meja samping di pojok
     legs4(11.3, 11.65, -0.95, -0.6, 0.5, 0.03, 0.04);
 
@@ -366,7 +381,7 @@ function buildStatic() {
     lounge(0.7, 3.5, 0.95, 0.95, "-x", "#6b7f6a", "#5c6e5b");
     table(-1.05, -0.45, 3.2, 3.8, 0.45);
     gB(-3.35, -3.3, 1.9, 1.95, 0, 1.55, DARK); // lampu baca
-    gB(-3.5, -3.15, 1.75, 2.1, 1.55, 1.75, "#ffcf80");
+    gB(-3.5, -3.15, 1.75, 2.1, 1.55, 1.75, "#f4f6f8");
     gB(-2.75, 1.15, 7.55, 8.25, 0, 0.38, WOOD); // bangku jendela
     gB(-2.7, 1.1, 7.6, 8.2, 0.38, 0.46, "#6b7f6a");
     plant(-3.3, FL + oy, 4.9, 1.2);
@@ -423,7 +438,7 @@ function buildStatic() {
     // nakas dan lampu tidur
     add(bx(0.45, 0.5, 0.4, bxc - 1.2, U + 0.25, wb + 0.22, WOOD));
     add(bx(0.14, 0.02, 0.14, bxc - 1.2, U + 0.51, wb + 0.22, DARK));
-    add(bx(0.16, 0.14, 0.16, bxc - 1.2, U + 0.6, wb + 0.22, "#ffcf80"));
+    add(bx(0.16, 0.14, 0.16, bxc - 1.2, U + 0.6, wb + 0.22, "#f4f6f8"));
     // lemari pakaian di sekat timur (dinding barat dikosongkan: di sana ada pintu kaca ke balkon)
     const wx = x1 - 0.075 - 0.3; // pusat lemari, menempel di sisi dalam sekat
     add(bx(0.6, 2.2, 2.0, wx, U + 1.1, -2.9, WOOD));
@@ -472,7 +487,7 @@ function buildStatic() {
     // lampu meja di sudut kiri belakang
     add(bx(0.18, 0.03, 0.18, DK - 1.05, T + 0.015, dz - 0.2, DARK));
     add(bx(0.03, 0.42, 0.03, DK - 1.05, T + 0.23, dz - 0.2, DARK));
-    add(bx(0.26, 0.12, 0.22, DK - 1.05, T + 0.48, dz - 0.14, "#ffcf80"));
+    add(bx(0.26, 0.12, 0.22, DK - 1.05, T + 0.48, dz - 0.14, "#f4f6f8"));
     // papan sirkuit (breadboard) dan kabel jumper di dekat Arduino
     add(bx(0.2, 0.02, 0.08, DK - 0.55, T + 0.01, dz - 0.3, "#e9e3d3"));
     for (const [i, c] of ["#8a3b3b", "#35506b", "#4d6a45", "#8c6b34"].entries())
@@ -586,11 +601,215 @@ function buildStatic() {
             0.004,
             20,
           ).translate(lx, cy - 0.018, lz),
-          "#ffcf80",
+          "#f4f6f8",
         ),
       );
     }
   }
+
+  // ── bayangan kontak: bayangan lembut di lantai di bawah perabot besar, supaya tidak terlihat melayang ──
+  // Dibuat dari kotak-kotak perabot di atas (alas yang cukup lebar dan dekat lantai). Tiap perabot satu bidang
+  // dengan tepi memudar; yang sepenuhnya berada di dalam bidang lain dilewati supaya bayangan tidak menumpuk gelap.
+  const contact = (() => {
+    type R = { x0: number; x1: number; z0: number; z1: number; y: number };
+    const rects: R[] = [];
+    for (const g of list) {
+      g.computeBoundingBox();
+      const b = g.boundingBox!;
+      const lvl = b.min.y >= U - 0.05 ? U : FL;
+      const rise = b.min.y - lvl;
+      const w = b.max.x - b.min.x;
+      const d = b.max.z - b.min.z;
+      if (rise < -0.05 || rise > 0.9) continue; // bukan perabot lantai (plafon, lampu gantung, dll)
+      if (b.max.y - b.min.y < 0.06) continue; // karpet dan lantai
+      if (w * d < 0.12 || Math.min(w, d) < 0.25) continue; // kaki, sekat tipis, benda kecil
+      rects.push({
+        x0: b.min.x,
+        x1: b.max.x,
+        z0: b.min.z,
+        z1: b.max.z,
+        y: lvl,
+      });
+    }
+    rects.sort(
+      (a, b) => (b.x1 - b.x0) * (b.z1 - b.z0) - (a.x1 - a.x0) * (a.z1 - a.z0),
+    );
+    const kept: R[] = [];
+    for (const r of rects) {
+      const inside = kept.some(
+        (k) =>
+          Math.abs(k.y - r.y) < 0.01 &&
+          k.x0 <= r.x0 + 0.02 &&
+          k.x1 >= r.x1 - 0.02 &&
+          k.z0 <= r.z0 + 0.02 &&
+          k.z1 >= r.z1 - 0.02,
+      );
+      if (!inside) kept.push(r);
+    }
+    if (!kept.length) return null;
+    const M = 0.16; // sebaran bayangan di luar alas perabot (m)
+    const UV = [0, 0.25, 0.75, 1]; // tepi luar, tepi alas, tepi alas, tepi luar
+    const pos: number[] = [];
+    const uv: number[] = [];
+    const idx: number[] = [];
+    for (const r of kept) {
+      const base = pos.length / 3;
+      const xs = [r.x0 - M, r.x0, r.x1, r.x1 + M];
+      const zs = [r.z0 - M, r.z0, r.z1, r.z1 + M];
+      for (let j = 0; j < 4; j++)
+        for (let i = 0; i < 4; i++) {
+          pos.push(xs[i], r.y + 0.04, zs[j]);
+          uv.push(UV[i], UV[j]);
+        }
+      for (let j = 0; j < 3; j++)
+        for (let i = 0; i < 3; i++) {
+          const a = base + j * 4 + i;
+          idx.push(a, a + 4, a + 1, a + 1, a + 4, a + 5);
+        }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    return g;
+  })();
+
+  // ── bayangan sudut: pita gelap lembut di pertemuan dinding dengan lantai dan dengan plafon ──
+  // Cahaya rata tidak tahu sudut ruangan; pita ini meniru cahaya yang terhalang di lipatan dinding. Menumpuk di
+  // sudut ruangan (dua pita bertemu), jadi sudut paling gelap. Celah pintu dilewati; plafon hanya di tempat plafon ada.
+  const ao = (() => {
+    const W = 0.42; // lebar pita (m)
+    type Seg = {
+      axis: "x" | "z"; // x = dinding membentang sepanjang z di x = at
+      at: number;
+      half: number; // setengah tebal (0 untuk muka dinding luar)
+      sides: (1 | -1)[];
+      a: number;
+      b: number;
+      doors: { c: number; w: number }[];
+      up: boolean;
+    };
+    const segs: Seg[] = [];
+    const part = (
+      p: {
+        axis: "x" | "z";
+        at: number;
+        a: number;
+        b: number;
+        doors: { c: number; w: number }[];
+      },
+      t: number,
+      up: boolean,
+    ) => segs.push({ ...p, half: t / 2, sides: [1, -1], up });
+    for (const p of PLAN.ground) part(p, PLAN.t, false);
+    for (const p of PLAN.upper) part(p, PLAN.t, true);
+    part(
+      { axis: "x", at: BEDROOM.x1, a: BEDROOM.z0, b: BEDROOM.z1, doors: [] },
+      BEDROOM.t,
+      true,
+    );
+    part(
+      {
+        axis: "z",
+        at: BEDROOM.z1,
+        a: BEDROOM.x0,
+        b: BEDROOM.x1,
+        doors: [{ c: BEDROOM.door.c, w: BEDROOM.door.w }],
+      },
+      BEDROOM.t,
+      true,
+    );
+    // dinding luar: hanya sisi dalam
+    const ext = (
+      axis: "x" | "z",
+      at: number,
+      side: 1 | -1,
+      a: number,
+      b: number,
+      up: boolean,
+    ) => segs.push({ axis, at, half: 0, sides: [side], a, b, doors: [], up });
+    ext("x", -11.7, 1, -6.7, 6.7, false);
+    ext("x", 11.7, -1, -6.7, 6.7, false);
+    ext("z", -6.7, 1, -11.7, 11.7, false);
+    ext("z", 6.7, -1, -11.7, 11.7, false);
+    ext("x", -3.7, 1, -6.7, 8.3, true);
+    ext("x", 11.7, -1, -6.7, 8.3, true);
+    ext("z", -6.7, 1, -3.7, 11.7, true);
+    ext("z", 8.3, -1, -3.7, 11.7, true);
+
+    // apakah ada plafon di titik ini? (lantai bawah: plafon dipotong di bawah void dan lubang tangga)
+    const inRect = (x: number, z: number, r: number[]) =>
+      x > r[0] && x < r[1] && z > r[2] && z < r[3];
+    const ceilAt = (up: boolean, x: number, z: number) =>
+      up
+        ? inRect(x, z, [-3.7, 11.7, -6.7, 8.3])
+        : !inRect(x, z, [VOID.x0, VOID.x1, VOID.z0, VOID.z1]) &&
+          (inRect(x, z, [-11.7, 4.8, -6.7, 6.7]) ||
+            inRect(x, z, [9.8, 11.7, -6.7, 6.7]) ||
+            inRect(x, z, [4.8, 9.8, -5.3, 6.7]));
+
+    const pos: number[] = [];
+    const uv: number[] = [];
+    const idx: number[] = [];
+    const quad = (
+      axis: "x" | "z",
+      f0: number,
+      f1: number,
+      s0: number,
+      s1: number,
+      y: number,
+    ) => {
+      const base = pos.length / 3;
+      const P: [number, number][] = [
+        [f0, s0],
+        [f1, s0],
+        [f1, s1],
+        [f0, s1],
+      ];
+      const U = [0, 1, 1, 0];
+      P.forEach(([f, sv], i) => {
+        pos.push(axis === "x" ? f : sv, y, axis === "x" ? sv : f);
+        uv.push(U[i], 0.5);
+      });
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    };
+    for (const sg of segs) {
+      const lvl = sg.up ? U : FL;
+      const ceil = sg.up ? INTERIOR.floor2Y + HOME.upper.h - 0.015 : c0;
+      const doors = [...sg.doors].sort(
+        (p, q) => p.c - p.w / 2 - (q.c - q.w / 2),
+      );
+      const spans: [number, number][] = [];
+      let cur = sg.a;
+      for (const d of doors) {
+        spans.push([cur, d.c - d.w / 2]);
+        cur = d.c + d.w / 2;
+      }
+      spans.push([cur, sg.b]);
+      for (const [s0, s1] of spans) {
+        if (s1 - s0 < 0.05) continue;
+        for (const side of sg.sides) {
+          const f0 = sg.at + side * sg.half;
+          const f1 = f0 + side * W;
+          quad(sg.axis, f0, f1, s0, s1, lvl + 0.012);
+          // plafon: pita dipotong-potong per 0,5 m supaya tidak melayang di tepi plafon yang berlubang
+          for (let t = s0; t < s1 - 1e-6; t += 0.5) {
+            const e = Math.min(t + 0.5, s1);
+            const m = (t + e) / 2;
+            const fm = (f0 + f1) / 2;
+            const x = sg.axis === "x" ? fm : m;
+            const z = sg.axis === "x" ? m : fm;
+            if (ceilAt(sg.up, x, z)) quad(sg.axis, f0, f1, t, e, ceil - 0.014);
+          }
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    return g;
+  })();
 
   // tiap kelompok bahan digabung terpisah supaya bisa diberi tekstur sendiri
   const FABRIC = new Set([
@@ -625,7 +844,7 @@ function buildStatic() {
     const c = n.attributes.color;
     const hex = new THREE.Color(c.getX(0), c.getY(0), c.getZ(0)).getHexString();
     const kind =
-      hex === "ffcf80"
+      hex === "f4f6f8"
         ? "shade"
         : hex === "4f6b3a"
           ? "leaf"
@@ -639,7 +858,49 @@ function buildStatic() {
     fabric: mergeGeometries(groups.fabric, false),
     leaf: mergeGeometries(groups.leaf, false),
     shade: mergeGeometries(groups.shade, false),
+    contact,
+    ao,
   };
+}
+
+// Tekstur bayangan kontak: hitam, makin tipis ke tepi (dipetakan per bidang: tepi alas perabot di 0,25 dan 0,75).
+function contactTexture() {
+  const n = 64;
+  const c = document.createElement("canvas");
+  c.width = c.height = n;
+  const g = c.getContext("2d")!;
+  const img = g.createImageData(n, n);
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const e = Math.min(x, n - 1 - x, y, n - 1 - y) / (n - 1);
+      const t = Math.min(1, e / 0.25);
+      const a = t * t * (3 - 2 * t);
+      const i = (y * n + x) * 4;
+      img.data[i + 3] = Math.round(a * 255);
+    }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Tekstur bayangan sudut: paling gelap di dinding (u = 0), memudar kuadratik ke tepi pita (u = 1).
+function aoTexture() {
+  const n = 64;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = 4;
+  const g = c.getContext("2d")!;
+  const img = g.createImageData(n, 4);
+  for (let y = 0; y < 4; y++)
+    for (let x = 0; x < n; x++) {
+      const u = x / (n - 1);
+      img.data[(y * n + x) * 4 + 3] = Math.round((1 - u) * (1 - u) * 255);
+    }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 function useTexture(draw: Draw, w: number, h: number) {
@@ -1008,6 +1269,29 @@ export default function HouseInterior({
         vertexColors: true,
         toneMapped: false,
       }),
+      ao: new THREE.MeshBasicMaterial({
+        map: aoTexture(),
+        color: "#140c06",
+        transparent: true,
+        opacity: 0.34,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+        toneMapped: false,
+      }),
+      contact: new THREE.MeshBasicMaterial({
+        map: contactTexture(),
+        color: "#140c06",
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+        toneMapped: false,
+      }),
     };
   }, []);
   // piringan plafon dan bola lampu: redup saat mati, terang saat menyala (mengikuti house.lamp)
@@ -1018,10 +1302,26 @@ export default function HouseInterior({
   useEffect(
     () => () => {
       Object.values(geo).forEach((g) => g?.dispose());
+      mats.contact.map?.dispose();
+      mats.ao.map?.dispose();
       Object.values(mats).forEach((m) => m.dispose());
     },
     [geo, mats],
   );
+  // Semua benda berbahan terkena cahaya ikut membuat dan menerima bayangan (matahari masuk lewat jendela,
+  // jadi perabot di bawah sinar punya bayangan, dan perabot di ruang yang teduh tidak ikut terang).
+  // Home.tsx mematikan pembuatan bayangan saat pengunjung di luar rumah.
+  const root = useRef<THREE.Group>(null);
+  useLayoutEffect(() => {
+    root.current?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || m.userData.noShadow) return;
+      const mat = m.material as THREE.Material;
+      if (mat instanceof THREE.MeshBasicMaterial) return;
+      m.castShadow = true;
+      m.receiveShadow = true;
+    });
+  }, [geo]);
   const base = { house, onPick, onTip };
   // meja kerja kamar lantai atas (harus sama dengan blok kamar di buildStatic)
   const deskX = BEDROOM.window.c;
@@ -1037,10 +1337,29 @@ export default function HouseInterior({
   });
 
   return (
-    <group position={[HOME.x, 0, HOME.z]} rotation={[0, DOOR.yaw, 0]}>
+    <group
+      ref={root}
+      position={[HOME.x, 0, HOME.z]}
+      rotation={[0, DOOR.yaw, 0]}
+    >
       {(["wood", "fabric", "leaf", "shade"] as const).map((k) =>
         geo[k] ? <mesh key={k} geometry={geo[k]!} material={mats[k]} /> : null,
       )}
+
+      {geo.contact && (
+        <mesh geometry={geo.contact} material={mats.contact} renderOrder={1} />
+      )}
+
+      {geo.ao && <mesh geometry={geo.ao} material={mats.ao} renderOrder={1} />}
+
+      <FloorDecor />
+      <WallDecor />
+      <HomeTrinkets />
+      <HomeLighting />
+      <LampClick house={house} />
+      <StairShade />
+      <WallArt />
+      <WallPaintings />
 
       {/* ── meja kerja di kamar lantai atas ── */}
       <Hot

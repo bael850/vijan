@@ -2,9 +2,10 @@ import * as THREE from "three";
 import { MAIN_ROAD, STREETS } from "../../config/city";
 import { groundHeight } from "../../terrain/heightmap";
 import { add, box, frame, type Bag } from "./cityBag";
+import { CHAPTER_SPANS, ROUTE_LENGTH } from "../../core/route";
 import { cityRouteRange, polyline, routeLine, type Line } from "./layout";
 
-// Jalan berbatu: lempengan batu di sepanjang jalan utama (jalur kamera, dengan tepi batu) dan gang.
+// Jalan berbatu: lempengan batu di sepanjang jalan utama (jalur kamera, dengan tepi batu), rute memutar istana, dan gang.
 
 const hash = (a: number, b: number) => {
   const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
@@ -64,6 +65,19 @@ export function buildRoads(bag: Bag) {
     MAIN_ROAD.slab,
     MAIN_ROAD.curb,
   );
+  // Rute memutar istana (dari tepi alun-alun sampai gerbang timur): paving dan tepi batu yang sama dengan jalan utama.
+  const pal = CHAPTER_SPANS.find((c) => c.id === "istana");
+  if (pal) {
+    strip(
+      bag,
+      routeLine,
+      dEnd,
+      Math.min(ROUTE_LENGTH, pal.to * ROUTE_LENGTH + 3),
+      MAIN_ROAD.halfWidth * 2,
+      MAIN_ROAD.slab,
+      MAIN_ROAD.curb,
+    );
+  }
   for (const st of STREETS) {
     const ln = polyline(st.pts);
     strip(bag, ln, 0, ln.len, st.width, 1.85, false);

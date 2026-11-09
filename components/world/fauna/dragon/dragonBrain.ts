@@ -24,13 +24,21 @@ export type Brain = {
   tz: number;
   roams: number;
   visitIdx: number;
-  visitIn: number; // hitung mundur kunjungan pertama
+  visitIn: number; // hitung mundur kunjungan berikut
+  stopping: boolean; // sedang mengerem sampai tiba (badan terus maju pelan, tidak berhenti mendadak)
+  hold: number; // sisa detik kaki melangkah di tempat sebelum badan maju
   place: string | null; // id tempat kunjungan, untuk info
 };
 
 const rr = (r: readonly [number, number]) =>
   r[0] + Math.random() * (r[1] - r[0]);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// Tempat kunjungan ke-i menurut urutan DRAGON.visitOrder (kota jarang).
+export function visitAt(i: number) {
+  const id = DRAGON.visitOrder[i % DRAGON.visitOrder.length];
+  return DRAGON_VISITS.find((v) => v.id === id) ?? DRAGON_VISITS[0];
+}
 
 export function newBrain(t: Terrain): Brain {
   const b: Brain = {
@@ -48,6 +56,8 @@ export function newBrain(t: Terrain): Brain {
     roams: 0,
     visitIdx: 0,
     visitIn: DRAGON.startDelay,
+    stopping: false,
+    hold: 0,
     place: null,
   };
   pickRoam(b, t);
@@ -69,7 +79,7 @@ function pickRoam(b: Brain, t: Terrain) {
     const spread = [0.9, 1.8, Math.PI][pass];
     for (let i = 0; i < 24; i++) {
       const a = b.yaw + (Math.random() * 2 - 1) * spread;
-      const d = DRAGON.length * (0.3 + Math.random() * 0.4); // 21..49 m
+      const d = DRAGON.length * (0.2 + Math.random() * 0.25); // 24..54 m (agak pendek: wilayah jelajah 70 m)
       const x = b.x + Math.sin(a) * d;
       const z = b.z + Math.cos(a) * d;
       if (Math.hypot(x - DRAGON.home.x, z - DRAGON.home.z) > DRAGON.home.r)
@@ -86,6 +96,8 @@ function pickRoam(b: Brain, t: Terrain) {
 
 function startWalk(b: Brain) {
   b.mode = "walk";
+  b.stopping = false;
+  b.hold = DRAGON.startHold; // kaki mulai melangkah dulu, baru badan maju
 }
 function startIdle(b: Brain, secs: number) {
   b.mode = "idle";
@@ -139,7 +151,7 @@ export function stepDragon(b: Brain, t: Terrain, dt: number) {
     b.timer -= dt;
     if (b.task === "linger") {
       // menghadap arah yang ditentukan tempat kunjungan
-      const v = DRAGON_VISITS[b.visitIdx % DRAGON_VISITS.length];
+      const v = visitAt(b.visitIdx);
       const d = wrap(v.face - b.yaw);
       const wantRate = Math.max(-0.3, Math.min(0.3, d * 0.9));
       const k = 0.25 * dt; // percepatan putar pelan, tidak tersentak
@@ -157,7 +169,7 @@ export function stepDragon(b: Brain, t: Terrain, dt: number) {
     if (b.timer > 0) return;
     // selesai diam: tentukan tugas berikut
     if (b.visitIn <= 0 && b.roams >= DRAGON.roamsBeforeVisit - 1) {
-      const v = DRAGON_VISITS[b.visitIdx % DRAGON_VISITS.length];
+      const v = visitAt(b.visitIdx);
       b.task = "visit";
       b.tx = v.x;
       b.tz = v.z;
@@ -174,13 +186,28 @@ export function stepDragon(b: Brain, t: Terrain, dt: number) {
   // jalan
   const trip = b.task === "visit" || b.task === "return";
   const arrive = DRAGON.length * (trip ? 0.12 : 0.07);
-  if (dist < arrive) {
+
+  // tiba: rem pelan. Badan terus maju sambil melambat, baru diam setelah hampir berhenti.
+  if (!b.stopping && dist < arrive) b.stopping = true;
+  if (b.stopping) {
+    b.speed *= Math.exp(-dt * DRAGON.brake);
+    b.yawRate *= Math.exp(-dt * 1.5);
+    b.yaw = wrap(b.yaw + b.yawRate * dt);
+    const sx = b.x + Math.sin(b.yaw) * b.speed * dt;
+    const sz = b.z + Math.cos(b.yaw) * b.speed * dt;
+    if (t.blocked(sx, sz)) b.speed = 0;
+    else {
+      b.x = sx;
+      b.z = sz;
+    }
+    if (b.speed > 0.6) return;
+    b.stopping = false;
     if (b.task === "visit") {
       b.task = "linger";
       startIdle(b, rr(DRAGON.linger));
     } else if (b.task === "return") {
       b.task = "roam";
-      b.visitIn = 20 + Math.random() * 25; // jeda sebelum kunjungan berikut
+      b.visitIn = rr(DRAGON.visitGap); // jeda panjang sebelum kunjungan berikut
       b.roams = 0;
       startIdle(b, rr(DRAGON.idleTime));
     } else {
@@ -188,6 +215,14 @@ export function stepDragon(b: Brain, t: Terrain, dt: number) {
       startIdle(b, rr(DRAGON.idleTime));
     }
     b.speed = 0;
+    return;
+  }
+
+  // awal jalan: kaki sudah melangkah (animasi jalan), badan baru mulai maju setelah hold habis
+  if (b.hold > 0) {
+    b.hold -= dt;
+    steer(b, t, dt, !trip);
+    b.speed *= Math.exp(-dt * 3);
     return;
   }
   steer(b, t, dt, !trip);

@@ -5,7 +5,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 import { LIGHT } from "../config/light";
-import { START } from "../config/world";
+import { START, HOUSE } from "../config/world";
+import { HOME } from "../config/home";
 import { SCROLL } from "../config/scroll";
 import { lerp, smoothstep } from "../core/math";
 import { DAY_LIGHT, dayState, tickDay } from "../core/dayCycle";
@@ -16,6 +17,13 @@ import { setShadowFocus, shadowActorNear } from "../core/shadowBus";
 const SHADOW_HALF_BASE = 60; // medium/low/mobile
 const SHADOW_HALF_HIGH = 80; // high desktop: peta 2048 jadi tetap tajam walau area lebih luas
 const SHADOW_LEAD = 20;
+
+// Cahaya di dalam rumah. Matahari dan bulan tetap kuat: dinding, pelat, dan atap menahannya lewat peta bayangan,
+// jadi sinarnya hanya masuk lewat jendela dan pintu. Yang diredam hanya cahaya langit yang menyebar (hemi dan fill).
+// Kotak bayangan dipersempit dan dipusatkan ke kamera supaya bayangan perabot dan kusen jendela tajam.
+const INDOOR = { sun: 0.45, moon: 0.3, sky: 0.15, half: 26, lead: 3 };
+// Balkon (lantai atas, sisi selatan) ada di bawah langit terbuka: tidak diredam sama sekali.
+const BALCONY_Y = HOUSE.padY + 0.6 + HOME.h + HOME.slab - 0.3;
 
 // Cahaya, kabut, dan warna latar. Makin dekat rumah, suasana makin teduh dan hangat.
 // progress = posisi scroll 0..1 (ref, bukan state, supaya tidak render ulang).
@@ -67,6 +75,8 @@ export default function TimeOfDay({
       drawP: new THREE.Vector3(1e9, 0, 0), // letak pusat bayangan saat peta terakhir digambar
       drawDir: new THREE.Vector3(),
       drawT: 0,
+      drawHalf: 0,
+      open: 0, // 0 = di bawah atap, 1 = di balkon (langit terbuka)
       n: 0,
     }),
     [],
@@ -108,7 +118,21 @@ export default function TimeOfDay({
       progress.current,
     );
     // di dalam rumah cahaya langit dan bulan diredupkan, lampu rumah yang menerangi
-    const dim = 1 - 0.85 * (indoor?.current ?? 0);
+    // balkon: dari kerangka rumah, x lokal = selatan (z dunia - pusat), z lokal = timur
+    const lx = -(camera.position.z - HOME.z);
+    const lz = camera.position.x - HOME.x;
+    const onBalcony =
+      lx < HOME.upper.x0 - 0.1 &&
+      lx > -12.4 &&
+      Math.abs(lz) < 7.5 &&
+      camera.position.y > BALCONY_Y;
+    tmp.open += ((onBalcony ? 1 : 0) - tmp.open) * 0.15;
+    const inK = (indoor?.current ?? 0) * (1 - tmp.open);
+    const dim = 1 - (1 - INDOOR.sky) * inK; // cahaya langit
+    const dimSun = lerp(1, INDOOR.sun, inK);
+    const dimMoon = lerp(1, INDOOR.moon, inK);
+    const half = lerp(SHADOW_HALF, INDOOR.half, inK);
+    const lead = lerp(SHADOW_LEAD, INDOOR.lead, inK);
     gl.toneMappingExposure = LIGHT.exposure;
 
     col.copy(from).lerp(to, k);
@@ -148,7 +172,7 @@ export default function TimeOfDay({
         lerp(LIGHT.moon.startIntensity, LIGHT.moon.endIntensity, k) *
         smoothstep(-0.02, 0.22, dayState.moon.y) *
         (1 - dl);
-      m.intensity = (useSun ? sunI : moonI) * dim;
+      m.intensity = useSun ? sunI * dimSun : moonI * dimMoon;
       if (useSun) {
         // warna mengikuti ketinggian lewat daftar titik warna
         let i = 0;
@@ -168,14 +192,22 @@ export default function TimeOfDay({
       camera.getWorldDirection(tmp.fwd);
       tmp.fwd.y = 0;
       if (tmp.fwd.lengthSq() > 1e-6) tmp.fwd.normalize();
-      const fx = camera.position.x + tmp.fwd.x * SHADOW_LEAD;
-      const fz = camera.position.z + tmp.fwd.z * SHADOW_LEAD;
+      const fx = camera.position.x + tmp.fwd.x * lead;
+      const fz = camera.position.z + tmp.fwd.z * lead;
       tmp.p.set(fx, groundHeight(fx, fz), fz);
 
       // tempel ke grid texel di ruang cahaya supaya bayangan tidak bergetar saat kamera bergerak
       tmp.right.set(dir.z, 0, -dir.x).normalize();
       tmp.up.crossVectors(dir, tmp.right);
-      const texel = (SHADOW_HALF * 2) / mapSize;
+      const sh = m.shadow.camera as THREE.OrthographicCamera;
+      if (Math.abs(sh.right - half) > 0.01) {
+        sh.left = -half;
+        sh.right = half;
+        sh.top = half;
+        sh.bottom = -half;
+        sh.updateProjectionMatrix();
+      }
+      const texel = (half * 2) / mapSize;
       const pa = tmp.p.dot(tmp.right);
       const pb = tmp.p.dot(tmp.up);
       tmp.p
@@ -185,7 +217,7 @@ export default function TimeOfDay({
       // Bayangan menyesuaikan sudut cahaya: makin rendah matahari/bulan, bias naik (anti bintik di atap miring),
       // tepi makin lembut, dan bayangan sedikit lebih tipis karena cahaya langit lebih dominan.
       const low = 1 - smoothstep(0.1, 0.55, d.y);
-      m.shadow.normalBias = texel * lerp(1.3, 3.2, low);
+      m.shadow.normalBias = texel * lerp(1.3, 3.2, low) * lerp(1, 0.7, inK);
       m.shadow.radius = (quality === "high" ? 2.2 : 1.5) * lerp(1, 1.8, low);
       m.shadow.intensity = useSun ? lerp(0.92, 0.7, low) : 0.8;
 
@@ -201,7 +233,7 @@ export default function TimeOfDay({
       setShadowFocus(
         tmp.p.x,
         tmp.p.z,
-        SHADOW_HALF * 1.42,
+        half * 1.42,
         -dir.x / dir.y,
         -dir.z / dir.y,
       );
@@ -212,7 +244,8 @@ export default function TimeOfDay({
       const now = performance.now();
       const moved =
         tmp.p.distanceToSquared(tmp.drawP) > 1e-4 ||
-        tmp.dir.distanceToSquared(tmp.drawDir) > 4e-6;
+        tmp.dir.distanceToSquared(tmp.drawDir) > 4e-6 ||
+        Math.abs(half - tmp.drawHalf) > 0.05;
       const every = quality === "high" && !mobile ? 2 : 3;
       if (
         (nearDragon && (every === 2 || tmp.n % 2 === 0)) ||
@@ -223,6 +256,7 @@ export default function TimeOfDay({
         tmp.drawP.copy(tmp.p);
         tmp.drawDir.copy(tmp.dir);
         tmp.drawT = now;
+        tmp.drawHalf = half;
       }
       tmp.last.copy(tmp.p);
       tmp.lastDir.copy(tmp.dir);

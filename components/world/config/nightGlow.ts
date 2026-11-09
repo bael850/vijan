@@ -6,7 +6,10 @@ export const NIGHT_GLOW = {
   pool: {
     // Jumlah lampu titik di seluruh dunia (luar dan dalam rumah berbagi kolam yang sama, jadi tidak dijumlahkan).
     count: { high: 5, medium: 4, low: 3 },
-    outdoor: { high: true, medium: true, low: false }, // low: lampu titik hanya di dalam rumah, di luar cukup halo
+    outdoor: { high: true, medium: true, low: false },
+    // Berapa lampu titik yang membuat bayangan (slot pertama), dan ukuran peta bayangannya. 0 = tanpa bayangan lampu.
+    shadow: { high: 2, medium: 1, low: 0 },
+    shadowMap: { high: 1024, medium: 512, low: 256 }, // low: lampu titik hanya di dalam rumah, di luar cukup halo
     range: 70, // sumber lebih jauh dari ini diabaikan (m)
     distance: 18, // jangkauan cahaya (m)
     decay: 2,

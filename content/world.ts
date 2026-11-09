@@ -1,6 +1,6 @@
 // Teks di dunia 3D (beranda): kalimat sepanjang jalan, petunjuk, menu, pemutar lagu, danau.
 export const journey = {
-  title: "Pulang",
+  title: "",
   // Urutannya = urutan muncul saat scroll. Waktu muncul diatur di components/world/config/scroll.ts.
   lines: ["", "", "", ""],
   loading: "Menyiapkan jalan pulang",
@@ -48,7 +48,7 @@ export const desk = {
   },
   tips: {
     album: (n: number) => (n > 0 ? `Album foto · ${n} foto` : "Album foto"),
-    scope: "Teleskop · intip danau (Esc untuk turun)",
+    scope: "Teleskop · liat danau (Esc untuk turun)",
     cvWriter: "CV Penulis (PDF)",
     cvMarketing: "CV Digital Marketing (PDF)",
     contact: (label: string) => label,

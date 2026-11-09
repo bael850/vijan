@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { DRAGON, DRAGON_VISITS } from "../../config/dragon";
+import { DRAGON } from "../../config/dragon";
 import { HOUSE } from "../../config/world";
 import { castleDist, groundHeight, lakeDist } from "../../terrain/heightmap";
 import { gradeUpdate, makeGrade } from "../../core/creatureGrade";
+import { lookUpdate, makeLook } from "../../core/creatureLook";
+import ContactShadow from "../../core/ContactShadow";
 import { animDt, creatureVisible } from "../../core/creatureCull";
 import { dropShadowActor, reportShadowActor } from "../../core/shadowBus";
 import { footLift, makeFootPlant } from "./footPlant";
-import { applyTailGuard, makeTailGuard } from "./tailGuard";
+import { applyTailGuard, captureTail, makeTailGuard } from "./tailGuard";
 import {
   newBrain,
   stepDragon,
+  visitAt,
   type DragonMode,
   type Terrain,
 } from "./dragonBrain";
@@ -91,9 +94,13 @@ function build(scene: THREE.Object3D) {
     }
   });
   const grade = makeGrade(model);
+  const look = makeLook(
+    DRAGON.look,
+    grade.list.map((e) => e.mat),
+  );
   const tailFix = makeTailGuard(model);
   const feet = makeFootPlant(model);
-  return { outer, model, grade, tailFix, feet };
+  return { outer, model, grade, look, tailFix, feet };
 }
 
 const damp = (a: number, b: number, k: number, dt: number) =>
@@ -103,9 +110,10 @@ const damp = (a: number, b: number, k: number, dt: number) =>
 // Coba cepat di URL:  ?naga=danau | desa | kota  (langsung muncul di sana)  atau  ?naga=awal (dekat titik mulai).
 export default function MountainDragon() {
   const { scene, animations } = useGLTF(DRAGON.modelUrl);
+  const gl = useThree((s) => s.gl);
   const built = useMemo(() => build(scene), [scene]);
   const brain = useRef(newBrain(TERRAIN));
-  const pose = useRef({ y: 0, pitch: 0, roll: 0, ready: false, t: 0 });
+  const pose = useRef({ y: 0, pitch: 0, roll: 0, ready: false, t: 0, ts: 0.4 });
   const mode = useRef<DragonMode>("idle");
 
   const rig = useMemo(() => {
@@ -134,9 +142,10 @@ export default function MountainDragon() {
       b.visitIdx = 1;
       return;
     }
-    const i = DRAGON_VISITS.findIndex((v) => v.id === q);
+    // indeks pertama di urutan kunjungan yang menuju tempat itu
+    const i = DRAGON.visitOrder.indexOf(q);
     if (i < 0) return;
-    const v = DRAGON_VISITS[i];
+    const v = visitAt(i);
     b.x = v.x;
     b.z = v.z;
     b.yaw = v.face;
@@ -165,26 +174,27 @@ export default function MountainDragon() {
     const b = brain.current;
     stepDragon(b, TERRAIN, dt);
 
-    // animasi jalan hanya selagi badan benar-benar bergerak (saat memutar di tempat pakai diam, kaki tidak mengayun)
-    const want: DragonMode =
-      b.mode === "walk" && b.speed > (mode.current === "walk" ? 0.3 : 0.8)
-        ? "walk"
-        : "idle";
+    // Animasi jalan mengikuti niat berjalan (bukan kecepatan badan): kaki sudah melangkah sebelum badan maju
+    // dan masih melangkah selagi badan mengerem, jadi tidak ada badan meluncur dengan kaki diam.
+    const want: DragonMode = b.mode === "walk" ? "walk" : "idle";
     // ganti animasi dengan peralihan halus
     if (mode.current !== want) {
       mode.current = want;
       const [on, off] =
         want === "walk" ? [rig.walk, rig.idle] : [rig.idle, rig.walk];
-      if (on) on.reset().fadeIn(0.6).play();
-      if (off) off.fadeOut(0.6);
+      if (on) on.reset().fadeIn(0.7).play();
+      if (off) off.fadeOut(0.9);
     }
-    // laju langkah menyesuaikan kecepatan tanah supaya kaki tidak meluncur
-    if (rig.walk)
-      rig.walk.timeScale = THREE.MathUtils.clamp(
-        b.speed / DRAGON.strideSpeed,
-        0.35,
-        2.4,
-      );
+    // laju langkah menyesuaikan kecepatan tanah supaya kaki tidak meluncur; diperhalus supaya tidak melonjak.
+    // Selagi memutar di tempat (awal jalan) kaki tetap melangkah pelan.
+    const pivot = b.hold > 0 || (b.speed < 1.5 && Math.abs(b.yawRate) > 0.04);
+    const tsWant = THREE.MathUtils.clamp(
+      b.speed / DRAGON.strideSpeed,
+      pivot ? 0.4 : 0.25,
+      2.4,
+    );
+    pose.current.ts = damp(pose.current.ts, tsWant, 2.5, dt);
+    if (rig.walk) rig.walk.timeScale = pose.current.ts;
     // animasi dihitung lebih jarang kalau tidak terlihat atau jauh dari kamera
     const mdt = animDt(
       animAcc.current,
@@ -193,7 +203,11 @@ export default function MountainDragon() {
       DRAGON.length,
       dt,
     );
-    if (mdt > 0) rig.mixer.update(mdt);
+    if (mdt > 0) {
+      rig.mixer.update(mdt);
+      // simpan pose ekor bersih; penjaga ekor selalu mulai dari sini (animasi frame rendah tidak disentuh)
+      captureTail(built.tailFix);
+    }
 
     // menapak: tinggi dan kemiringan badan dari empat titik sekitar tubuh
     const L = DRAGON.length * 0.33;
@@ -224,7 +238,12 @@ export default function MountainDragon() {
     }
     p.y = damp(p.y, ty, 6, dt);
     p.pitch = damp(p.pitch, tp, 3, dt);
-    p.roll = damp(p.roll, tr, 3, dt);
+    // miring ke arah belokan, makin besar makin cepat jalannya (berat badan terasa)
+    const lean =
+      -(b.yawRate / DRAGON.turnRate) *
+      DRAGON.leanTurn *
+      Math.min(1, b.speed / DRAGON.walkSpeed);
+    p.roll = damp(p.roll, tr + lean, 2.5, dt);
 
     const o = built.outer;
     o.position.set(b.x, p.y, b.z);
@@ -247,13 +266,33 @@ export default function MountainDragon() {
     );
     // kaki: badan dinaikkan/diturunkan supaya telapak terendah pas menyentuh tanah di bawahnya
     p.t += dt;
-    o.position.y += footLift(built.feet, o, groundHeight, dt, p.t);
+    // jendela = satu siklus langkah saat ini: jalan pelan = siklus panjang (siklus 2,97 dtk pada laju 1x)
+    const cycle = Math.min(10, Math.max(3.2, (2.97 / p.ts) * 1.08));
+    o.position.y += footLift(built.feet, o, groundHeight, dt, p.t, cycle);
     // ekor di animasi jalan mengayun sampai ~6 m di bawah telapak: tekuk ke atas supaya tidak tembus tanah
     applyTailGuard(built.tailFix, o, groundHeight, dt);
-    gradeUpdate(built.grade, scene, camera.position.distanceTo(o.position));
+    // kabut jarak dihitung dari tepi badan terdekat, bukan dari pusat (badan 120 m)
+    const dEdge = Math.max(
+      0,
+      camera.position.distanceTo(o.position) - DRAGON.length * 0.5,
+    );
+    gradeUpdate(built.grade, scene, dEdge);
+    lookUpdate(built.look, gl);
   });
 
-  return <primitive object={built.outer} />;
+  return (
+    <primitive object={built.outer}>
+      {/* bayangan lembut di bawah badan: menempelkan naga ke tanah, juga saat peta bayangan kasar atau mati */}
+      {DRAGON.look.contactShadow > 0 && (
+        <group scale={[0.42, 1, 1]} position={[0, 0, 0]}>
+          <ContactShadow
+            radius={DRAGON.length * 0.55}
+            opacity={DRAGON.look.contactShadow}
+          />
+        </group>
+      )}
+    </primitive>
+  );
 }
 
 useGLTF.preload(DRAGON.modelUrl);

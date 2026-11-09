@@ -4,24 +4,38 @@
 
 export const WYVERN = {
   modelUrl: "/models/wyvern.glb",
-  length: 20, // kepala sampai ujung ekor (m). Lebar sayap sekitar dua kali ini.
+  length: 28, // kepala sampai ujung ekor (m). Lebar sayap sekitar dua kali ini. (dulu 20)
 
   // Tampilan bahan (scene tanpa environment map, jadi bahan metalik tampak hitam)
   metalness: 0.1,
-  roughness: 0.8,
-  brighten: 1.5,
-  stride: 3.5, // kecepatan tanah yang cocok dengan animasi jalan 1x (m/s)
+  roughness: 0.7,
+  brighten: 1.3,
+  stride: 4.9, // kecepatan tanah yang cocok dengan animasi jalan 1x (m/s)
+
+  // Cahaya tambahan (lihat core/creatureLook.ts). Sama dengan naga gunung, perut sedikit lebih terang karena sering di udara.
+  look: {
+    envDay: 0.9,
+    envNight: 0.3,
+    rimDay: 0.25,
+    rimNight: 0.4,
+    rimTwilight: 0.55,
+    belly: 0.7,
+    bounce: 0.1,
+  },
   glow: 2, // terang bagian yang menyala di model
 
   // Lintasan terbang: angka 8 miring di sumbu x. Sisi barat = kastil, sisi timur = danau.
-  loop: { cx: 185, cz: -320, a: 270, b: 130 },
-  altHigh: 85, // tinggi di atas sisi kastil (m)
-  altLow: 16, // tinggi saat menyambar di atas danau (m)
-  clearance: 8, // minimal di atas tanah/air (m)
-  cruise: 24, // kecepatan jelajah (m/s)
+  // Digeser ke timur (dulu cx 185, a 270): sisi barat lintasan sekarang berhenti di tembok timur kastil,
+  // jadi wyvern berputar di atas danau dan tepi timur, tidak menyapu kota.
+  loop: { cx: 320, cz: -320, a: 175, b: 130 },
+  altHigh: 100, // tinggi di sisi barat lintasan (m)
+  altLow: 22, // tinggi saat menyambar di atas danau (m)
+  clearance: 10, // minimal di atas tanah/air (m)
+  avoid: 30, // jarak aman dari tembok kastil (m). Rute menuju/dari puncak barat memutar di luar ini, tidak melintas di atas kota
+  cruise: 28, // kecepatan jelajah (m/s)
   turnRate: 0.55, // belok maksimal (rad/detik)
   lead: 90, // titik bidik di depan lintasan (m); makin kecil, makin menempel lintasan
-  laps: 1.5, // berapa putaran 8 sebelum mendarat
+  laps: 1, // berapa putaran 8 sebelum mendarat (dulu 1,5)
 
   // Tempat hinggap, bergilir. Semua puncak datar (sudah dicek). Hadapnya otomatis ke tengah dunia.
   perches: [
@@ -30,7 +44,7 @@ export const WYVERN = {
     { x: -301, z: -93 }, //  gunung barat, sebelah desa
     { x: 428, z: -710 }, //  gunung timur laut
   ],
-  perchTime: [18, 32] as [number, number], // lama bertengger (detik)
+  perchTime: [55, 95] as [number, number], // lama bertengger (detik). Dulu 18-32: hampir selalu di udara
   startDelay: 4, // detik sebelum lepas landas pertama
 } as const;
 
@@ -44,6 +58,6 @@ export const WYVERN_VARIANTS = [
     tint: [1.9, 0.8, 0.55],
     brighten: 1.3,
     perches: [2, 3],
-    startDelay: 40,
+    startDelay: 75,
   },
 ] as const;

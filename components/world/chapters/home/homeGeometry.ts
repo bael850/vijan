@@ -683,23 +683,62 @@ export function buildHome(bag: Bag) {
   rail(bag, "z", VOID.z0, VOID.x0, VOID.x1, F2, 1.0);
   rail(bag, "z", VOID.z1, VOID.x0, VOID.x1, F2, 1.0);
 
-  // pegangan tangga di dinding belakang: batang miring dengan braket
-  const ry0 = FL + 0.9;
+  // pegangan tangga di sisi terbuka (sisi lorong): batang miring 0,9 m di atas garis ujung anak tangga,
+  // tiang tiang (newel) di anak tangga pertama dan terakhir dengan bola penutup, dan tiang kecil tiap 3 anak tangga
+  const hz = STAIR.z + STAIR.w / 2 - 0.04;
+  const slope = rise / run;
+  const treadTop = (i: number) => FL + (i + 1) * rise;
+  const nosingY = (x: number) => FL + rise + (x - STAIR.x0) * slope;
+  const railAt = (x: number) => nosingY(x) + 0.9;
+  const stepX = (i: number) => STAIR.x0 + (i + 0.5) * run;
+  const xa = stepX(0);
+  const xb = stepX(n - 1);
   add(
     bag,
     "metal",
     limb(
-      new THREE.Vector3(STAIR.x0, ry0, -zf + t + 0.05),
-      new THREE.Vector3(STAIR.x1, F2 + 0.9, -zf + t + 0.05),
-      0.025,
-      0.025,
-      8,
+      new THREE.Vector3(xa, railAt(xa), hz),
+      new THREE.Vector3(xb, railAt(xb), hz),
+      0.03,
+      0.03,
+      10,
     ),
     I,
   );
-  for (let x = STAIR.x0 + 0.4; x < STAIR.x1; x += 1.6) {
-    const yy = ry0 + ((x - STAIR.x0) / (STAIR.x1 - STAIR.x0)) * (F2 - FL);
-    add(bag, "metal", box(0.04, 0.05, 0.06, x, yy, -zf + t + 0.02), I);
+  // tiang besar hanya di kaki tangga; di atas, pegangan menyambung langsung ke handrail pagar kaca lantai atas
+  {
+    const top = railAt(xa) + 0.07;
+    const base = treadTop(0);
+    add(bag, "metal", box(0.07, top - base, 0.07, xa, (top + base) / 2, hz), I);
+    add(
+      bag,
+      "metal",
+      new THREE.SphereGeometry(0.05, 10, 8).translate(xa, top, hz),
+      I,
+    );
+  }
+  add(
+    bag,
+    "metal",
+    limb(
+      new THREE.Vector3(xb, railAt(xb), hz),
+      new THREE.Vector3(xb, railAt(xb), hz1 + 0.04),
+      0.03,
+      0.03,
+      10,
+    ),
+    I,
+  );
+  for (const i of [3, 6, 9, 12, 15]) {
+    const x = stepX(i);
+    const base = treadTop(i);
+    const top = railAt(x);
+    add(
+      bag,
+      "metal",
+      box(0.025, top - base, 0.025, x, (top + base) / 2, hz),
+      I,
+    );
   }
   // talang air di dua sudut depan
   for (const z of [zf - 0.2, -zf + 0.2])

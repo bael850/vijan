@@ -8,7 +8,8 @@ import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 import { ELM, FLORA, GRASS, MAPLE, type TreeDef } from "../config/flora";
 import { bakeTree } from "./treeModel";
 import { scatter, type Occupied, type Spot } from "./placement";
-import { applyWind, windTime } from "./wind";
+import { tickWeather, weather } from "../core/weather";
+import { applyWind, windDir, windGust, windTime } from "./wind";
 import { floraOff, floraStats } from "./floraStats";
 import { decimateGeometry } from "./decimate";
 
@@ -203,6 +204,9 @@ export default function Trees({ quality }: { quality: GraphicsQuality }) {
   }, [quality]);
   useFrame(({ clock }) => {
     windTime.value = clock.elapsedTime;
+    tickWeather(clock.elapsedTime);
+    windGust.value = weather.gust;
+    windDir.value.copy(weather.windDir);
   });
   return (
     <>

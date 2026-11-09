@@ -103,7 +103,7 @@ export default function Home({
       });
     return {
       plaster: grainMat(C.plaster, "plaster"),
-      wood: grainMat(C.wood, "wood"),
+      wood: grainMat(C.wood, "deck"),
       roof: grainMat(C.roof, "roof"),
       stone: grainMat(C.stone, "stone"),
       gravel: grainMat(C.gravel, "ground"),
@@ -200,9 +200,10 @@ export default function Home({
     const night = 1 - dayState.daylight;
     const lerp = (v: { day: number; night: number }) =>
       v.day + (v.night - v.day) * night;
-    (mats.glass as THREE.MeshStandardMaterial).emissiveIntensity = lerp(
-      G.glass,
-    );
+    // jendela hanya berpendar dari luar saat gelap dan lampu dalam benar-benar menyala
+    // (siang, interior lebih gelap dari luar; lampu dimatikan, jendela ikut gelap)
+    (mats.glass as THREE.MeshStandardMaterial).emissiveIntensity =
+      G.glass.night * night * house.current.lamp;
     // lampu berkedip sangat halus, seperti api di dalam kaca
     const flick =
       1 +

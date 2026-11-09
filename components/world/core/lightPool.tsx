@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { GraphicsQuality } from "@/components/providers/GraphicsProvider";
 import { NIGHT_GLOW as N } from "../config/nightGlow";
@@ -41,7 +41,14 @@ type Slot = { src: Source | null; want: Source | null; k: number };
 export function LightPool({ quality }: { quality: GraphicsQuality }) {
   const count = N.pool.count[quality];
   const outdoor = N.pool.outdoor[quality];
+  // Hanya slot pertama (high: dua) yang membuat bayangan. Peta bayangan kubus mahal (6 gambar), jadi
+  // digambar ulang hanya saat lampu berpindah dan sesekali, bukan tiap frame. Tanpa ini cahaya lampu
+  // menembus dinding, lantai, dan perabot.
+  const shadowSlots = N.pool.shadow[quality];
   const lights = useRef<(THREE.PointLight | null)[]>([]);
+  const moved = useRef<boolean[]>([]);
+  const refreshT = useRef(0);
+  const { gl } = useThree();
   const slots = useRef<Slot[]>([]);
   const timer = useRef(0);
   const tmpColor = useMemo(() => new THREE.Color(), []);
@@ -51,6 +58,12 @@ export function LightPool({ quality }: { quality: GraphicsQuality }) {
       want: null,
       k: 0,
     }));
+
+  useLayoutEffect(() => {
+    lights.current.forEach((l, i) => {
+      if (l && i < shadowSlots) l.shadow.autoUpdate = false;
+    });
+  }, [shadowSlots, count]);
 
   useFrame(({ camera, clock }, delta) => {
     const dt = Math.min(delta, 0.1);
@@ -96,6 +109,11 @@ export function LightPool({ quality }: { quality: GraphicsQuality }) {
           light.color.copy(tmpColor.set(sl.src.color));
           light.distance = sl.src.distance ?? N.pool.distance;
           light.decay = sl.src.decay ?? N.pool.decay;
+          if (i < shadowSlots) {
+            light.shadow.camera.far = light.distance;
+            light.shadow.camera.updateProjectionMatrix();
+            moved.current[i] = true;
+          }
         }
       }
       const f = sl.src?.flicker ?? 0;
@@ -108,6 +126,25 @@ export function LightPool({ quality }: { quality: GraphicsQuality }) {
       const gain = sl.src?.room ? roomMode.k * roomMode.lamp : on;
       light.intensity = sl.src ? sl.src.power * sl.k * gain * flick : 0;
     });
+
+    // gambar ulang peta bayangan lampu: saat berpindah, dan tiap 1 detik selama lampu rumah menyala
+    // (pintu dan kucing bergerak)
+    if (shadowSlots > 0) {
+      refreshT.current -= dt;
+      const periodic = refreshT.current <= 0;
+      if (periodic) refreshT.current = 1;
+      let any = false;
+      for (let i = 0; i < shadowSlots; i++) {
+        const light = lights.current[i];
+        if (!light || light.intensity < 0.01) continue;
+        if (moved.current[i] || (periodic && slots.current[i]?.src?.room)) {
+          light.shadow.needsUpdate = true;
+          moved.current[i] = false;
+          any = true;
+        }
+      }
+      if (any) gl.shadowMap.needsUpdate = true;
+    }
   });
 
   useEffect(() => () => void (slots.current = []), []);
@@ -121,6 +158,15 @@ export function LightPool({ quality }: { quality: GraphicsQuality }) {
           intensity={0}
           distance={N.pool.distance}
           decay={N.pool.decay}
+          castShadow={i < shadowSlots}
+          shadow-mapSize={[
+            N.pool.shadowMap[quality],
+            N.pool.shadowMap[quality],
+          ]}
+          shadow-camera-near={0.15}
+          shadow-bias={-0.002}
+          shadow-normalBias={0.03}
+          shadow-radius={2}
         />
       ))}
     </>

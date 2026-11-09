@@ -66,20 +66,43 @@ export const WAYPOINTS: Waypoint[] = [
   { x: 5, z: -343, chapter: "kota" },
   // Istana: naik di lereng barat bukit istana, memutar lewat utara, lalu turun menuju gerbang timur.
   // Puncak bukit dibiarkan kosong untuk bangunan istana (lihat config/palace.ts).
+  // Bagian ini dulu bergelombang (jarak titik tidak rata, belokan akhir ke gerbang cuma 12 m). Sekarang:
+  //  - lingkaran spiral di sekitar pusat istana (PALACE di config/world.ts), jarak antar titik rata ~11 m,
+  //    radius naik pelan dari 33 m di barat ke 61 m di timur, jadi lengkungnya mulus (radius belok >= 30 m)
+  //  - lurus ke selatan di x = 101, lalu satu busur radius 26 m (titik tiap ~9 derajat) ke sumbu gerbang timur (z = -315)
+  //  - lalu lurus ke gerbang timur supaya tidak menabrak daun pintu
+  // Jalan ini diberi paving dan tepi batu di chapters/city/roads.ts (sama seperti jalan utama), jadi kalau titik
+  // di sini diubah, jalannya ikut.
   { x: 8, z: -357, chapter: "istana" },
-  { x: 10, z: -378, chapter: "istana" },
-  { x: 24, z: -404, chapter: "istana" },
-  { x: 52, z: -412, chapter: "istana" },
-  { x: 84, z: -396, chapter: "istana" },
-  { x: 106, z: -362, chapter: "istana" },
-  { x: 108, z: -342, chapter: "istana" },
-  { x: 108, z: -330, chapter: "istana" },
-  { x: 110, z: -321, chapter: "istana" },
-  // lurus ke gerbang timur (sumbu gerbang z = -315) supaya tidak menabrak daun pintu
-  { x: 117, z: -315.4, chapter: "istana" },
-  { x: 124, z: -315, chapter: "istana" },
+  { x: 7.6, z: -367.9, chapter: "istana" },
+  { x: 10.4, z: -378.5, chapter: "istana" },
+  { x: 14.2, z: -389.7, chapter: "istana" },
+  { x: 20.6, z: -400.6, chapter: "istana" },
+  { x: 30.2, z: -407.6, chapter: "istana" },
+  { x: 41.2, z: -411.4, chapter: "istana" },
+  { x: 52.6, z: -412, chapter: "istana" },
+  { x: 63.6, z: -409.5, chapter: "istana" },
+  { x: 73.7, z: -404.5, chapter: "istana" },
+  { x: 82.6, z: -397.6, chapter: "istana" },
+  { x: 90.1, z: -389.1, chapter: "istana" },
+  { x: 96.1, z: -379.3, chapter: "istana" },
+  { x: 101, z: -365, chapter: "istana" },
+  { x: 101, z: -352, chapter: "istana" },
+  { x: 101, z: -341, chapter: "istana" },
+  { x: 101.3, z: -336.9, chapter: "istana" },
+  { x: 102.3, z: -333.0, chapter: "istana" },
+  { x: 103.8, z: -329.2, chapter: "istana" },
+  { x: 106.0, z: -325.7, chapter: "istana" },
+  { x: 108.6, z: -322.6, chapter: "istana" },
+  { x: 111.7, z: -320.0, chapter: "istana" },
+  { x: 115.2, z: -317.8, chapter: "istana" },
+  { x: 119.0, z: -316.3, chapter: "istana" },
+  { x: 122.9, z: -315.3, chapter: "istana" },
+  { x: 127, z: -315, chapter: "istana" },
   // Rumah kita: keluar gerbang timur (tembok di x = 130), lewat pekarangan
   { x: 130, z: -315, chapter: "rumah" },
+  { x: 138, z: -315, chapter: "rumah" },
+  { x: 146, z: -315, chapter: "rumah" },
   { x: 158, z: -315, chapter: "rumah" },
   { x: 185, z: -320, chapter: "rumah" },
   { x: 205, z: -333, chapter: "rumah" },
